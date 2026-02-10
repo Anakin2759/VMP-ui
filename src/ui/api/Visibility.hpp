@@ -23,9 +23,19 @@
 
 namespace ui::visibility
 {
+/**
+ * @brief 设置可见性
+ * @param entity 实体ID
+ * @param visible 是否可见
+ */
 void SetVisible(::entt::entity entity, bool visible);
 void Show(::entt::entity entity);
 void Hide(::entt::entity entity);
+/**
+ * @brief 设置透明度
+ * @param entity 实体ID
+ * @param alpha 透明度值（0.0 - 1.0）
+ */
 void SetAlpha(::entt::entity entity, float alpha);
 void SetBackgroundColor(::entt::entity entity, const Color& color);
 void SetBorderRadius(::entt::entity entity, float radius);
