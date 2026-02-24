@@ -31,6 +31,7 @@
 #include "../api/Animation.hpp"
 #include "../api/Factory.hpp"
 #include "../api/Icon.hpp"
+#include "../api/Controls.hpp"
 #include "../api/Chains.hpp"
 
 namespace ui

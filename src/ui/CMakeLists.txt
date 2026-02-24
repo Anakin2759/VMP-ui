@@ -27,6 +27,7 @@ set(UI_SOURCES
     api/Icon.cpp
     api/Utils.cpp
     api/Factory.cpp
+    api/Controls.cpp
 )
 set(UI_HEADERS
     # Components
@@ -88,6 +89,7 @@ set(UI_HEADERS
     # API
     api/Utils.hpp
     api/Layout.hpp
+    api/Controls.hpp
     
     ui/ui.hpp
 )
