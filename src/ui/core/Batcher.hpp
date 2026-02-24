@@ -206,7 +206,7 @@ public:
 
         SDL_GPUColorTargetInfo colorTarget = {};
         colorTarget.texture = swapchainTexture;
-        colorTarget.clear_color = {0.0F, 0.0F, 0.0F, 1.0F};
+        colorTarget.clear_color = {0.0F, 0.0F, 0.0F, 0.0F};
         colorTarget.load_op = SDL_GPU_LOADOP_CLEAR;
         colorTarget.store_op = SDL_GPU_STOREOP_STORE;
 

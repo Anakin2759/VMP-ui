@@ -214,8 +214,8 @@ private:
     {
         SDL_GPUColorTargetInfo colorTarget = {};
         colorTarget.texture = swapchainTexture;
-        // 纯黑清屏色，确保圆角裁剪区域与元素背景形成对比
-        colorTarget.clear_color = {.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 1.0F};
+        // 透明清屏色，确保圆角裁剪区域透明
+        colorTarget.clear_color = {.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 0.0F};
         colorTarget.load_op = SDL_GPU_LOADOP_CLEAR;
         colorTarget.store_op = SDL_GPU_STOREOP_STORE;
 

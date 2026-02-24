@@ -70,9 +70,6 @@ private:
 
     // 焦点边框最小粗细
     static constexpr float FOCUS_BORDER_MIN_THICKNESS = 2.0F;
-
-    // 边框粗细半值系数
-    static constexpr float HALF_THICKNESS_MULTIPLIER = 0.5F;
     /**
      * @brief 初始化基础推送常量
      *
@@ -96,6 +93,10 @@ private:
         pushConstants.shadow_soft = 0.0F;
         pushConstants.shadow_offset_x = 0.0F;
         pushConstants.shadow_offset_y = 0.0F;
+        pushConstants.padding = 0.0F;
+        pushConstants.stroke_width = 0.0F;
+        pushConstants.draw_mode = 0.0F;
+        pushConstants.reserved0 = 0.0F;
     }
 
     void renderBackground(entt::entity entity, core::RenderContext& context)
@@ -178,47 +179,43 @@ private:
         // 渲染边框线条
         if (thickness > 0.0f)
         {
-            renderBorderLines(context, color, thickness);
+            renderRoundedBorder(entity, context, color, thickness);
         }
     }
 
-    /**
-     * @brief 渲染边框线条
-     *
-     * 通过绘制4个矩形来创建边框效果：
-     * - 顶边：从左上角开始，宽度为整个元素宽度
-     * - 右边：从右上角开始，高度为整个元素高度
-     * - 底边：从左下角开始，宽度为整个元素宽度
-     * - 左边：从左上角开始，高度为整个元素高度
-     *
-     * 使用 halfThickness 偏移确保边框绘制在元素边界上
-     *
-     * @param context 渲染上下文
-     * @param color 边框颜色
-     * @param thickness 边框粗细（必须 > 0）
-     */
-    void renderBorderLines(core::RenderContext& context, const Eigen::Vector4f& color, float thickness)
+    void renderRoundedBorder(entt::entity entity,
+                             core::RenderContext& context,
+                             const Eigen::Vector4f& color,
+                             float thickness)
     {
         render::UiPushConstants pushConstants{};
         initBasicPushConstants(pushConstants, context, context.size);
+        pushConstants.stroke_width = thickness;
+        pushConstants.draw_mode = 1.0F;
+
+        if (const auto* border = Registry::TryGet<components::Border>(entity))
+        {
+            pushConstants.radius[0] = border->borderRadius.x();
+            pushConstants.radius[1] = border->borderRadius.y();
+            pushConstants.radius[2] = border->borderRadius.z();
+            pushConstants.radius[3] = border->borderRadius.w();
+        }
+
+        if (const auto* bg = Registry::TryGet<components::Background>(entity))
+        {
+            const float radiusSum =
+                pushConstants.radius[0] + pushConstants.radius[1] + pushConstants.radius[2] + pushConstants.radius[3];
+            if (radiusSum <= 0.0F)
+            {
+                pushConstants.radius[0] = bg->borderRadius.x();
+                pushConstants.radius[1] = bg->borderRadius.y();
+                pushConstants.radius[2] = bg->borderRadius.z();
+                pushConstants.radius[3] = bg->borderRadius.w();
+            }
+        }
 
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConstants);
-
-        const Eigen::Vector2f& pos = context.position;
-        const Eigen::Vector2f& size = context.size;
-        const float halfThickness = thickness * HALF_THICKNESS_MULTIPLIER;
-
-        // 顶边
-        context.batchManager->addRect({pos.x(), pos.y() - halfThickness}, {size.x(), thickness}, color);
-
-        // 右边
-        context.batchManager->addRect({pos.x() + size.x() - halfThickness, pos.y()}, {thickness, size.y()}, color);
-
-        // 底边
-        context.batchManager->addRect({pos.x(), pos.y() + size.y() - halfThickness}, {size.x(), thickness}, color);
-
-        // 左边
-        context.batchManager->addRect({pos.x() - halfThickness, pos.y()}, {thickness, size.y()}, color);
+        context.batchManager->addRect(context.position, context.size, color);
     }
 };
 

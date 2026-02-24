@@ -117,6 +117,11 @@ public:
                 // 透明度
                 paramsMatch &= (std::abs(curr.opacity - next.opacity) < EPSILON);
 
+                // 纹理预乘标志、描边模式与描边宽度
+                paramsMatch &= (std::abs(curr.padding - next.padding) < EPSILON);
+                paramsMatch &= (std::abs(curr.stroke_width - next.stroke_width) < EPSILON);
+                paramsMatch &= (std::abs(curr.draw_mode - next.draw_mode) < EPSILON);
+
                 canMerge = paramsMatch;
             }
 

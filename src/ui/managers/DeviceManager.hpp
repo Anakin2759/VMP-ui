@@ -69,58 +69,18 @@ public:
                            SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, false);
                            SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
                        }},
-                      {.name = "swiftshader-vulkan",
+                      {.name = "cpu",
                        .configure =
                            [](SDL_PropertiesID props)
                        {
                            try
                            {
-                               //    Logger::info("正在配置 SwiftShader 后备方案...");
-                               //    auto fs = cmrc::ui_swiftshader::get_filesystem();
-                               //    std::filesystem::path currentPath = std::filesystem::current_path();
-
-                               //    const char* files[] = {"vk_swiftshader.dll", "vk_swiftshader_icd.json"};
-
-                               //    for (const auto& filename : files)
-                               //    {
-                               //        std::filesystem::path destPath = currentPath / filename;
-                               //        if (!std::filesystem::exists(destPath))
-                               //        {
-                               //            std::string resourcePath = "assets/Windows/" + std::string(filename);
-                               //            if (fs.exists(resourcePath))
-                               //            {
-                               //                auto file = fs.open(resourcePath);
-                               //                std::ofstream out(destPath, std::ios::binary);
-                               //                if (out)
-                               //                {
-                               //                    out.write(file.begin(), file.size());
-                               //                    out.close();
-                               //                    Logger::info("已提取 SwiftShader 组件: {}", filename);
-                               //                }
-                               //            }
-                               //            else
-                               //            {
-                               //                Logger::error("缺少内嵌资源: {}", resourcePath);
-                               //            }
-                               //        }
-                               //    }
-
-                               //    std::filesystem::path icdPath = currentPath / "vk_swiftshader_icd.json";
-                               //    if (std::filesystem::exists(icdPath))
-                               //    {
-                               //        SDL_SetEnvironmentVariable(
-                               //            SDL_GetEnvironment(), "VK_ICD_FILENAMES", icdPath.string().c_str(), true);
-                               //        Logger::info("已设置 VK_ICD_FILENAMES: {}", icdPath.string());
-                               //    }
+                               Logger::info("正在配置 cpu 后备方案...");
                            }
                            catch (const std::exception& e)
                            {
-                               Logger::error("配置 SwiftShader 失败: {}", e.what());
+                               Logger::error("配置 cpu 后备方案失败: {}", e.what());
                            }
-
-                           SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, "vulkan");
-                           SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, false);
-                           SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
                        }}
 
         };

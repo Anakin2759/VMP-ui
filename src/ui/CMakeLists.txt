@@ -63,8 +63,10 @@ set(UI_HEADERS
     core/TaskChain.hpp
     core/TextUtils.hpp
     interface/IRenderer.hpp
+    interface/IBackendRenderer.hpp
     core/RenderContext.hpp
     renderers/ShapeRenderer.hpp
+    renderers/FallbackBackendRenderer.hpp
     renderers/SliderRenderer.hpp
     renderers/ProgressBarRenderer.hpp
     renderers/TextRenderer.hpp

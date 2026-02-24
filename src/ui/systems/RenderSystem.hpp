@@ -41,6 +41,7 @@
 #include "../managers/BatchManager.hpp"
 #include "../managers/CommandBuffer.hpp"
 #include "../interface/IRenderer.hpp"
+#include "../interface/IBackendRenderer.hpp"
 #include "../core/RenderContext.hpp"
 
 CMRC_DECLARE(ui_fonts);
@@ -121,6 +122,7 @@ public:
 
 private:
     void ensureInitialized();
+    bool tryInitializeFallback(SDL_Window* window);
     void initializeRenderers();
 
     /**
@@ -142,6 +144,7 @@ private:
     std::unique_ptr<managers::TextTextureCache> m_textTextureCache;
     std::unique_ptr<managers::BatchManager> m_batchManager;
     std::unique_ptr<managers::CommandBuffer> m_commandBuffer;
+    std::unique_ptr<interface::IBackendRenderer> m_backendRenderer;
 
     // 渲染器列表
     std::vector<std::unique_ptr<core::IRenderer>> m_renderers;
@@ -152,6 +155,10 @@ private:
 
     RenderStats m_stats;
     wrappers::UniqueGPUTexture m_whiteTexture;
+    SDL_GPUTexture* m_fallbackWhiteTextureTag = reinterpret_cast<SDL_GPUTexture*>(1);
+
+    bool m_useFallback = false;
+    bool m_forceFallback = false;
 
     float m_screenWidth = 0.0F;
     float m_screenHeight = 0.0F;

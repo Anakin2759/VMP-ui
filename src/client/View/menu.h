@@ -42,11 +42,11 @@ inline void CreateMenuDialog()
     auto buttonStyle = FixedSize(150.0F, 40.0F) | TextAlignment(ui::policies::Alignment::CENTER) | BorderRadius(5.0F) |
                        BorderThickness(2.0F);
 
-    // 创建开始游戏按钮
+    // 创建开始按钮
     auto startBtn = ui::factory::CreateButton("开始", "startBtn");
 
     startBtn | buttonStyle | BackgroundColor({0.2F, 0.4F, 0.8F, 1.0F}) | BorderColor({0.4F, 0.6F, 1.0F, 1.0F}) |
-        FontSize(14.0F) |
+        FontSize(14.0F) | BorderRadius(10.0F) |
         OnClick(
             [menuDialog]()
             {

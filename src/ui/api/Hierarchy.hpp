@@ -27,7 +27,17 @@
 
 namespace ui::hierarchy
 {
+/**
+ * @brief 从父节点移除子节点
+ * @param parent 父节点实体
+ * @param child 子节点实体
+ */
 void RemoveChild(::entt::entity parent, ::entt::entity child);
+/**
+ * @brief 向父节点添加子节点
+ * @param parent 父节点实体
+ * @param child 子节点实体
+ */
 void AddChild(::entt::entity parent, ::entt::entity child);
 /**
  * @brief 遍历子元素

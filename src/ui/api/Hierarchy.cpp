@@ -1,9 +1,10 @@
 #include "Hierarchy.hpp"
 
 #include "../common/Components.hpp"
-#include "Layout.hpp"
+
 namespace ui::hierarchy
 {
+
 void RemoveChild(::entt::entity parent, ::entt::entity child)
 {
     if (!Registry::Valid(parent) || !Registry::Valid(child)) return;

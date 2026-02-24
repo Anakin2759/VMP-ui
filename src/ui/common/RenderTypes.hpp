@@ -21,6 +21,9 @@ struct alignas(16) UiPushConstants
     float shadow_offset_y; // 阴影 Y 偏移
     float opacity;         // 整体透明度
     float padding;         // 标志位：>0.5 表示纹理为预乘 Alpha（用于文本/图标）
+    float stroke_width;    // 描边宽度（像素）
+    float draw_mode;       // 绘制模式：0=填充，1=描边
+    float reserved0;       // 保留字段（16字节对齐）
 };
 /**
  * @brief 顶点结构

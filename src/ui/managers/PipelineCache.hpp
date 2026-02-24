@@ -31,8 +31,8 @@ class PipelineCache
 public:
     explicit PipelineCache(DeviceManager& deviceManager) : m_deviceManager(&deviceManager) {}
     ~PipelineCache() { cleanup(); }
-    PipelineCache(const PipelineCache&) = default;
-    PipelineCache& operator=(const PipelineCache&) = default;
+    PipelineCache(const PipelineCache&) = delete;
+    PipelineCache& operator=(const PipelineCache&) = delete;
     PipelineCache(PipelineCache&&) = default;
     PipelineCache& operator=(PipelineCache&&) = default;
 
@@ -122,9 +122,9 @@ public:
         blendState.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
         blendState.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
         blendState.color_blend_op = SDL_GPU_BLENDOP_ADD;
-        blendState.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-        blendState.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-        blendState.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
+        blendState.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;                 // 预乘 alpha
+        blendState.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA; // 预乘 alpha
+        blendState.alpha_blend_op = SDL_GPU_BLENDOP_ADD;                            // 标准 alpha 混合
         blendState.color_write_mask =
             SDL_GPU_COLORCOMPONENT_R | SDL_GPU_COLORCOMPONENT_G | SDL_GPU_COLORCOMPONENT_B | SDL_GPU_COLORCOMPONENT_A;
         blendState.enable_color_write_mask = true;
@@ -150,6 +150,16 @@ public:
 
         // 深度/模板状态
         SDL_GPUDepthStencilState depthStencilState = {};
+        depthStencilState.compare_op = SDL_GPU_COMPAREOP_ALWAYS;
+        depthStencilState.back_stencil_state.compare_op =
+            SDL_GPU_COMPAREOP_ALWAYS; // 虽然我们不使用模板测试，但仍需设置默认操作以避免验证错误
+        depthStencilState.back_stencil_state.fail_op = SDL_GPU_STENCILOP_KEEP; // 同上
+        depthStencilState.back_stencil_state.pass_op = SDL_GPU_STENCILOP_KEEP; // 同上
+        depthStencilState.back_stencil_state.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
+        depthStencilState.front_stencil_state.compare_op = SDL_GPU_COMPAREOP_ALWAYS;
+        depthStencilState.front_stencil_state.fail_op = SDL_GPU_STENCILOP_KEEP;
+        depthStencilState.front_stencil_state.pass_op = SDL_GPU_STENCILOP_KEEP;
+        depthStencilState.front_stencil_state.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
         depthStencilState.enable_depth_test = false;
         depthStencilState.enable_stencil_test = false;
 

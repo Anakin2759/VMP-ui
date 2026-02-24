@@ -21,6 +21,7 @@
 #include "../renderers/ScrollBarRenderer.hpp"
 #include "../renderers/SliderRenderer.hpp"
 #include "../renderers/ProgressBarRenderer.hpp"
+#include "../renderers/FallbackBackendRenderer.hpp"
 #include "../managers/IconManager.hpp"
 
 namespace ui::systems
@@ -30,7 +31,8 @@ RenderSystem::RenderSystem()
     : m_deviceManager(std::make_unique<managers::DeviceManager>()),
       m_fontManager(std::make_unique<managers::FontManager>()),
       m_iconManager(std::make_unique<managers::IconManager>(m_deviceManager.get())), m_pipelineCache(nullptr),
-      m_textTextureCache(nullptr), m_batchManager(std::make_unique<managers::BatchManager>()), m_commandBuffer(nullptr)
+      m_textTextureCache(nullptr), m_batchManager(std::make_unique<managers::BatchManager>()), m_commandBuffer(nullptr),
+      m_backendRenderer(nullptr)
 {
     m_stats.frameCount = 0;
     m_stats.batchCount = 0;
@@ -92,6 +94,15 @@ void RenderSystem::onWindowsGraphicsContextSet(const events::WindowGraphicsConte
         return;
     }
 
+    if (m_useFallback)
+    {
+        if (!tryInitializeFallback(sdlWindow))
+        {
+            Logger::error("[RenderSystem] Fallback 初始化失败 (ID: {})", windowID);
+        }
+        return;
+    }
+
     if (!m_deviceManager->claimWindow(sdlWindow))
     {
         Logger::error("[RenderSystem] 无法声明窗口 (ID: {})", windowID);
@@ -104,6 +115,11 @@ void RenderSystem::onWindowsGraphicsContextSet(const events::WindowGraphicsConte
 
 void RenderSystem::onWindowsGraphicsContextUnset(const events::WindowGraphicsContextUnsetEvent& event)
 {
+    if (m_useFallback)
+    {
+        return;
+    }
+
     if (auto* windowComp = Registry::TryGet<components::Window>(event.entity))
     {
         SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID);
@@ -119,6 +135,12 @@ void RenderSystem::cleanup()
 {
     Logger::info("[RenderSystem] cleanup() 开始");
 
+    if (m_backendRenderer)
+    {
+        m_backendRenderer->cleanup();
+        m_backendRenderer.reset();
+    }
+
     if (!m_deviceManager)
     {
         Logger::info("[RenderSystem] m_deviceManager 为空，跳过 cleanup");
@@ -128,7 +150,14 @@ void RenderSystem::cleanup()
     SDL_GPUDevice* device = m_deviceManager->getDevice();
     if (device == nullptr)
     {
-        Logger::info("[RenderSystem] GPU 设备为空，跳过 cleanup");
+        Logger::info("[RenderSystem] GPU 设备为空，执行轻量清理");
+        m_renderers.clear();
+        m_commandBuffer.reset();
+        m_batchManager.reset();
+        m_pipelineCache.reset();
+        m_textTextureCache.reset();
+        m_fontManager.reset();
+        m_iconManager.reset();
         return;
     }
 
@@ -229,20 +258,31 @@ void RenderSystem::update() noexcept
 
     ensureInitialized();
 
-    SDL_GPUDevice* device = m_deviceManager->getDevice();
-    if (device == nullptr)
+    if (m_useFallback)
     {
-        Logger::warn("GPU device not ready");
-        return;
+        if (m_backendRenderer == nullptr)
+        {
+            Logger::warn("Fallback backend not ready");
+            return;
+        }
+    }
+    else
+    {
+        SDL_GPUDevice* device = m_deviceManager->getDevice();
+        if (device == nullptr)
+        {
+            Logger::warn("GPU device not ready");
+            return;
+        }
     }
 
-    if (m_pipelineCache == nullptr)
+    if (!m_useFallback && m_pipelineCache == nullptr)
     {
         Logger::warn("Pipeline cache not initialized");
         return;
     }
 
-    if (m_whiteTexture == nullptr)
+    if (!m_useFallback && m_whiteTexture == nullptr)
     {
         createWhiteTexture();
     }
@@ -266,9 +306,7 @@ void RenderSystem::update() noexcept
         SDL_GetWindowSizeInPixels(sdlWindow, &width, &height);
         if (width <= 0 || height <= 0) continue;
 
-        // Ensure pipeline is ready for this window
-        // This handles cases where OnWindowGraphicsContextSet event was missed or not yet fired
-        if (m_pipelineCache->getPipeline() == nullptr)
+        if (!m_useFallback && m_pipelineCache->getPipeline() == nullptr)
         {
             m_deviceManager->claimWindow(sdlWindow);
             m_pipelineCache->createPipeline(sdlWindow);
@@ -298,7 +336,7 @@ void RenderSystem::update() noexcept
             rootContext.textTextureCache = m_textTextureCache.get();
             rootContext.batchManager = m_batchManager.get();
             rootContext.sdlWindow = sdlWindow;
-            rootContext.whiteTexture = m_whiteTexture.get();
+            rootContext.whiteTexture = m_useFallback ? m_fallbackWhiteTextureTag : m_whiteTexture.get();
 
             Eigen::Vector2f rootOffset = Eigen::Vector2f(0, 0);
             if (const auto* pos = Registry::TryGet<components::Position>(windowEntity))
@@ -326,7 +364,22 @@ void RenderSystem::update() noexcept
         const auto& batches = m_batchManager->getBatches();
         if (!batches.empty())
         {
-            m_commandBuffer->execute(sdlWindow, width, height, batches);
+            if (m_useFallback)
+            {
+                if (tryInitializeFallback(sdlWindow) &&
+                    m_backendRenderer->beginFrame({.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 0.0F}))
+                {
+                    for (const auto& batch : batches)
+                    {
+                        m_backendRenderer->drawBatch(batch, m_fallbackWhiteTextureTag);
+                    }
+                    m_backendRenderer->endFrame();
+                }
+            }
+            else
+            {
+                m_commandBuffer->execute(sdlWindow, width, height, batches);
+            }
             m_stats.batchCount += static_cast<uint32_t>(batches.size());
             m_stats.vertexCount += static_cast<uint32_t>(m_batchManager->getTotalVertexCount());
         }
@@ -349,9 +402,28 @@ void RenderSystem::ensureInitialized()
         return;
     }
 
-    if (!m_deviceManager->initialize())
+    if (m_forceFallback)
     {
-        Logger::error("Failed to initialize RenderSystem: GPU device initialization failed");
+        m_useFallback = true;
+    }
+    else if (!m_deviceManager->initialize())
+    {
+        Logger::warn("Failed to initialize RenderSystem GPU backend, switching to fallback renderer");
+        m_useFallback = true;
+    }
+
+    if (m_useFallback)
+    {
+        if (m_backendRenderer == nullptr)
+        {
+            m_backendRenderer = std::make_unique<renderers::FallbackBackendRenderer>();
+        }
+
+        if (m_renderers.empty())
+        {
+            initializeRenderers();
+        }
+
         return;
     }
 
@@ -421,6 +493,16 @@ void RenderSystem::ensureInitialized()
     {
         initializeRenderers();
     }
+}
+
+bool RenderSystem::tryInitializeFallback(SDL_Window* window)
+{
+    if (m_backendRenderer == nullptr)
+    {
+        m_backendRenderer = std::make_unique<renderers::FallbackBackendRenderer>();
+    }
+
+    return m_backendRenderer->initialize(window);
 }
 
 void RenderSystem::initializeRenderers()
