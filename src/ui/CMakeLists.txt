@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.20)
 OPTION(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 OPTION(BUILD_STATIC_LIBS "Build using static libraries" ON)
-
+option(ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 # Find DXC compiler for shader compilation
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 find_package(DXC REQUIRED)
@@ -232,5 +232,11 @@ target_compile_options(ui PUBLIC
 
 )
 
+
+if(ENABLE_COVERAGE AND MSVC)
+    # MSVC 需要生成完整的调试信息以便 OpenCppCoverage 关联源码
+    target_compile_options(ui PRIVATE /Zi /Od)
+    target_link_options(ui PRIVATE /DEBUG)
+endif()
 
 

@@ -100,7 +100,7 @@ add_subdirectory(third_party/harfbuzz)
 
 # ==================== 静态分析工具 clang-tidy ====================
 # 允许用户通过选项启用或禁用 clang-tidy
-option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
+option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" ON)
 
 # 查找 clang-tidy 可执行文件
 find_program(CLANG_TIDY_EXE

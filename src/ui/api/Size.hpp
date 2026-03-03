@@ -1,7 +1,6 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include "Utils.hpp"
 #include "../common/Policies.hpp"
 #include "Chains.hpp" // Changed: Include Chains.hpp for DSL
 
@@ -16,20 +15,20 @@ void SetPosition(::entt::entity entity, float positionX, float positionY);
 
 namespace ui::chains
 {
-inline auto FixedSize(float w, float h)
+inline auto FixedSize(float width, float height)
 {
-    return Call<ui::size::SetFixedSize>(w, h);
+    return Call<ui::size::SetFixedSize>(width, height);
 }
-inline auto SizePolicy(ui::policies::Size p)
+inline auto SizePolicy(ui::policies::Size policy)
 {
-    return Call<ui::size::SetSizePolicy>(p);
+    return Call<ui::size::SetSizePolicy>(policy);
 }
-inline auto Size(float w, float h)
+inline auto Size(float width, float height)
 {
-    return Call<ui::size::SetSize>(w, h);
+    return Call<ui::size::SetSize>(width, height);
 }
-inline auto Position(float x, float y)
+inline auto Position(float positionX, float positionY)
 {
-    return Call<ui::size::SetPosition>(x, y);
+    return Call<ui::size::SetPosition>(positionX, positionY);
 }
 } // namespace ui::chains
