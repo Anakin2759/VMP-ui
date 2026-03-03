@@ -19,7 +19,7 @@ void SetSizePolicy(::entt::entity entity, policies::Size policy)
 {
     if (!Registry::Valid(entity)) return;
     auto& size = Registry::GetOrEmplace<components::Size>(entity);
-    size.sizePolicy = static_cast<policies::Size>(policy);
+    size.sizePolicy = policy;
     utils::MarkLayoutDirty(entity);
 }
 

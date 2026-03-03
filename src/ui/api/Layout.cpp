@@ -10,7 +10,7 @@ void SetLayoutDirection(::entt::entity entity, policies::LayoutDirection directi
 {
     if (!Registry::Valid(entity)) return;
     auto& layout = Registry::GetOrEmplace<components::LayoutInfo>(entity);
-    layout.direction = static_cast<policies::LayoutDirection>(direction);
+    layout.direction = direction;
     utils::MarkLayoutDirty(entity);
 }
 

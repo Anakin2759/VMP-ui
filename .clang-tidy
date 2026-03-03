@@ -28,6 +28,7 @@ Checks: >
   -cppcoreguidelines-avoid-magic-numbers,
   -readability-magic-numbers,
   -readability-convert-member-functions-to-static
+  -hicpp-signed-bitwise
 CheckOptions:
   # === Naming Conventions ===
   - key: readability-identifier-naming.NamespaceCase

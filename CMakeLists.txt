@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 3.31)
 project(PestMan LANGUAGES CXX)
 
 # 确保 C++ 标准对所有目标生效（包括第三方库）

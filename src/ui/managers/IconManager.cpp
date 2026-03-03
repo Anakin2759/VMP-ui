@@ -22,7 +22,7 @@ bool IconManager::loadIconFont(const std::string& name,
                                const std::string& codepointsPath,
                                int fontSize)
 {
-    if (!m_ftLibrary)
+    if (m_ftLibrary == nullptr)
     {
         Logger::error("[IconManager] FreeType not initialized");
         return false;
@@ -31,6 +31,7 @@ bool IconManager::loadIconFont(const std::string& name,
     Logger::info("Loading IconFont '{}' from '{}'", name, fontPath);
 
     // 读取字体文件
+    // NOLINTNEXTLINE(hicpp-signed-bitwise) -- std::ios::openmode 底层为有符号类型，属标准库既有设计
     std::ifstream file(fontPath, std::ios::binary | std::ios::ate);
     if (!file.is_open())
     {
@@ -52,7 +53,7 @@ bool IconManager::loadIconFont(const std::string& name,
     FT_Face face = nullptr;
     FT_Error error = FT_New_Memory_Face(m_ftLibrary, buffer.data(), static_cast<FT_Long>(buffer.size()), 0, &face);
 
-    if (error)
+    if (error != 0)
     {
         Logger::error("Failed to load font face: {} (error {})", fontPath, error);
         return false;
@@ -60,7 +61,7 @@ bool IconManager::loadIconFont(const std::string& name,
 
     // 设置像素大小
     error = FT_Set_Pixel_Sizes(face, 0, static_cast<FT_UInt>(fontSize));
-    if (error)
+    if (error != 0)
     {
         Logger::error("Failed to set pixel size: {} (error {})", fontSize, error);
         FT_Done_Face(face);
@@ -89,7 +90,7 @@ bool IconManager::loadIconFontFromMemory(const std::string& name,
                                          size_t codepointsLength,
                                          int fontSize)
 {
-    if (!m_ftLibrary)
+    if (m_ftLibrary == nullptr)
     {
         Logger::error("[IconManager] FreeType not initialized");
         return false;
@@ -105,7 +106,7 @@ bool IconManager::loadIconFontFromMemory(const std::string& name,
     FT_Face face = nullptr;
     FT_Error error = FT_New_Memory_Face(m_ftLibrary, buffer.data(), static_cast<FT_Long>(buffer.size()), 0, &face);
 
-    if (error)
+    if (error != 0)
     {
         Logger::error("Failed to load font face from memory: {} (error {})", name, error);
         return false;
@@ -113,7 +114,7 @@ bool IconManager::loadIconFontFromMemory(const std::string& name,
 
     // 设置像素大小
     error = FT_Set_Pixel_Sizes(face, 0, static_cast<FT_UInt>(fontSize));
-    if (error)
+    if (error != 0)
     {
         Logger::error("Failed to set pixel size: {} (error {})", fontSize, error);
         FT_Done_Face(face);
@@ -277,7 +278,7 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
     }
 
     FT_Face face = fontDataIt->second.face;
-    if (!face)
+    if (face == nullptr)
     {
         Logger::error("[IconManager] Invalid FT_Face for font '{}'", fontName);
         return nullptr;
@@ -285,7 +286,7 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
 
     // 设置字符大小（如果与当前不同）
     FT_Error error = FT_Set_Pixel_Sizes(face, 0, static_cast<FT_UInt>(quantizedSize));
-    if (error)
+    if (error != 0)
     {
         Logger::warn("[IconManager] Failed to set pixel size {} for codepoint {}", quantizedSize, codepoint);
         return nullptr;
@@ -294,7 +295,7 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
     // 加载字形
     FT_UInt glyphIndex = FT_Get_Char_Index(face, codepoint);
     error = FT_Load_Glyph(face, glyphIndex, FT_LOAD_DEFAULT);
-    if (error)
+    if (error != 0)
     {
         Logger::warn("[IconManager] Failed to load glyph for codepoint {}: error {}", codepoint, error);
         return nullptr;
@@ -302,7 +303,7 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
 
     // 渲染为 alpha 位图
     error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-    if (error)
+    if (error != 0)
     {
         Logger::warn("[IconManager] Failed to render glyph for codepoint {}: error {}", codepoint, error);
         return nullptr;
