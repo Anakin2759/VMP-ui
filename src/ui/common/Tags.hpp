@@ -95,6 +95,14 @@ struct DialogTag
 };
 
 /**
+ * @brief 自绘标题栏标记 (用于无边框窗口的自定义标题栏)
+ */
+struct TitleBarTag
+{
+    using is_tags_tag = void;
+};
+
+/**
  * @brief 间隔器标记 (用于布局系统，无可见内容)
  */
 struct SpacerTag

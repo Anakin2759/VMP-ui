@@ -10,6 +10,10 @@ find_package(DXC REQUIRED)
 
 
 
+
+
+
+
 set(UI_SOURCES 
     core/Application.cpp
     core/EventLoop.cpp
@@ -28,6 +32,7 @@ set(UI_SOURCES
     api/Utils.cpp
     api/Factory.cpp
     api/Controls.cpp
+    core/PlatformWindow.cpp
 )
 set(UI_HEADERS
     # Components
@@ -37,6 +42,7 @@ set(UI_HEADERS
     common/Events.hpp
     common/Types.hpp
     common/RenderTypes.hpp
+    common/UiErrors.hpp
     
     # Systems
     systems/InteractionSystem.hpp
@@ -66,6 +72,7 @@ set(UI_HEADERS
     interface/IRenderer.hpp
     interface/IBackendRenderer.hpp
     core/RenderContext.hpp
+    core/PlatformWindow.hpp
     renderers/ShapeRenderer.hpp
     renderers/FallbackBackendRenderer.hpp
     renderers/SliderRenderer.hpp
@@ -162,7 +169,6 @@ add_custom_target(ui_shaders
 cmrc_add_resource_library(ui_fonts
     ALIAS fonts              # 在 C++ 中调用的别名
     NAMESPACE ui_fonts          # C++ 命名空间
-    assets/fonts/NotoSansSC-VariableFont_wght.ttf
     assets/shader/vert.spv
     assets/shader/frag.spv
     assets/shader/vert.dxil
@@ -173,26 +179,14 @@ cmrc_add_resource_library(ui_fonts
 # Ensure shaders are compiled before embedding into resources
 add_dependencies(ui_fonts ui_shaders)
 
-# cmrc_add_resource_library(ui_swiftshader
-#     ALIAS swiftshader             # 在 C++ 中调用的别名
-#     NAMESPACE ui_swiftshader          # C++ 命名空间
-#     assets/Windows/vk_swiftshader.dll
-#     assets/Windows/vk_swiftshader_icd.json
-# )
-
-cmrc_add_resource_library(ui_icons
-    ALIAS icons              # 在 C++ 中调用的别名
-    NAMESPACE ui_icons          # C++ 命名空间
-    assets/icons/MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf
-    assets/icons/MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].codepoints
-    assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf
-    assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints
-    assets/icons/MaterialSymbolsSharp[FILL,GRAD,opsz,wght].ttf
-    assets/icons/MaterialSymbolsSharp[FILL,GRAD,opsz,wght].codepoints
-    
+# 禁用 clang-tidy 对自动生成的资源库目标（防止 OOM 崩溃）
+# cmrc 将大型二进制文件（字体/着色器）嵌入为巨型 C++ 字节数组，
+# clang-tidy 分析这些文件会耗尽内存。
+# 同时关闭 IPO/LTO，避免 clang-cl 在 RelWithDebInfo 下编译超大嵌入资源时耗尽内存。
+set_target_properties(ui_fonts PROPERTIES
+    CXX_CLANG_TIDY ""
+    INTERPROCEDURAL_OPTIMIZATION FALSE
 )
-
-
 
 # 依赖项
 target_link_libraries(ui PRIVATE
@@ -200,13 +194,22 @@ target_link_libraries(ui PRIVATE
     EnTT::EnTT
     asio::asio
     yogacore
-    eigen
     ui_fonts
-    ui_icons
     spdlog::spdlog_header_only
     freetype
     harfbuzz
 )
+
+target_link_libraries(ui PUBLIC
+    Eigen3::Eigen
+)
+
+target_compile_definitions(ui PRIVATE UI_ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
+
+# Windows 平台链接 DWM + comctl32（用于无边框窗口透明合成 + 子类化）
+if(WIN32)
+    target_link_libraries(ui PRIVATE dwmapi comctl32)
+endif()
 target_compile_features(ui PUBLIC cxx_std_23)
 
 target_compile_options(ui PUBLIC

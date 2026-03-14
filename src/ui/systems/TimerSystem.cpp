@@ -18,6 +18,9 @@
 #include "../singleton/Logger.hpp"
 #include "../singleton/Registry.hpp"
 #include "../common/GlobalContext.hpp"
+#include "../common/Components.hpp"
+#include "../common/Tags.hpp"
+#include "../api/Utils.hpp"
 #include <algorithm>
 
 namespace ui::systems
@@ -118,6 +121,21 @@ void TimerSystem::update(uint32_t deltaMs)
     tasks.erase(
         std::remove_if(tasks.begin(), tasks.end(), [](const globalcontext::TimerTask& task) { return task.cancelled; }),
         tasks.end());
+
+    // 驱动所有获焦 TextEdit 的 Caret 闪烁（固定时间间隔，点击后立即显示）
+    const float deltaSec = static_cast<float>(deltaMs) / 1000.0F;
+    auto caretView = Registry::View<components::Caret, components::FocusedTag>();
+    for (auto entity : caretView)
+    {
+        auto& caret = caretView.get<components::Caret>(entity);
+        caret.elapsedTime += deltaSec;
+        if (caret.elapsedTime >= caret.blinkInterval)
+        {
+            caret.elapsedTime -= caret.blinkInterval;
+            caret.visible = !caret.visible;
+            ui::utils::MarkRenderDirty(entity);
+        }
+    }
 }
 
 void TimerSystem::onUpdateTimer([[maybe_unused]] const events::UpdateTimer& event)

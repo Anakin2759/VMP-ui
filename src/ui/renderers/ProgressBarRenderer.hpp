@@ -22,10 +22,12 @@ public:
     void collect(entt::entity entity, core::RenderContext& context) override
     {
         if (context.batchManager == nullptr || context.deviceManager == nullptr || context.whiteTexture == nullptr)
+        {
             return;
+        }
 
-        const auto* pb = Registry::TryGet<components::ProgressBar>(entity);
-        if (!pb) return;
+        const auto* progressBar = Registry::TryGet<components::ProgressBar>(entity);
+        if (progressBar == nullptr) return;
 
         // background
         render::UiPushConstants pc{};
@@ -40,12 +42,12 @@ public:
         pc.opacity = context.alpha;
 
         Eigen::Vector4f bgColor(
-            pb->backgroundColor.red, pb->backgroundColor.green, pb->backgroundColor.blue, pb->backgroundColor.alpha);
+            progressBar->backgroundColor.red, progressBar->backgroundColor.green, progressBar->backgroundColor.blue, progressBar->backgroundColor.alpha);
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pc);
         context.batchManager->addRect(context.position, context.size, bgColor);
 
         // fill
-        float progress = std::clamp(pb->progress, 0.0F, 1.0F);
+        float progress = std::clamp(progressBar->progress, 0.0F, 1.0F);
         Eigen::Vector2f fillSize(context.size.x() * progress, context.size.y());
         Eigen::Vector2f fillPos = context.position;
 
@@ -53,7 +55,7 @@ public:
         fillPc.rect_size[0] = fillSize.x();
         fillPc.rect_size[1] = fillSize.y();
 
-        Eigen::Vector4f fillColor(pb->fillColor.red, pb->fillColor.green, pb->fillColor.blue, pb->fillColor.alpha);
+        Eigen::Vector4f fillColor(progressBar->fillColor.red, progressBar->fillColor.green, progressBar->fillColor.blue, progressBar->fillColor.alpha);
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, fillPc);
         context.batchManager->addRect(fillPos, fillSize, fillColor);
     }

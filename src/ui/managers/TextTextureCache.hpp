@@ -17,6 +17,8 @@
 #include <unordered_map>
 #include <string>
 #include <chrono>
+#include <cmath>
+#include <algorithm>
 #include <SDL3/SDL_gpu.h>
 #include "DeviceManager.hpp"
 #include "FontManager.hpp"
@@ -91,7 +93,7 @@ public:
         SDL_GPUDevice* device = m_deviceManager.getDevice();
         if (device == nullptr || !m_fontManager.isLoaded()) return nullptr;
 
-        std::string cacheKey = buildCacheKey(text, color, fontSize);
+        std::string cacheKey = buildCacheKey(text, fontSize);
 
         // 尝试从缓存获取
         if (SDL_GPUTexture* cachedTexture = tryGetFromCache(cacheKey, outWidth, outHeight))
@@ -119,12 +121,20 @@ private:
     };
 
     /**
-     * @brief 构建缓存键
+     * @brief 将浮点颜色分量量化为 uint8（四舍五入）
      */
-    std::string buildCacheKey(const std::string& text, const Eigen::Vector4f& color, float fontSize) const
+    static uint8_t quantizeColor(float value)
     {
-        return text + "_" + std::to_string(color.x()) + "_" + std::to_string(color.y()) + "_" +
-               std::to_string(color.z()) + "_" + std::to_string(color.w()) + "_" + std::to_string(fontSize);
+        return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * 255.0F));
+    }
+
+    /**
+     * @brief 构建缓存键
+     * @note 文本纹理改为 alpha mask 后，颜色在 shader 中着色，缓存键不再包含颜色
+     */
+    std::string buildCacheKey(const std::string& text, float fontSize) const
+    {
+        return text + "_" + std::to_string(static_cast<int>(fontSize * 10.0F));
     }
 
     /**
@@ -171,14 +181,8 @@ private:
         // 渲染文本位图（传入 fontSize）
         int bitmapWidth = 0;
         int bitmapHeight = 0;
-        std::vector<uint8_t> bitmap = m_fontManager.renderTextBitmap(text,
-                                                                     static_cast<uint8_t>(color.x() * 255),
-                                                                     static_cast<uint8_t>(color.y() * 255),
-                                                                     static_cast<uint8_t>(color.z() * 255),
-                                                                     static_cast<uint8_t>(color.w() * 255),
-                                                                     bitmapWidth,
-                                                                     bitmapHeight,
-                                                                     fontSize);
+        std::vector<uint8_t> bitmap =
+            m_fontManager.renderTextAlphaMask(text, quantizeColor(color.w()), bitmapWidth, bitmapHeight, fontSize);
 
         if (bitmap.empty() || bitmapWidth == 0 || bitmapHeight == 0)
         {
@@ -218,7 +222,7 @@ private:
     {
         SDL_GPUTextureCreateInfo textureInfo = {};
         textureInfo.type = SDL_GPU_TEXTURETYPE_2D;
-        textureInfo.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+        textureInfo.format = SDL_GPU_TEXTUREFORMAT_R8_UNORM;
         textureInfo.width = static_cast<uint32_t>(width);
         textureInfo.height = static_cast<uint32_t>(height);
         textureInfo.layer_count_or_depth = 1;

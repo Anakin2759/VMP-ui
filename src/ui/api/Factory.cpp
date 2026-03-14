@@ -11,14 +11,32 @@
 #include "../common/Events.hpp"
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
+#include "Utils.hpp"
+#include "../core/PlatformWindow.hpp"
 #include <SDL3/SDL_video.h>
+
+#include <memory>
+#include <system_error>
 
 namespace ui::factory
 {
 
-Application CreateApplication(std::span<char*> argv)
+std::expected<std::unique_ptr<Application>, std::error_code> CreateApplication(std::span<char*> argv)
 {
-    return Application(argv);
+    try
+    {
+        return std::make_unique<Application>(argv);
+    }
+    catch (const std::exception& e)
+    {
+        Logger::error("[Factory] UI initialization failed: {}", e.what());
+        return std::unexpected(errors::make_error_code(errors::UiErrc::SdlInitFailed));
+    }
+    catch (...)
+    {
+        Logger::error("[Factory] Unknown UI initialization failure");
+        return std::unexpected(errors::make_error_code(errors::UiErrc::UnknownInitializationFailure));
+    }
 }
 
 entt::entity CreateBaseWidget(std::string_view alias)
@@ -167,16 +185,24 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
     dialog.flags |= policies::WindowFlag::NoTitleBar;
     constexpr int DEFAULT_DIALOG_WIDTH = 400;
     constexpr int DEFAULT_DIALOG_HEIGHT = 300;
-    SDL_Window* sdlWindow = SDL_CreateWindow(
-        dialog.title.c_str(), DEFAULT_DIALOG_WIDTH, DEFAULT_DIALOG_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+    SDL_Window* sdlWindow = SDL_CreateWindow(dialog.title.c_str(),
+                                             DEFAULT_DIALOG_WIDTH,
+                                             DEFAULT_DIALOG_HEIGHT,
+                                             SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     dialog.windowID = SDL_GetWindowID(sdlWindow);
+    platform::InitCustomWindow(sdlWindow);
     Registry::Remove<components::VisibleTag>(entity);
-    Registry::Emplace<components::LayoutInfo>(entity);
+    auto& dialogLayout = Registry::Emplace<components::LayoutInfo>(entity);
+    dialogLayout.direction = policies::LayoutDirection::VERTICAL;
     Registry::Emplace<components::Padding>(entity);
     Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
     Logger::info("[Factory] Enqueuing WindowGraphicsContextSetEvent for dialog entity {}",
                  static_cast<uint32_t>(entity));
     Dispatcher::Trigger<events::WindowGraphicsContextSetEvent>({entity});
+
+    // 自动创建自绘标题栏
+    CreateTitleBar(entity, std::string(alias) + "_titleBar");
+
     return entity;
 }
 
@@ -200,19 +226,180 @@ entt::entity CreateWindow(std::string_view title, std::string_view alias)
     window.flags &= ~policies::WindowFlag::Modal;
     auto& size = Registry::Get<components::Size>(entity);
     size.sizePolicy = ui::policies::Size::Fixed;
-    Registry::Emplace<components::LayoutInfo>(entity);
+    auto& layoutInfo = Registry::Emplace<components::LayoutInfo>(entity);
+    layoutInfo.direction = policies::LayoutDirection::VERTICAL;
     Registry::Emplace<components::Padding>(entity);
     Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
     constexpr int DEFAULT_WINDOW_WIDTH = 800;
     constexpr int DEFAULT_WINDOW_HEIGHT = 600;
-    SDL_Window* sdlWindow = SDL_CreateWindow(
-        window.title.c_str(), DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+    SDL_Window* sdlWindow = SDL_CreateWindow(window.title.c_str(),
+                                             DEFAULT_WINDOW_WIDTH,
+                                             DEFAULT_WINDOW_HEIGHT,
+                                             SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     window.windowID = SDL_GetWindowID(sdlWindow);
     Logger::info("[Factory] Enqueuing WindowGraphicsContextSetEvent for window entity {}",
                  static_cast<uint32_t>(entity));
     Dispatcher::Trigger<events::WindowGraphicsContextSetEvent>({entity});
     Registry::Remove<components::VisibleTag>(entity);
+
     return entity;
+}
+
+entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
+{
+    // 获取窗口组件
+    auto* windowComp = Registry::TryGet<components::Window>(windowEntity);
+    if (windowComp == nullptr)
+    {
+        Logger::warn("[Factory] CreateTitleBar: entity {} has no Window component",
+                     static_cast<uint32_t>(windowEntity));
+        return entt::null;
+    }
+
+    constexpr float TITLE_BAR_HEIGHT = 32.0F;
+    constexpr float BTN_SIZE = 28.0F;
+    constexpr float ICON_SIZE = 16.0F;
+    constexpr float ICON_SPACING = 0.0F;
+    constexpr float BTN_SPACING = 2.0F;
+    constexpr uint32_t ICON_CLOSE = 0xE5CD;
+    constexpr uint32_t ICON_MINIMIZE = 0xE931;
+    constexpr uint32_t ICON_MAXIMIZE = 0xE930;
+
+    // ---- 标题栏容器 (HBox) ----
+    auto titleBar = CreateBaseWidget(alias);
+    Registry::Emplace<components::TitleBarTag>(titleBar);
+    auto& layout = Registry::Emplace<components::LayoutInfo>(titleBar);
+    layout.direction = policies::LayoutDirection::HORIZONTAL;
+    auto& titleBarSize = Registry::Get<components::Size>(titleBar);
+    titleBarSize.size = {0.0F, TITLE_BAR_HEIGHT};
+    titleBarSize.sizePolicy = policies::Size::HFill | policies::Size::VFixed;
+
+    // 背景透明（与窗口背景融合）
+    auto& background = Registry::Emplace<components::Background>(titleBar);
+    background.color = {0.0F, 0.0F, 0.0F, 0.0F};
+    background.enabled = policies::Feature::Enabled;
+
+    // 可点击（使 HitTest 能命中该区域）+ 可拖拽（拖拽移动窗口）
+    Registry::Emplace<components::Clickable>(titleBar);
+    auto& draggable = Registry::Emplace<components::Draggable>(titleBar);
+    draggable.lockX = true; // 不修改实体自身 Position
+    draggable.lockY = true;
+
+    // 通过 SDL API 移动窗口
+    uint32_t windowID = windowComp->windowID;
+    draggable.onDragMove = [windowID](Vec2 delta)
+    {
+        SDL_Window* sdlWin = SDL_GetWindowFromID(windowID);
+        if (sdlWin == nullptr) return;
+        int curX = 0;
+        int curY = 0;
+        SDL_GetWindowPosition(sdlWin, &curX, &curY);
+        SDL_SetWindowPosition(sdlWin, curX + static_cast<int>(delta.x()), curY + static_cast<int>(delta.y()));
+    };
+
+    // ---- 标题文本 ----
+    auto titleLabel = CreateLabel(windowComp->title, std::string(alias) + "_title");
+    auto& titleText = Registry::Get<components::Text>(titleLabel);
+    titleText.fontSize = 13.0F;
+    titleText.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
+
+    // ---- 弹性间隔 ----
+    auto spacer = CreateSpacer(1, std::string(alias) + "_spacer");
+
+    // ---- 窗口控制按钮 ----
+    auto createWinBtn = [&](const std::string& btnAlias, uint32_t iconCodepoint) -> entt::entity
+    {
+        auto btn = CreateButton("", btnAlias);
+        auto& btnSize = Registry::Get<components::Size>(btn);
+        btnSize.size = {BTN_SIZE, BTN_SIZE};
+        btnSize.sizePolicy = policies::Size::Fixed;
+
+        auto& btnBg = Registry::GetOrEmplace<components::Background>(btn);
+        btnBg.color = {0.0F, 0.0F, 0.0F, 0.0F};
+        btnBg.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
+        btnBg.enabled = policies::Feature::Enabled;
+
+        // 字体图标
+        auto& iconComp = Registry::Emplace<components::Icon>(btn);
+        iconComp.codepoint = iconCodepoint;
+        iconComp.size = {ICON_SIZE, ICON_SIZE};
+        iconComp.spacing = ICON_SPACING;
+        iconComp.tintColor = {0.85F, 0.85F, 0.85F, 1.0F};
+
+        return btn;
+    };
+
+    auto minimizeBtn = createWinBtn(std::string(alias) + "_minimize", ICON_MINIMIZE);
+    Registry::Get<components::Clickable>(minimizeBtn).onClick = [windowID]()
+    {
+        SDL_Window* sdlWin = SDL_GetWindowFromID(windowID);
+        if (sdlWin != nullptr) SDL_MinimizeWindow(sdlWin);
+    };
+
+    auto maximizeBtn = createWinBtn(std::string(alias) + "_maximize", ICON_MAXIMIZE);
+    Registry::Get<components::Clickable>(maximizeBtn).onClick = [windowID]()
+    {
+        SDL_Window* sdlWin = SDL_GetWindowFromID(windowID);
+        if (sdlWin == nullptr) return;
+        if ((SDL_GetWindowFlags(sdlWin) & SDL_WINDOW_MAXIMIZED) != 0)
+        {
+            SDL_RestoreWindow(sdlWin);
+        }
+        else
+        {
+            SDL_MaximizeWindow(sdlWin);
+        }
+    };
+
+    auto closeBtn = createWinBtn(std::string(alias) + "_close", ICON_CLOSE);
+    // 关闭按钮悬停时红色背景
+    auto& closeBtnHover = Registry::Emplace<components::Hoverable>(closeBtn);
+    closeBtnHover.onHover = [closeBtn]()
+    {
+        auto* closeBg = Registry::TryGet<components::Background>(closeBtn);
+        if (closeBg != nullptr) closeBg->color = {0.9F, 0.2F, 0.2F, 1.0F};
+    };
+    closeBtnHover.onUnhover = [closeBtn]()
+    {
+        auto* closeBg = Registry::TryGet<components::Background>(closeBtn);
+        if (closeBg != nullptr) closeBg->color = {0.0F, 0.0F, 0.0F, 0.0F};
+    };
+    Registry::Get<components::Clickable>(closeBtn).onClick = [windowEntity]() { ui::utils::CloseWindow(windowEntity); };
+
+    // ---- 组装层级 ----
+    auto& titleBarHierarchy = Registry::Get<components::Hierarchy>(titleBar);
+    auto addChild = [&](entt::entity child)
+    {
+        auto& childHierarchy = Registry::Get<components::Hierarchy>(child);
+        childHierarchy.parent = titleBar;
+        Registry::Remove<components::RootTag>(child);
+        titleBarHierarchy.children.push_back(child);
+    };
+
+    addChild(titleLabel);
+    addChild(spacer);
+    addChild(minimizeBtn);
+    addChild(maximizeBtn);
+    addChild(closeBtn);
+
+    // 将标题栏加入窗口（插入为第一个子节点）
+    auto& windowHierarchy = Registry::Get<components::Hierarchy>(windowEntity);
+    auto& titleBarH = Registry::Get<components::Hierarchy>(titleBar);
+    titleBarH.parent = windowEntity;
+    Registry::Remove<components::RootTag>(titleBar);
+    windowHierarchy.children.insert(windowHierarchy.children.begin(), titleBar);
+
+    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(titleBar);
+    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(windowEntity);
+
+    // 标题栏间距 (Top, Right, Bottom, Left)
+    auto& padding = Registry::Emplace<components::Padding>(titleBar);
+    padding.values = {0.0F, BTN_SPACING, 0.0F, 8.0F};
+
+    auto& layoutInfo = Registry::Get<components::LayoutInfo>(titleBar);
+    layoutInfo.spacing = BTN_SPACING;
+
+    return titleBar;
 }
 
 entt::entity CreateVBoxLayout(std::string_view alias)

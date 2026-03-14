@@ -25,12 +25,19 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     utils::functions::SetConsoleToUTF8();
     try
     {
-        auto app = ui::factory::CreateApplication(std::span<char*>(argv, argc));
+        auto appResult = ui::factory::CreateApplication(std::span<char*>(argv, argc));
+        if (!appResult.has_value())
+        {
+            std::cerr << "UI 初始化失败: " << appResult.error().message() << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        auto app = std::move(appResult).value();
 
         // 创建菜单对话框
         client::view::CreateMenuDialog();
         ui::utils::TimerCallback(5000, []() { std::cout << "定时任务1执行！" << std::endl; });
-        app.exec();
+        app->exec();
     }
     catch (const std::exception& e)
     {

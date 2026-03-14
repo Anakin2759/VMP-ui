@@ -14,7 +14,9 @@
 
 namespace ui::policies
 {
-
+/**
+ * @brief 系统管理器枚举
+ */
 enum class SystemManager : uint32_t // NOLINT(performance-enum-size)
 {
     DISABLE_ALL = 0,

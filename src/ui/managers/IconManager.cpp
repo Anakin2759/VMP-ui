@@ -5,7 +5,7 @@
 #include FT_FREETYPE_H
 #include <cstring>
 #include <fstream>
-
+#include <span>
 namespace ui::managers
 {
 /**
@@ -43,7 +43,7 @@ bool IconManager::loadIconFont(const std::string& name,
     file.seekg(0, std::ios::beg);
 
     std::vector<unsigned char> buffer(size);
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), size))
+    if (!file.read(std::bit_cast<char*>(buffer.data()), size))
     {
         Logger::error("Failed to read font file: {}", fontPath);
         return false;
@@ -83,20 +83,29 @@ bool IconManager::loadIconFont(const std::string& name,
     return true;
 }
 
-bool IconManager::loadIconFontFromMemory(const std::string& name,
-                                         const void* fontData,
-                                         size_t fontLength,
-                                         const void* codepointsData,
-                                         size_t codepointsLength,
-                                         int fontSize)
+std::expected<void, std::error_code> IconManager::loadIconFontFromMemory(const std::string& name,
+                                                                         const void* fontData,
+                                                                         size_t fontLength,
+                                                                         const void* codepointsData,
+                                                                         size_t codepointsLength,
+                                                                         int fontSize)
 {
     if (m_ftLibrary == nullptr)
     {
         Logger::error("[IconManager] FreeType not initialized");
-        return false;
+        return std::unexpected(errors::make_error_code(errors::IconErrc::FreeTypeNotInitialized));
     }
 
-    if (fontData == nullptr || fontLength == 0) return false;
+    if (fontData == nullptr || fontLength == 0)
+    {
+        Logger::error("[IconManager] Invalid font data");
+        return std::unexpected(errors::make_error_code(errors::IconErrc::InvalidFontData));
+    }
+    if (codepointsData == nullptr || codepointsLength == 0)
+    {
+        Logger::error("[IconManager] Invalid codepoints data");
+        return std::unexpected(errors::make_error_code(errors::IconErrc::InvalidCodepointsData));
+    }
 
     // 复制字体数据（FreeType 需要持久内存）
     std::vector<unsigned char> buffer(fontLength);
@@ -108,17 +117,17 @@ bool IconManager::loadIconFontFromMemory(const std::string& name,
 
     if (error != 0)
     {
-        Logger::error("Failed to load font face from memory: {} (error {})", name, error);
-        return false;
+        Logger::error("[IconManager] Failed to load font face from memory '{}' (error {})", name, error);
+        return std::unexpected(errors::make_error_code(errors::IconErrc::LoadFaceFailed));
     }
 
     // 设置像素大小
     error = FT_Set_Pixel_Sizes(face, 0, static_cast<FT_UInt>(fontSize));
     if (error != 0)
     {
-        Logger::error("Failed to set pixel size: {} (error {})", fontSize, error);
         FT_Done_Face(face);
-        return false;
+        Logger::error("[IconManager] Failed to set pixel size {} (error {})", fontSize, error);
+        return std::unexpected(errors::make_error_code(errors::IconErrc::SetPixelSizeFailed));
     }
 
     // 解析 codepoints
@@ -148,13 +157,14 @@ bool IconManager::loadIconFontFromMemory(const std::string& name,
     if (codepoints.empty())
     {
         Logger::warn("No codepoints loaded from memory for: {}", name);
+        return std::unexpected(errors::make_error_code(errors::IconErrc::ParseCodepointsFailed));
     }
 
     m_fonts[name] = FontData{.buffer = std::move(buffer), .face = face, .fontSize = fontSize};
     m_codepoints[name] = std::move(codepoints);
 
     Logger::info("IconFont '{}' loaded from memory: {} icons", name, m_codepoints[name].size());
-    return true;
+    return {};
 }
 
 uint32_t IconManager::getCodepoint(std::string_view fontName, std::string_view iconName) const
@@ -184,9 +194,9 @@ FT_Face IconManager::getFont(std::string_view fontName)
 
 bool IconManager::hasIcon(std::string_view fontName, std::string_view iconName) const
 {
-    if (auto it = m_codepoints.find(fontName); it != m_codepoints.end())
+    if (auto iterator = m_codepoints.find(fontName); iterator != m_codepoints.end())
     {
-        return it->second.contains(iconName);
+        return iterator->second.contains(iconName);
     }
     return false;
 }
@@ -194,10 +204,10 @@ bool IconManager::hasIcon(std::string_view fontName, std::string_view iconName) 
 std::vector<std::string> IconManager::getIconNames(std::string_view fontName) const
 {
     std::vector<std::string> names;
-    if (auto it = m_codepoints.find(fontName); it != m_codepoints.end())
+    if (auto iterator = m_codepoints.find(fontName); iterator != m_codepoints.end())
     {
-        names.reserve(it->second.size());
-        for (const auto& [name, codepoint] : it->second)
+        names.reserve(iterator->second.size());
+        for (const auto& [name, codepoint] : iterator->second)
         {
             names.push_back(name);
         }
@@ -208,13 +218,13 @@ std::vector<std::string> IconManager::getIconNames(std::string_view fontName) co
 void IconManager::unloadIconFont(std::string_view fontName)
 {
     // 释放 FreeType Face
-    if (auto it = m_fonts.find(fontName); it != m_fonts.end())
+    if (auto iterator = m_fonts.find(fontName); iterator != m_fonts.end())
     {
-        if (it->second.face)
+        if (iterator->second.face != nullptr)
         {
-            FT_Done_Face(it->second.face);
+            FT_Done_Face(iterator->second.face);
         }
-        m_fonts.erase(it);
+        m_fonts.erase(iterator);
     }
     m_codepoints.erase(fontName);
     Logger::info("IconFont '{}' unloaded", fontName);
@@ -225,7 +235,7 @@ void IconManager::shutdown()
     // 释放所有 FreeType Faces
     for (auto& [name, fontData] : m_fonts)
     {
-        if (fontData.face)
+        if (fontData.face != nullptr)
         {
             FT_Done_Face(fontData.face);
             fontData.face = nullptr;
@@ -237,7 +247,7 @@ void IconManager::shutdown()
     m_fonts.clear();
     m_codepoints.clear();
 
-    if (m_ftLibrary)
+    if (m_ftLibrary != nullptr)
     {
         FT_Done_FreeType(m_ftLibrary);
         m_ftLibrary = nullptr;
@@ -327,14 +337,15 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
     }
 
     // 转换 alpha 位图为 RGBA（预乘 Alpha 格式）
-    std::vector<uint32_t> rgbaPixels(static_cast<size_t>(width) * static_cast<size_t>(height));
-    for (int i = 0; i < width * height; ++i)
+    const std::span<const uint8_t> bitmapData(bitmap.buffer, static_cast<size_t>(width) * static_cast<size_t>(height));
+    std::vector<uint32_t> rgbaPixels(bitmapData.size());
+    for (size_t i = 0; i < bitmapData.size(); ++i)
     {
-        uint8_t alpha = bitmap.buffer[i];
+        const uint8_t alpha = bitmapData[i];
         // 预乘 Alpha：白色 (255, 255, 255) * alpha
-        uint8_t premultRGB = static_cast<uint8_t>((255U * alpha) / 255U);
-        rgbaPixels[i] = (static_cast<uint32_t>(alpha) << 24) | (static_cast<uint32_t>(premultRGB) << 16) |
-                        (static_cast<uint32_t>(premultRGB) << 8) | premultRGB;
+        auto premultRGB = static_cast<uint8_t>((255U * alpha) / 255U);
+        rgbaPixels[i] = (static_cast<uint32_t>(alpha) << 24U) | (static_cast<uint32_t>(premultRGB) << 16U) |
+                        (static_cast<uint32_t>(premultRGB) << 8U) | premultRGB;
     }
 
     // 创建并上传纹理

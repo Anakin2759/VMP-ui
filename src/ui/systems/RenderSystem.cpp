@@ -15,6 +15,9 @@
 
 #include "RenderSystem.hpp"
 #include <algorithm>
+#include <bit>
+#include <filesystem>
+#include <fstream>
 #include "../renderers/ShapeRenderer.hpp"
 #include "../renderers/TextRenderer.hpp"
 #include "../renderers/IconRenderer.hpp"
@@ -23,6 +26,45 @@
 #include "../renderers/ProgressBarRenderer.hpp"
 #include "../renderers/FallbackBackendRenderer.hpp"
 #include "../managers/IconManager.hpp"
+
+#ifndef UI_ASSETS_DIR
+#define UI_ASSETS_DIR "assets"
+#endif
+
+namespace
+{
+
+std::filesystem::path GetUiAssetPath(std::string_view relativePath)
+{
+    return std::filesystem::path(UI_ASSETS_DIR) / relativePath;
+}
+
+std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path& filePath)
+{
+    // NOLINTNEXTLINE(hicpp-signed-bitwise) -- std::ios::openmode 底层为有符号类型，属标准库既有设计
+    std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+    if (!file.is_open())
+    {
+        return {};
+    }
+
+    const auto fileSize = file.tellg();
+    if (fileSize <= 0)
+    {
+        return {};
+    }
+
+    std::vector<uint8_t> buffer(static_cast<size_t>(fileSize));
+    file.seekg(0, std::ios::beg);
+    if (!file.read(std::bit_cast<char*>(buffer.data()), fileSize))
+    {
+        return {};
+    }
+
+    return buffer;
+}
+
+} // namespace
 
 namespace ui::systems
 {
@@ -435,13 +477,18 @@ void RenderSystem::ensureInitialized()
 
     if (!m_fontManager->isLoaded())
     {
-        auto filesystem = cmrc::ui_fonts::get_filesystem();
-        const char* fontPath = "assets/fonts/NotoSansSC-VariableFont_wght.ttf";
-        if (filesystem.exists(fontPath))
+        const auto fontPath = GetUiAssetPath("fonts/NotoSansSC-VariableFont_wght.ttf");
+        if (const auto fontBytes = ReadBinaryFile(fontPath); !fontBytes.empty())
         {
-            auto fontFile = filesystem.open(fontPath);
-            m_fontManager->loadFromMemory(
-                reinterpret_cast<const uint8_t*>(fontFile.begin()), static_cast<size_t>(fontFile.size()), 14.0F);
+            if (auto loadResult = m_fontManager->loadFromMemory(fontBytes.data(), fontBytes.size(), 14.0F);
+                !loadResult.has_value())
+            {
+                Logger::error("[RenderSystem] 默认字体加载失败: {}", loadResult.error().message());
+            }
+        }
+        else
+        {
+            Logger::error("[RenderSystem] 默认字体文件不存在: {}", fontPath.string());
         }
     }
 
@@ -456,24 +503,26 @@ void RenderSystem::ensureInitialized()
         if (!iconsLoaded)
         {
             Logger::info("[RenderSystem] 初始化 IconManager 并加载默认图标字体");
-            // 加载 MaterialSymbols 字体 (使用嵌入资源)
+            // 加载 MaterialSymbols 字体
             try
             {
-                auto filesystem = cmrc::ui_icons::get_filesystem();
-                const std::string fontPath = "assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf";
-                const std::string cpPath = "assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints";
+                const auto fontPath = GetUiAssetPath("icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf");
+                const auto cpPath = GetUiAssetPath("icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints");
 
-                if (filesystem.exists(fontPath) && filesystem.exists(cpPath))
+                if (std::filesystem::exists(fontPath) && std::filesystem::exists(cpPath))
                 {
-                    auto fontFile = filesystem.open(fontPath);
-                    auto cpFile = filesystem.open(cpPath);
-                    m_iconManager->loadIconFontFromMemory(
-                        "MaterialSymbols", fontFile.begin(), fontFile.size(), cpFile.begin(), cpFile.size(), 24);
-                    Logger::info("[RenderSystem]默认图标字体加载完成");
+                    if (m_iconManager->loadIconFont("MaterialSymbols", fontPath.string(), cpPath.string(), 24))
+                    {
+                        Logger::info("[RenderSystem]默认图标字体加载完成");
+                    }
+                    else
+                    {
+                        Logger::error("[RenderSystem] 默认图标字体加载失败");
+                    }
                 }
                 else
                 {
-                    Logger::warn("[RenderSystem] 默认图标字体未在 cmrc 中找到");
+                    Logger::warn("[RenderSystem] 默认图标字体文件不存在");
                 }
             }
             catch (const std::exception& e)

@@ -101,9 +101,10 @@ struct Color
      */
     [[nodiscard]] uint32_t toSDLColor() const
     {
-        auto clamp = [](float v) -> uint8_t { return static_cast<uint8_t>(std::clamp(v, 0.0f, 1.0f) * 255.0f); };
-        return (static_cast<uint32_t>(clamp(red)) << 24) | (static_cast<uint32_t>(clamp(green)) << 16) |
-               (static_cast<uint32_t>(clamp(blue)) << 8) | static_cast<uint32_t>(clamp(alpha));
+        auto clamp = [](float vertical) -> uint8_t
+        { return static_cast<uint8_t>(std::clamp(vertical, 0.0F, 1.0F) * 255.0F); };
+        return (static_cast<uint32_t>(clamp(red)) << 24U) | (static_cast<uint32_t>(clamp(green)) << 16U) |
+               (static_cast<uint32_t>(clamp(blue)) << 8U) | static_cast<uint32_t>(clamp(alpha));
     }
 
     /**

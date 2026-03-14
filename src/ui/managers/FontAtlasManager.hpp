@@ -23,8 +23,11 @@
 #include "FontManager.hpp"
 #include "TextureAtlas.hpp"
 #include "DeviceManager.hpp"
+#include "../common/UiErrors.hpp"
 #include <memory>
 #include <optional>
+#include <expected>
+#include <system_error>
 
 namespace ui::managers
 {
@@ -56,11 +59,11 @@ public:
      * @param fontSize 字体大小（像素）
      * @return 加载成功返回 true
      */
-    bool loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
+    std::expected<void, std::error_code> loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
     {
-        if (!m_fontManager->loadFromMemory(fontData, dataSize, fontSize))
+        if (auto loadResult = m_fontManager->loadFromMemory(fontData, dataSize, fontSize); !loadResult.has_value())
         {
-            return false;
+            return std::unexpected(loadResult.error());
         }
 
         // 创建纹理图集
@@ -68,12 +71,12 @@ public:
         if (device == nullptr)
         {
             Logger::error("[FontAtlasManager] No GPU device available");
-            return false;
+            return std::unexpected(errors::make_error_code(errors::FontErrc::GpuDeviceUnavailable));
         }
 
         m_atlas = std::make_unique<TextureAtlas>(device, 2048, 2);
         Logger::info("[FontAtlasManager] Font loaded and atlas created");
-        return true;
+        return {};
     }
 
     /**
@@ -105,6 +108,17 @@ public:
     }
 
     /**
+     * @brief 使用 HarfBuzz 对文本进行成形
+     * @param text UTF-8 文本
+     * @param textLen 文本长度
+     * @return 成形后的字形位置数组
+     */
+    std::vector<ShapedGlyph> shapeText(const char* text, size_t textLen)
+    {
+        return m_fontManager ? m_fontManager->shapeText(text, textLen) : std::vector<ShapedGlyph>{};
+    }
+
+    /**
      * @brief 获取字形（自动添加到图集）
      * @param codepoint Unicode 码点
      * @return 图集中的字形信息，失败返回 nullopt
@@ -131,6 +145,38 @@ public:
         // 添加到图集
         return m_atlas->addGlyph(
             codepoint, glyph.bitmap.data(), glyph.width, glyph.height, glyph.bearingX, glyph.bearingY, glyph.advanceX);
+    }
+
+    /**
+     * @brief 通过字形索引获取字形（用于 HarfBuzz 成形结果）
+     * @param glyphId 字形索引（由 HarfBuzz shapeText 返回）
+     * @return 图集中的字形信息，失败返回 nullopt
+     */
+    std::optional<AtlasGlyph> getOrAddGlyphByIndex(uint32_t glyphId)
+    {
+        if (!isLoaded()) return std::nullopt;
+
+        // 使用高位标记区分 glyphId 与 codepoint，避免图集缓存冲突
+        static constexpr uint32_t GLYPH_ID_FLAG = 0x80000000U;
+        uint32_t key = glyphId | GLYPH_ID_FLAG;
+
+        // 检查图集中是否已存在
+        auto existing = m_atlas->getGlyph(key);
+        if (existing.has_value())
+        {
+            return existing;
+        }
+
+        // 按字形索引渲染位图
+        GlyphInfo glyph = m_fontManager->renderGlyphByIndex(glyphId);
+        if (glyph.bitmap.empty())
+        {
+            return std::nullopt;
+        }
+
+        // 添加到图集
+        return m_atlas->addGlyph(
+            key, glyph.bitmap.data(), glyph.width, glyph.height, glyph.bearingX, glyph.bearingY, glyph.advanceX);
     }
 
     /**

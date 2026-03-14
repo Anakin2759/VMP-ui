@@ -87,28 +87,24 @@ public:
         float cursorY = y;
         int maxHeight = m_fontAtlasManager.getFontHeight();
 
-        size_t bytePos = 0;
-        std::string_view view(text);
+        // 使用 HarfBuzz 进行文本成形，获取正确的字形 ID 和位置
+        auto shapedGlyphs = m_fontAtlasManager.shapeText(text.c_str(), text.size());
 
-        while (bytePos < text.size())
+        for (const auto& shaped : shapedGlyphs)
         {
-            int codepoint = 0;
-            size_t charLen = FontAtlasManager::decodeUTF8(view.substr(bytePos), codepoint);
-            if (charLen == 0) break;
-
-            // 获取字形（自动添加到图集）
-            auto glyphOpt = m_fontAtlasManager.getOrAddGlyph(static_cast<uint32_t>(codepoint));
+            // 通过字形索引获取图集字形
+            auto glyphOpt = m_fontAtlasManager.getOrAddGlyphByIndex(shaped.glyphId);
             if (!glyphOpt.has_value())
             {
-                bytePos += charLen;
+                cursorX += shaped.xAdvance;
                 continue;
             }
 
             const AtlasGlyph& glyph = *glyphOpt;
 
-            // 计算字形渲染位置
-            float glyphX = cursorX + static_cast<float>(glyph.bearingX);
-            float glyphY = cursorY - static_cast<float>(glyph.bearingY);
+            // 计算字形渲染位置（应用 HarfBuzz 偏移）
+            float glyphX = cursorX + shaped.xOffset + static_cast<float>(glyph.bearingX);
+            float glyphY = cursorY - shaped.yOffset - static_cast<float>(glyph.bearingY);
             float glyphW = static_cast<float>(glyph.width);
             float glyphH = static_cast<float>(glyph.height);
 
@@ -133,8 +129,8 @@ public:
             }
 
             // 前进游标
-            cursorX += glyph.advanceX;
-            bytePos += charLen;
+            cursorX += shaped.xAdvance;
+            cursorY += shaped.yAdvance;
         }
 
         data.width = static_cast<int>(cursorX - x);

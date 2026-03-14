@@ -9,12 +9,17 @@
 find_program(DXC_EXECUTABLE
     NAMES dxc dxc.exe
     HINTS
+        "D:/vulkan/Bin"
+        "D:/Vulkan/Bin"
+        "D:/VulkanSDK/Bin"
         ENV DXC_DIR
         ENV VULKAN_SDK
         "C:/Program Files (x86)/Windows Kits/10/bin"
     PATH_SUFFIXES
         bin
+        Bin
         x64
+        Bin32
         10.0.22621.0/x64
         10.0.22000.0/x64
         10.0.19041.0/x64

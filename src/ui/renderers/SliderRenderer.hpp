@@ -1,6 +1,16 @@
 /**
- * SliderRenderer.hpp
- * Render horizontal/vertical slider (track + thumb)
+ * ************************************************************************
+ *
+ * @file SliderRenderer.hpp
+ * @author AnakinLiu (azrael2759@qq.com)
+ * @date 2026-03-13
+ * @version 0.1
+ * @brief  滑动条渲染器，负责渲染滑动条组件的视觉元素，包括轨道和填充部分。
+ *
+ * ************************************************************************
+ * @copyright Copyright (c) 2026 AnakinLiu
+ * For study and research only, no reprinting.
+ * ************************************************************************
  */
 #pragma once
 #include "../interface/IRenderer.hpp"

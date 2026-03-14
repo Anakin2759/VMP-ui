@@ -269,7 +269,8 @@ private:
      */
     static bool isEntityInteractable(entt::entity entity)
     {
-        bool isInteractive = Registry::AnyOf<components::Clickable, components::ScrollArea>(entity);
+        bool isInteractive =
+            Registry::AnyOf<components::Clickable, components::ScrollArea, components::SliderInfo>(entity);
 
         if (!isInteractive && Registry::AnyOf<components::TextEditTag>(entity))
         {

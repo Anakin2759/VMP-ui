@@ -22,19 +22,33 @@ float sdRoundedBox(float2 p, float2 b, float4 r)
 float4 main_ps(PSInput input) : SV_Target
 {
     float4 tex = u_texture.Sample(u_sampler, input.texcoord);
-    float4 color = tex * input.color;
 
-    // 文本纹理路径：直接使用预乘 Alpha 颜色，避免再叠加矩形 SDF 边缘遮罩
-    if (_padding > 0.5)
+    // 文本 alpha mask 路径：R8 单通道纹理，采样 .r 作为 coverage，由 shader 统一着色
+    if (_padding > 1.5)
     {
-        float out_alpha = color.a * opacity;
-        float3 out_rgb = color.rgb * opacity;
+        float mask_alpha = tex.r;
+        float out_alpha = mask_alpha * input.color.a * opacity;
+        float3 out_rgb = input.color.rgb * out_alpha;
 
         if (out_alpha < 0.001)
             discard;
 
         return float4(out_rgb, out_alpha);
     }
+
+    // 预乘纹理路径：例如图标纹理
+    if (_padding > 0.5)
+    {
+        float out_alpha = tex.a * input.color.a * opacity;
+        float3 out_rgb = tex.rgb * input.color.rgb * input.color.a * opacity;
+
+        if (out_alpha < 0.001)
+            discard;
+
+        return float4(out_rgb, out_alpha);
+    }
+
+    float4 color = tex * input.color;
 
     // ------------------------------------------------------------
     // 1. 像素坐标（以矩形中心为原点）
@@ -93,10 +107,8 @@ float4 main_ps(PSInput input) : SV_Target
     // 主体 alpha
     float body_alpha = color.a * body_mask;
 
-    // _padding > 0.5 表示纹理已经是预乘 Alpha（如文本位图）
-    float3 body_rgb = (_padding > 0.5)
-        ? color.rgb * body_mask   // 预乘纹理：避免二次预乘
-        : color.rgb * body_alpha; // 直通纹理：手动预乘
+    // 此分支仅在 _padding <= 0.5 时到达（普通纹理），直接手动预乘
+    float3 body_rgb = color.rgb * body_alpha;
 
     // ------------------------------------------------------------
     // 5. 阴影颜色（预乘 Alpha，纯黑）

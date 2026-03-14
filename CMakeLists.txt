@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 project(PestMan LANGUAGES CXX)
 
-# 确保 C++ 标准对所有目标生效（包括第三方库）
-set(CMAKE_CXX_STANDARD 23)
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(CheckIPOSupported)
 if(MSVC)
@@ -14,16 +13,42 @@ if(MSVC)
 endif()
 
 option(ENABLE_BUILD_TESTS "Enable building of unit tests" OFF)
+option(ENABLE_LTO "Enable IPO/LTO for Release and RelWithDebInfo builds" OFF)
 
 #==================== IPO / LTO 设置 ====================
 check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
 
-if(ipo_supported)
+if(ENABLE_LTO AND ipo_supported)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE)
-    message(STATUS "IPO / LTO enabled for Release configs")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        add_compile_options($<$<CONFIG:Release,RelWithDebInfo>:-flto=auto>)
+        add_link_options($<$<CONFIG:Release,RelWithDebInfo>:-flto=auto>)
+        message(STATUS "IPO / LTO enabled for Release configs with GCC parallel LTO")
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+            add_compile_options($<$<CONFIG:Release,RelWithDebInfo>:/clang:-flto=thin>)
+            add_link_options($<$<CONFIG:Release,RelWithDebInfo>:/clang:-flto=thin>)
+        else()
+            add_compile_options($<$<CONFIG:Release,RelWithDebInfo>:-flto=thin>)
+            add_link_options($<$<CONFIG:Release,RelWithDebInfo>:-flto=thin>)
+        endif()
+        message(STATUS "IPO / LTO enabled for Release configs with Clang ThinLTO")
+    elseif(MSVC)
+        message(STATUS "IPO / LTO enabled for Release configs with MSVC full LTCG")
+    else()
+        message(STATUS "IPO / LTO enabled for Release configs")
+    endif()
 else()
-    message(WARNING "IPO / LTO not supported: ${ipo_error}")
+    if(NOT ENABLE_LTO)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO FALSE)
+        message(STATUS "IPO / LTO disabled (ENABLE_LTO=OFF)")
+    else()
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO FALSE)
+        message(WARNING "IPO / LTO not supported: ${ipo_error}")
+    endif()
 endif()
 #==================== 全局设置 ====================
 set(CMAKE_CXX_STANDARD 23)
@@ -92,6 +117,9 @@ add_subdirectory(third_party/kcp)
 add_subdirectory(third_party/googletest)
 
 add_subdirectory(third_party/yoga)
+if(ENABLE_LTO AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND TARGET yogacore)
+    set_property(TARGET yogacore PROPERTY INTERPROCEDURAL_OPTIMIZATION FALSE)
+endif()
 add_subdirectory(third_party/eigen-5.0.0)
 add_subdirectory(third_party/freetype)
 add_subdirectory(third_party/harfbuzz)
@@ -99,8 +127,9 @@ add_subdirectory(third_party/harfbuzz)
 
 
 # ==================== 静态分析工具 clang-tidy ====================
-# 允许用户通过选项启用或禁用 clang-tidy
-option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" ON)
+# 常规构建默认关闭 clang-tidy；它应作为显式的静态分析步骤启用，
+# 否则在 Windows + clang-cl + 大型模板/生成源码下很容易出现 OOM。
+option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 
 # 查找 clang-tidy 可执行文件
 find_program(CLANG_TIDY_EXE
@@ -113,6 +142,7 @@ if(ENABLE_CLANG_TIDY)
         set(CLANG_TIDY_OPTIONS
            "--config-file=${CMAKE_SOURCE_DIR}/.clang-tidy"
             "-header-filter=^(?!.*third_party/).*"
+            "--extra-arg=/EHsc"   # clang-cl (--driver-mode=cl) 下必须用 /EHsc 而非 -fexceptions 启用异常
         )
 
         # 设置 CMAKE_CXX_CLANG_TIDY
@@ -127,13 +157,6 @@ else()
     message(STATUS "clang-tidy integration disabled (ENABLE_CLANG_TIDY=OFF)")
 endif()
 
-# 自动搜索 third_party 下的所有一级子目录并加入 include
-file(GLOB children RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/third_party ${CMAKE_CURRENT_SOURCE_DIR}/third_party/*)
-foreach(child ${children})
-    if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/${child})
-        include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/${child})
-    endif()
-endforeach()
 # ===================== 项目主程序 ====================
 add_subdirectory(src/utils)
 add_subdirectory(src/shared)

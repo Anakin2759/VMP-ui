@@ -127,4 +127,4 @@ ExtraArgs:
   - -DUNICODE
   - -D_UNICODE
   - -Wno-unknown-pragmas
-  - -fexceptions          
+  - /EHsc

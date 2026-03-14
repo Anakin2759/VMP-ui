@@ -13,7 +13,7 @@
  * - 通过图标名称获取 Unicode 码点
  * - 管理多个 IconFont 图标库
  * - 默认加载 ui/assets/icons/xxx.ttf 和 codepoints 文件
- * - cmrc::ui_fonts 库中预置了 MaterialSymbols 图标字体
+ * - 默认从 ui/assets/icons/ 读取 MaterialSymbols 图标字体
  *
  * 2026-02-10 更新说明：
  *  统一使用 FreeType 进行字体渲染（与 FontManager 保持一致）
@@ -32,12 +32,15 @@
 #include <array>
 #include <chrono>
 #include <algorithm>
+#include <expected>
+#include <system_error>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <SDL3/SDL.h>
 #include <Eigen/Core>
 #include "../singleton/Logger.hpp"
 #include "../common/GPUWrappers.hpp"
+#include "../common/UiErrors.hpp"
 
 namespace ui::managers
 {
@@ -125,12 +128,12 @@ public:
      * @param fontSize 字体大小
      * @return 是否加载成功
      */
-    bool loadIconFontFromMemory(const std::string& name,
-                                const void* fontData,
-                                size_t fontLength,
-                                const void* codepointsData,
-                                size_t codepointsLength,
-                                int fontSize = 16);
+    std::expected<void, std::error_code> loadIconFontFromMemory(const std::string& name,
+                                                                const void* fontData,
+                                                                size_t fontLength,
+                                                                const void* codepointsData,
+                                                                size_t codepointsLength,
+                                                                int fontSize = 16);
 
     /**
      * @brief 通过图标名称获取 Unicode 码点

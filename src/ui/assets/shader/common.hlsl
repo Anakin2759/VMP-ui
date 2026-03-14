@@ -22,7 +22,7 @@ cbuffer UiConstants : register(b0)
     float shadow_offset_x; // 阴影偏移 X
     float shadow_offset_y; // 阴影偏移 Y
     float opacity;         // 整体透明度 (0.0 - 1.0)
-    float _padding;        // 标志位：>0.5 表示纹理为预乘 Alpha（用于文本/图标）
+    float _padding;        // 标志位：0=普通纹理, 1=预乘纹理, 2=alpha mask 纹理
     float stroke_width;    // 描边宽度（像素）
     float draw_mode;       // 绘制模式：0=填充，1=描边
     float _reserved0;      // 保留字段（16字节对齐）

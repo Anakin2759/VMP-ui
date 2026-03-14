@@ -2,9 +2,13 @@
  * API header for UI factory functions
  */
 #pragma once
+#include <expected>
+#include <memory>
+#include <system_error>
 #include <entt/entt.hpp>
 #include <string>
 #include <string_view>
+#include "../common/UiErrors.hpp"
 #include "../core/Application.hpp"
 #ifdef CreateWindow
 #undef CreateWindow
@@ -27,7 +31,7 @@ namespace ui::factory
  * @param argv 命令行参数数组
  * @return UI 应用程序实例
  */
-Application CreateApplication(std::span<char*> argv);
+std::expected<std::unique_ptr<Application>, std::error_code> CreateApplication(std::span<char*> argv);
 /**
  * @brief 创建一个基础的 UI 组件实体
  * @param alias 组件别名
@@ -58,6 +62,15 @@ entt::entity CreateSpacer(float width, float height, std::string_view alias = ""
 entt::entity CreateDialog(std::string_view title, std::string_view alias = "");
 entt::entity CreateScrollArea(std::string_view alias = "");
 entt::entity CreateWindow(std::string_view title, std::string_view alias = "");
+
+/**
+ * @brief \u521b\u5efa\u81ea\u7ed8\u6807\u9898\u680f\u5b9e\u4f53\uff08\u7528\u4e8e\u65e0\u8fb9\u6846\u7a97\u53e3\uff09
+ * @param windowEntity \u6240\u5c5e\u7a97\u53e3\u5b9e\u4f53\uff08\u5fc5\u987b\u5df2\u6709 Window \u7ec4\u4ef6\uff09
+ * @param alias \u7ec4\u4ef6\u522b\u540d
+ * @return entt::entity \u6807\u9898\u680f\u5b9e\u4f53\uff08\u5df2\u4f5c\u4e3a windowEntity
+ * \u7684\u9996\u4e2a\u5b50\u8282\u70b9\uff09
+ */
+entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias = "");
 entt::entity CreateVBoxLayout(std::string_view alias = "");
 entt::entity CreateHBoxLayout(std::string_view alias = "");
 entt::entity

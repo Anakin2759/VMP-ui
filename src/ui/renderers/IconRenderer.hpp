@@ -125,7 +125,8 @@ public:
             if (const auto* textComp = Registry::TryGet<components::Text>(entity);
                 textComp != nullptr && !textComp->content.empty() && context.fontManager != nullptr)
             {
-                auto textWidth = static_cast<float>(context.fontManager->measureTextWidth(textComp->content));
+                auto textWidth =
+                    static_cast<float>(context.fontManager->measureTextWidth(textComp->content, textComp->fontSize));
                 float totalWidth = actualIconSize.x() + iconComp->spacing + textWidth;
                 drawPos.x() = contentPos.x() + std::max(0.0F, (contentSize.x() - totalWidth) * 0.5F);
                 drawPos.y() = contentPos.y() + std::max(0.0F, (contentSize.y() - actualIconSize.y()) * 0.5F);

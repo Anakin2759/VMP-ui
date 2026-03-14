@@ -2,9 +2,10 @@
  * SystemManager implementation
  */
 
+#include "pch.hpp"
 #include "SystemManager.hpp"
 #include "singleton/Registry.hpp"
-#include <SDL3/SDL.h>
+
 // 引入所有子系统头文件
 #include "../systems/RenderSystem.hpp"
 #include "../systems/TweenSystem.hpp"
@@ -18,11 +19,8 @@ namespace ui
 {
 SystemManager::SystemManager()
 {
-
-
     Logger::info("[SystemManager] 正在注册 InteractionSystem...");
     m_systems.emplace_back(systems::InteractionSystem{});
-    
 
     Logger::info("[SystemManager] 正在注册 HitTestSystem...");
     m_systems.emplace_back(systems::HitTestSystem{});

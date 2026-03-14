@@ -34,9 +34,12 @@
 #include <string_view>
 #include <unordered_map>
 #include <memory>
+#include <expected>
+#include <system_error>
 #include <cstdint>
 #include <cmath>
 #include "../singleton/Logger.hpp"
+#include "../common/UiErrors.hpp"
 
 namespace ui::managers
 {
@@ -119,12 +122,18 @@ public:
      * @param fontSize 字体大小（像素）
      * @return 加载成功返回 true
      */
-    bool loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
+    std::expected<void, std::error_code> loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
     {
         if (!m_ftLibrary)
         {
             Logger::error("[FontManager] FreeType not initialized");
-            return false;
+            return std::unexpected(errors::make_error_code(errors::FontErrc::FreeTypeNotInitialized));
+        }
+
+        if (fontData == nullptr || dataSize == 0)
+        {
+            Logger::error("[FontManager] Invalid font data");
+            return std::unexpected(errors::make_error_code(errors::FontErrc::InvalidFontData));
         }
 
         // 复制字体数据（FreeType 需要持久内存）
@@ -137,17 +146,17 @@ public:
         if (error)
         {
             Logger::error("[FontManager] Failed to load font face: error {}", error);
-            return false;
+            return std::unexpected(errors::make_error_code(errors::FontErrc::LoadFaceFailed));
         }
 
         // 设置像素大小
         error = FT_Set_Pixel_Sizes(m_ftFace, 0, static_cast<FT_UInt>(fontSize));
         if (error)
         {
-            Logger::error("[FontManager] Failed to set pixel size: error {}", error);
             FT_Done_Face(m_ftFace);
             m_ftFace = nullptr;
-            return false;
+            Logger::error("[FontManager] Failed to set pixel size: error {}", error);
+            return std::unexpected(errors::make_error_code(errors::FontErrc::SetPixelSizeFailed));
         }
 
         m_fontSize = fontSize;
@@ -157,7 +166,7 @@ public:
         createHarfBuzzFont();
 
         Logger::info("[FontManager] Font loaded: {} at {}px", m_ftFace->family_name, fontSize);
-        return true;
+        return {};
     }
 
     /**
@@ -173,19 +182,51 @@ public:
     /**
      * @brief 获取字体高度（行高）- 像素
      */
-    [[nodiscard]] int getFontHeight() const
+    [[nodiscard]] int getFontHeight(float fontSize = 0.0F)
     {
         if (!m_ftFace) return 0;
-        return static_cast<int>(m_ftFace->size->metrics.height >> 6);
+
+        const float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
+        const bool needRestore = (std::abs(targetSize - m_fontSize) > 0.1F);
+        const float oldSize = m_fontSize;
+        if (needRestore)
+        {
+            setPixelSize(targetSize);
+        }
+
+        const int fontHeight = static_cast<int>(m_ftFace->size->metrics.height >> 6);
+
+        if (needRestore)
+        {
+            setPixelSize(oldSize);
+        }
+
+        return fontHeight;
     }
 
     /**
      * @brief 获取基线位置（ascender）- 像素
      */
-    [[nodiscard]] int getBaseline() const
+    [[nodiscard]] int getBaseline(float fontSize = 0.0F)
     {
         if (!m_ftFace) return 0;
-        return static_cast<int>(m_ftFace->size->metrics.ascender >> 6);
+
+        const float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
+        const bool needRestore = (std::abs(targetSize - m_fontSize) > 0.1F);
+        const float oldSize = m_fontSize;
+        if (needRestore)
+        {
+            setPixelSize(targetSize);
+        }
+
+        const int baseline = static_cast<int>(m_ftFace->size->metrics.ascender >> 6);
+
+        if (needRestore)
+        {
+            setPixelSize(oldSize);
+        }
+
+        return baseline;
     }
 
     /**
@@ -195,7 +236,7 @@ public:
      * @param outMeasuredLength 输出实际测量的字节长度
      * @return 文本的像素宽度
      */
-    int measureString(const char* text, size_t textLen, int maxWidth, size_t* outMeasuredLength)
+    int measureString(const char* text, size_t textLen, int maxWidth, size_t* outMeasuredLength, float fontSize = 0.0F)
     {
         if (!m_ftFace || text == nullptr || textLen == 0)
         {
@@ -203,48 +244,51 @@ public:
             return 0;
         }
 
-        float totalWidth = 0.0F;
-        size_t bytePos = 0;
-        std::string_view view(text, textLen);
-        FT_UInt prevGlyphIndex = 0;
-        bool useKerning = FT_HAS_KERNING(m_ftFace);
-
-        while (bytePos < textLen)
+        const float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
+        const bool needRestore = (std::abs(targetSize - m_fontSize) > 0.1F);
+        const float oldSize = m_fontSize;
+        if (needRestore)
         {
-            int codepoint = 0;
-            size_t charLen = decodeUTF8(view.substr(bytePos), codepoint);
-            if (charLen == 0) break;
+            setPixelSize(targetSize);
+        }
 
-            FT_UInt glyphIndex = FT_Get_Char_Index(m_ftFace, static_cast<FT_ULong>(codepoint));
-
-            // 应用字距调整（kerning）
-            if (useKerning && prevGlyphIndex != 0 && glyphIndex != 0)
+        // 使用 HarfBuzz 进行文本成形（包含正确的 kerning、连字等处理）
+        auto shapedGlyphs = shapeText(text, textLen);
+        if (shapedGlyphs.empty())
+        {
+            if (needRestore)
             {
-                FT_Vector delta;
-                FT_Get_Kerning(m_ftFace, prevGlyphIndex, glyphIndex, FT_KERNING_DEFAULT, &delta);
-                totalWidth += static_cast<float>(delta.x >> 6);
+                setPixelSize(oldSize);
+            }
+            if (outMeasuredLength) *outMeasuredLength = 0;
+            return 0;
+        }
+
+        float totalWidth = 0.0F;
+        size_t measuredEnd = textLen; // 默认：测量到文本末尾
+
+        for (size_t idx = 0; idx < shapedGlyphs.size(); ++idx)
+        {
+            float advance = shapedGlyphs[idx].xAdvance;
+
+            if (maxWidth > 0 && totalWidth + advance > static_cast<float>(maxWidth))
+            {
+                // 超出最大宽度，停在当前字形的 cluster 起始处（字节偏移）
+                measuredEnd = shapedGlyphs[idx].cluster;
+                break;
             }
 
-            // 加载字形获取 advance
-            if (FT_Load_Glyph(m_ftFace, glyphIndex, FT_LOAD_DEFAULT) == 0)
-            {
-                float advance = static_cast<float>(m_ftFace->glyph->advance.x >> 6);
-
-                if (maxWidth > 0 && totalWidth + advance > static_cast<float>(maxWidth))
-                {
-                    break;
-                }
-
-                totalWidth += advance;
-            }
-
-            prevGlyphIndex = glyphIndex;
-            bytePos += charLen;
+            totalWidth += advance;
         }
 
         if (outMeasuredLength)
         {
-            *outMeasuredLength = bytePos;
+            *outMeasuredLength = measuredEnd;
+        }
+
+        if (needRestore)
+        {
+            setPixelSize(oldSize);
         }
 
         return static_cast<int>(std::ceil(totalWidth));
@@ -253,10 +297,10 @@ public:
     /**
      * @brief 测量文本宽度（简化版本）
      */
-    int measureTextWidth(const std::string& text)
+    int measureTextWidth(const std::string& text, float fontSize = 0.0F)
     {
         size_t measuredLen = 0;
-        return measureString(text.c_str(), text.size(), 0, &measuredLen);
+        return measureString(text.c_str(), text.size(), 0, &measuredLen, fontSize);
     }
 
     /**
@@ -292,7 +336,7 @@ public:
 
         // 加载字形
         FT_UInt glyphIndex = FT_Get_Char_Index(m_ftFace, static_cast<FT_ULong>(codepoint));
-        FT_Error error = FT_Load_Glyph(m_ftFace, glyphIndex, FT_LOAD_DEFAULT);
+        FT_Error error = FT_Load_Glyph(m_ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);
         if (error)
         {
             Logger::warn("[FontManager] Failed to load glyph for codepoint {}: error {}", codepoint, error);
@@ -351,10 +395,114 @@ public:
     }
 
     /**
-     * @brief 获取超采样缩放因子（FreeType 不需要超采样，始终返回 1.0）
+     * @brief 获取文本超采样缩放因子
      * @note 保留此接口以兼容旧的渲染管线
      */
-    [[nodiscard]] float getOversampleScale() const { return 1.0F; }
+    [[nodiscard]] float getOversampleScale() const { return TEXT_OVERSAMPLE_SCALE; }
+
+    /**
+     * @brief 渲染整个文本到 alpha mask 位图
+     * @param text UTF-8 文本
+     * @param alpha 整体 alpha (0-255)
+     * @param outWidth 输出位图宽度
+     * @param outHeight 输出位图高度
+     * @param fontSize 字体大小（像素），0 表示使用默认大小
+     * @return 单通道（R8）位图数据，每像素 1 字节，值为字形 coverage
+     */
+    std::vector<uint8_t> renderTextAlphaMask(
+        const std::string& text, uint8_t alpha, int& outWidth, int& outHeight, float fontSize = 0.0F)
+    {
+        std::vector<uint8_t> result;
+
+        static_cast<void>(alpha);
+
+        if (!m_loaded || text.empty())
+        {
+            outWidth = outHeight = 0;
+            return result;
+        }
+
+        const float logicalSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
+        const float rasterSize = logicalSize * TEXT_OVERSAMPLE_SCALE;
+        bool needRestore = (std::abs(rasterSize - m_fontSize) > 0.1F);
+        float oldSize = m_fontSize;
+        if (needRestore)
+        {
+            setPixelSize(rasterSize);
+        }
+
+        struct GlyphLayout
+        {
+            GlyphInfo glyph;
+            float xPos = 0.0F;
+            float yOffset = 0.0F;
+        };
+        std::vector<GlyphLayout> layouts;
+        float cursorX = 0.0F;
+
+        auto shapedGlyphs = shapeText(text.c_str(), text.size());
+        for (const auto& shaped : shapedGlyphs)
+        {
+            GlyphInfo glyph = renderGlyphByIndex(shaped.glyphId, rasterSize);
+            layouts.push_back({glyph, cursorX + shaped.xOffset, shaped.yOffset});
+            cursorX += shaped.xAdvance;
+        }
+
+        if (layouts.empty())
+        {
+            if (needRestore) setPixelSize(oldSize);
+            outWidth = outHeight = 0;
+            return result;
+        }
+
+        int baseline = getBaseline();
+        int fontHeight = getFontHeight();
+        outWidth = static_cast<int>(std::ceil(cursorX));
+        outHeight = fontHeight;
+
+        if (outWidth <= 0 || outHeight <= 0)
+        {
+            outWidth = outHeight = 0;
+            if (needRestore) setPixelSize(oldSize);
+            return result;
+        }
+
+        result.resize(static_cast<size_t>(outWidth) * static_cast<size_t>(outHeight), 0);
+
+        for (const auto& layout : layouts)
+        {
+            const auto& glyph = layout.glyph;
+            int xPos = static_cast<int>(std::floor(layout.xPos)) + glyph.bearingX;
+            int yPos = baseline - glyph.bearingY - static_cast<int>(std::round(layout.yOffset));
+
+            for (int yOff = 0; yOff < glyph.height; ++yOff)
+            {
+                for (int xOff = 0; xOff < glyph.width; ++xOff)
+                {
+                    int bx = xPos + xOff;
+                    int by = yPos + yOff;
+                    if (bx < 0 || bx >= outWidth || by < 0 || by >= outHeight) continue;
+
+                    int pixelIndex = by * outWidth + bx;
+                    uint8_t finalAlpha = glyph.bitmap[(yOff * glyph.width) + xOff];
+
+                    if (finalAlpha <= result[pixelIndex])
+                    {
+                        continue;
+                    }
+
+                    result[pixelIndex] = finalAlpha;
+                }
+            }
+        }
+
+        if (needRestore)
+        {
+            setPixelSize(oldSize);
+        }
+
+        return result;
+    }
 
     /**
      * @brief 渲染整个文本到 RGBA 位图（兼容旧接口）
@@ -394,27 +542,22 @@ public:
             setPixelSize(targetSize);
         }
 
-        // 布局所有字形
+        // 使用 HarfBuzz 进行文本成形，获取正确的字形 ID、位置和前进量
         struct GlyphLayout
         {
             GlyphInfo glyph;
             float xPos = 0.0F;
+            float yOffset = 0.0F;
         };
         std::vector<GlyphLayout> layouts;
         float cursorX = 0.0F;
 
-        size_t bytePos = 0;
-        std::string_view view(text);
-        while (bytePos < text.size())
+        auto shapedGlyphs = shapeText(text.c_str(), text.size());
+        for (const auto& shaped : shapedGlyphs)
         {
-            int codepoint = 0;
-            size_t charLen = decodeUTF8(view.substr(bytePos), codepoint);
-            if (charLen == 0) break;
-
-            GlyphInfo glyph = renderGlyph(codepoint, targetSize);
-            layouts.push_back({glyph, cursorX});
-            cursorX += glyph.advanceX;
-            bytePos += charLen;
+            GlyphInfo glyph = renderGlyphByIndex(shaped.glyphId, targetSize);
+            layouts.push_back({glyph, cursorX + shaped.xOffset, shaped.yOffset});
+            cursorX += shaped.xAdvance;
         }
 
         if (layouts.empty())
@@ -443,7 +586,7 @@ public:
         {
             const auto& glyph = layout.glyph;
             int xPos = static_cast<int>(std::floor(layout.xPos)) + glyph.bearingX;
-            int yPos = baseline - glyph.bearingY;
+            int yPos = baseline - glyph.bearingY - static_cast<int>(std::round(layout.yOffset));
 
             for (int yOff = 0; yOff < glyph.height; ++yOff)
             {
@@ -455,18 +598,41 @@ public:
 
                     int pixelIndex = (by * outWidth + bx) * 4;
                     uint8_t srcAlpha = glyph.bitmap[(yOff * glyph.width) + xOff];
-                    auto finalAlpha = static_cast<uint8_t>(srcAlpha * alpha / 255);
+                    auto finalAlpha = static_cast<uint8_t>((srcAlpha * alpha + 127) / 255);
 
-                    // 使用 over 操作符混合（适用于重叠字形）
+                    if (finalAlpha == 0) continue;
+
+                    // 预乘 Alpha Over 合成（适用于重叠字形）
+                    // C_out = C_src + C_dst × (1 - A_src)
                     uint8_t dstA = result[pixelIndex + 3];
-                    if (finalAlpha > dstA)
+                    auto srcR = static_cast<uint8_t>((red * finalAlpha + 127) / 255);
+                    auto srcG = static_cast<uint8_t>((green * finalAlpha + 127) / 255);
+                    auto srcB = static_cast<uint8_t>((blue * finalAlpha + 127) / 255);
+
+                    if (dstA == 0)
                     {
-                        // 输出预乘 Alpha（Premultiplied Alpha）
-                        // 避免 GPU 线性滤波在 straight alpha 空间插值导致暗边
-                        result[pixelIndex + 0] = static_cast<uint8_t>(red * finalAlpha / 255);
-                        result[pixelIndex + 1] = static_cast<uint8_t>(green * finalAlpha / 255);
-                        result[pixelIndex + 2] = static_cast<uint8_t>(blue * finalAlpha / 255);
+                        // 目标像素为空，直接写入
+                        result[pixelIndex + 0] = srcR;
+                        result[pixelIndex + 1] = srcG;
+                        result[pixelIndex + 2] = srcB;
                         result[pixelIndex + 3] = finalAlpha;
+                    }
+                    else
+                    {
+                        // 预乘 Alpha Over 合成
+                        float srcAf = static_cast<float>(finalAlpha) / 255.0F;
+                        float oneMinusSrcA = 1.0F - srcAf;
+                        result[pixelIndex + 0] = static_cast<uint8_t>(std::lround(std::min(
+                            255.0F,
+                            static_cast<float>(srcR) + (static_cast<float>(result[pixelIndex + 0]) * oneMinusSrcA))));
+                        result[pixelIndex + 1] = static_cast<uint8_t>(std::lround(std::min(
+                            255.0F,
+                            static_cast<float>(srcG) + (static_cast<float>(result[pixelIndex + 1]) * oneMinusSrcA))));
+                        result[pixelIndex + 2] = static_cast<uint8_t>(std::lround(std::min(
+                            255.0F,
+                            static_cast<float>(srcB) + (static_cast<float>(result[pixelIndex + 2]) * oneMinusSrcA))));
+                        result[pixelIndex + 3] = static_cast<uint8_t>(std::lround(std::min(
+                            255.0F, static_cast<float>(finalAlpha) + (static_cast<float>(dstA) * oneMinusSrcA))));
                     }
                 }
             }
@@ -499,9 +665,9 @@ public:
         // 创建 HarfBuzz buffer
         hb_buffer_t* buf = hb_buffer_create();
         hb_buffer_add_utf8(buf, text, static_cast<int>(textLen), 0, static_cast<int>(textLen));
+        // 强制 LTR 方向（CJK + 拉丁均为 LTR），自动检测脚本和语言
         hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
-        hb_buffer_set_script(buf, HB_SCRIPT_COMMON);
-        hb_buffer_set_language(buf, hb_language_from_string("en", -1));
+        hb_buffer_guess_segment_properties(buf);
 
         // 执行成形
         hb_shape(m_hbFont, buf, nullptr, 0);
@@ -543,8 +709,8 @@ public:
         // 使用指定字体大小或默认大小
         float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
 
-        // 检查缓存
-        uint64_t cacheKey = makeGlyphCacheKey(static_cast<int>(glyphId), targetSize);
+        // 检查缓存（高位标记 glyphId 键，避免与 codepoint 键冲突）
+        uint64_t cacheKey = makeGlyphCacheKey(static_cast<int>(glyphId), targetSize) | (1ULL << 63);
         auto it = m_glyphCache.find(cacheKey);
         if (it != m_glyphCache.end())
         {
@@ -560,7 +726,7 @@ public:
         }
 
         // 加载字形
-        FT_Error error = FT_Load_Glyph(m_ftFace, glyphId, FT_LOAD_DEFAULT);
+        FT_Error error = FT_Load_Glyph(m_ftFace, glyphId, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);
         if (error)
         {
             Logger::warn("[FontManager] Failed to load glyph index {}: error {}", glyphId, error);
@@ -675,6 +841,8 @@ public:
     }
 
 private:
+    static constexpr float TEXT_OVERSAMPLE_SCALE = 2.0F;
+
     /**
      * @brief 创建 HarfBuzz font 对象
      */

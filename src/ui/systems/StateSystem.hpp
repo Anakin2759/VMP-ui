@@ -197,6 +197,12 @@ public:
         state.latestMousePosition = event.raw.position;
         state.latestMouseDelta = event.raw.delta;
 
+        if (m_isDraggingSlider)
+        {
+            handleSliderDrag(event);
+            return;
+        }
+
         // 处理滚动条拖拽
         if (state.isDraggingScrollbar && Registry::Valid(state.dragScrollEntity))
         {
@@ -223,6 +229,10 @@ public:
             if (tryHandleScrollbarPress(event, state))
             {
                 return; // 消费事件，不处理后续点击
+            }
+            if (tryHandleSliderPress(event))
+            {
+                return;
             }
             handleEntityPress(event);
             return;
@@ -317,14 +327,18 @@ public:
             Registry::EmplaceOrReplace<components::FocusedTag>(entity);
             ui::utils::MarkRenderDirty(entity);
 
-            // 如果是输入框，启动文本输入
-            if (Registry::AnyOf<components::TextEditTag>(entity) && sdlWindow != nullptr)
+            // 如果是输入框，启动文本输入并重置光标闪烁状态（立即可见）
+            if (Registry::AnyOf<components::TextEditTag>(entity))
             {
-                SDL_StartTextInput(sdlWindow);
+                Registry::EmplaceOrReplace<components::Caret>(entity);
+                auto& caret = Registry::Get<components::Caret>(entity);
+                caret.visible = true;
+                caret.elapsedTime = 0.0F;
 
-                // 设置输入法位置
-                // 注意：需要从 HitTestSystem 获取绝对位置
-                // 这里暂时省略，由调用者负责
+                if (sdlWindow != nullptr)
+                {
+                    SDL_StartTextInput(sdlWindow);
+                }
             }
         }
     }
@@ -899,6 +913,11 @@ private:
         // 先保存当前激活实体，点击逻辑需要在释放清理之前完成
         const entt::entity releasedEntity = state.activeEntity;
 
+        if (m_isDraggingSlider)
+        {
+            stopSliderDrag();
+        }
+
         // 如果正在拖拽滚动条，停止拖拽并清除按下状态
         if (state.isDraggingScrollbar)
         {
@@ -957,6 +976,91 @@ private:
         {
             Dispatcher::Trigger<events::MouseReleaseEvent>(events::MouseReleaseEvent{releasedEntity});
         }
+    }
+
+    bool tryHandleSliderPress(const events::HitPointerButton& event)
+    {
+        if (event.hitEntity == entt::null || !Registry::Valid(event.hitEntity))
+        {
+            return false;
+        }
+
+        if (Registry::TryGet<components::SliderInfo>(event.hitEntity) == nullptr)
+        {
+            return false;
+        }
+
+        m_isDraggingSlider = true;
+        m_dragSliderEntity = event.hitEntity;
+        updateSliderValueFromPointer(event.hitEntity, event.raw.position);
+        return true;
+    }
+
+    void handleSliderDrag(const events::HitPointerMove& event)
+    {
+        if (!Registry::Valid(m_dragSliderEntity) ||
+            Registry::TryGet<components::SliderInfo>(m_dragSliderEntity) == nullptr)
+        {
+            stopSliderDrag();
+            return;
+        }
+
+        updateSliderValueFromPointer(m_dragSliderEntity, event.raw.position);
+    }
+
+    void stopSliderDrag()
+    {
+        m_isDraggingSlider = false;
+        m_dragSliderEntity = entt::null;
+    }
+
+    void updateSliderValueFromPointer(entt::entity entity, const Vec2& mousePos)
+    {
+        auto* slider = Registry::TryGet<components::SliderInfo>(entity);
+        const auto* sizeComp = Registry::TryGet<components::Size>(entity);
+        if (slider == nullptr || sizeComp == nullptr)
+        {
+            return;
+        }
+
+        Vec2 absPos = HitTestSystem::getAbsolutePosition(entity);
+        const Vec2 size = sizeComp->size;
+
+        float ratio = 0.0F;
+        if (slider->vertical == policies::Orientation::Vertical)
+        {
+            if (size.y() <= 0.0F) return;
+            ratio = (absPos.y() + size.y() - mousePos.y()) / size.y();
+        }
+        else
+        {
+            if (size.x() <= 0.0F) return;
+            ratio = (mousePos.x() - absPos.x()) / size.x();
+        }
+
+        ratio = std::clamp(ratio, 0.0F, 1.0F);
+        const float range = slider->maxValue - slider->minValue;
+        float newValue = slider->minValue + (range * ratio);
+
+        if (slider->step > 0.0F)
+        {
+            const float stepIndex = std::round((newValue - slider->minValue) / slider->step);
+            newValue = slider->minValue + (stepIndex * slider->step);
+        }
+
+        newValue = std::clamp(newValue, slider->minValue, slider->maxValue);
+        if (std::abs(slider->currentValue - newValue) < 0.0001F)
+        {
+            return;
+        }
+
+        slider->currentValue = newValue;
+        if (slider->onValueChanged)
+        {
+            slider->onValueChanged(slider->currentValue);
+        }
+
+        ui::utils::MarkRenderDirty(entity);
     }
 
     /**
@@ -1118,6 +1222,8 @@ private:
     std::unordered_set<entt::entity> m_pendingHoverRemove;
     std::unordered_set<entt::entity> m_pendingActiveAdd;
     std::unordered_set<entt::entity> m_pendingActiveRemove;
+    bool m_isDraggingSlider = false;
+    entt::entity m_dragSliderEntity = entt::null;
 
     /**
      * @brief 帧结束时批量应用状态更新
