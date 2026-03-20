@@ -3,15 +3,48 @@ cmake_minimum_required(VERSION 3.20)
 OPTION(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 OPTION(BUILD_STATIC_LIBS "Build using static libraries" ON)
 option(ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
+option(UI_ENABLE_STD_EMBED_EXPERIMENTAL "Enable the experimental std::embed resource backend skeleton" ON)
+option(UI_ENABLE_ASAN "Enable AddressSanitizer for UI module" OFF)
+
+
+
+set(UI_RESOURCE_BACKEND "STD_EMBED" CACHE STRING "UI resource backend (CMRC or STD_EMBED)")
+set_property(CACHE UI_RESOURCE_BACKEND PROPERTY STRINGS CMRC STD_EMBED)
+
+if(NOT UI_RESOURCE_BACKEND STREQUAL "CMRC" AND NOT UI_RESOURCE_BACKEND STREQUAL "STD_EMBED")
+    message(FATAL_ERROR "Unsupported UI_RESOURCE_BACKEND='${UI_RESOURCE_BACKEND}'. Expected CMRC or STD_EMBED.")
+endif()
+
+if(UI_RESOURCE_BACKEND STREQUAL "STD_EMBED" AND NOT UI_ENABLE_STD_EMBED_EXPERIMENTAL)
+    message(FATAL_ERROR "UI_RESOURCE_BACKEND=STD_EMBED requires UI_ENABLE_STD_EMBED_EXPERIMENTAL=ON.")
+endif()
+
+set(UI_STD_EMBED_RESOURCE_TABLE_SOURCE "managers/StdEmbedResourceTable.cpp")
+set(UI_EMBEDDED_RESOURCES
+    assets/shader/vert.spv
+    assets/shader/frag.spv
+    assets/shader/vert.dxil
+    assets/shader/frag.dxil
+    assets/fonts/NotoSansSC-VariableFont_wght.ttf
+    assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf
+    assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints
+)
+
+if(UI_RESOURCE_BACKEND STREQUAL "STD_EMBED")
+    set(UI_STD_EMBED_RESOURCE_TABLE_SOURCE
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/StdEmbedResourceTable.generated.cpp")
+    set_source_files_properties(
+        "${UI_STD_EMBED_RESOURCE_TABLE_SOURCE}"
+        PROPERTIES
+            GENERATED TRUE
+            SKIP_LINTING ON
+            SKIP_PRECOMPILE_HEADERS ON
+    )
+endif()
+
 # Find DXC compiler for shader compilation
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 find_package(DXC REQUIRED)
-
-
-
-
-
-
 
 
 set(UI_SOURCES 
@@ -22,6 +55,8 @@ set(UI_SOURCES
     systems/TimerSystem.cpp
     managers/FontManager.cpp
     managers/IconManager.cpp
+    managers/ResourceProvider.cpp
+    ${UI_STD_EMBED_RESOURCE_TABLE_SOURCE}
     api/Size.cpp
     api/Visibility.cpp
     api/Layout.cpp
@@ -62,6 +97,8 @@ set(UI_HEADERS
     managers/IconManager.hpp
     managers/BatchManager.hpp
     managers/CommandBuffer.hpp
+    managers/ResourceProvider.hpp
+    managers/StdEmbedResourceTable.hpp
     
     # Core
     core/Application.hpp
@@ -102,6 +139,10 @@ set(UI_HEADERS
 )
 # UI 模块库定义
 add_library(ui STATIC ${UI_SOURCES} ${UI_HEADERS})
+
+target_precompile_headers(ui PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/pch.hpp>"
+)
 
 # 头文件目录
 target_include_directories(ui
@@ -166,27 +207,61 @@ add_custom_target(ui_shaders
     COMMENT "Building UI shaders"
 )
 
-cmrc_add_resource_library(ui_fonts
-    ALIAS fonts              # 在 C++ 中调用的别名
-    NAMESPACE ui_fonts          # C++ 命名空间
-    assets/shader/vert.spv
-    assets/shader/frag.spv
-    assets/shader/vert.dxil
-    assets/shader/frag.dxil
+if(UI_RESOURCE_BACKEND STREQUAL "STD_EMBED")
+    add_custom_command(
+        OUTPUT "${UI_STD_EMBED_RESOURCE_TABLE_SOURCE}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/generated"
+        COMMAND ${CMAKE_COMMAND}
+            "-DOUTPUT_FILE=${UI_STD_EMBED_RESOURCE_TABLE_SOURCE}"
+            "-DSOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+            "-DRESOURCE_FILES=${UI_EMBEDDED_RESOURCES}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/GenerateStdEmbedResourceTable.cmake"
+        DEPENDS
+            "${SHADER_OUTPUT_DIR}/vert.spv"
+            "${SHADER_OUTPUT_DIR}/vert.dxil"
+            "${SHADER_OUTPUT_DIR}/frag.spv"
+            "${SHADER_OUTPUT_DIR}/frag.dxil"
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/NotoSansSC-VariableFont_wght.ttf"
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf"
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints"
+            "${CMAKE_CURRENT_SOURCE_DIR}/GenerateStdEmbedResourceTable.cmake"
+        COMMENT "Generating STD_EMBED shader resource table"
+        VERBATIM
+    )
+endif()
 
-)
+if(UI_RESOURCE_BACKEND STREQUAL "CMRC")
+    cmrc_add_resource_library(ui_fonts
+        ALIAS fonts              # 在 C++ 中调用的别名
+        NAMESPACE ui_fonts          # C++ 命名空间
+        ${UI_EMBEDDED_RESOURCES}
 
-# Ensure shaders are compiled before embedding into resources
-add_dependencies(ui_fonts ui_shaders)
+    )
 
-# 禁用 clang-tidy 对自动生成的资源库目标（防止 OOM 崩溃）
-# cmrc 将大型二进制文件（字体/着色器）嵌入为巨型 C++ 字节数组，
-# clang-tidy 分析这些文件会耗尽内存。
-# 同时关闭 IPO/LTO，避免 clang-cl 在 RelWithDebInfo 下编译超大嵌入资源时耗尽内存。
-set_target_properties(ui_fonts PROPERTIES
-    CXX_CLANG_TIDY ""
-    INTERPROCEDURAL_OPTIMIZATION FALSE
-)
+    # Ensure shaders are compiled before embedding into resources
+    add_dependencies(ui_fonts ui_shaders)
+
+    # 禁用 clang-tidy 对自动生成的资源库目标（防止 OOM 崩溃）
+    # cmrc 将大型二进制文件（字体/着色器）嵌入为巨型 C++ 字节数组，
+    # clang-tidy 分析这些文件会耗尽内存。
+    # 同时关闭 IPO/LTO，避免 clang-cl 在 RelWithDebInfo 下编译超大嵌入资源时耗尽内存。
+    set_target_properties(ui_fonts PROPERTIES
+        CXX_CLANG_TIDY ""
+        INTERPROCEDURAL_OPTIMIZATION FALSE
+    )
+endif()
+
+if(UI_RESOURCE_BACKEND STREQUAL "CMRC")
+    target_compile_definitions(ui PRIVATE
+        UI_RESOURCE_BACKEND_CMRC=1
+        UI_RESOURCE_BACKEND_NAME="CMRC"
+    )
+elseif(UI_RESOURCE_BACKEND STREQUAL "STD_EMBED")
+    target_compile_definitions(ui PRIVATE
+        UI_RESOURCE_BACKEND_STD_EMBED=1
+        UI_RESOURCE_BACKEND_NAME="STD_EMBED"
+    )
+endif()
 
 # 依赖项
 target_link_libraries(ui PRIVATE
@@ -194,11 +269,14 @@ target_link_libraries(ui PRIVATE
     EnTT::EnTT
     asio::asio
     yogacore
-    ui_fonts
     spdlog::spdlog_header_only
     freetype
     harfbuzz
 )
+
+if(UI_RESOURCE_BACKEND STREQUAL "CMRC")
+    target_link_libraries(ui PRIVATE ui_fonts)
+endif()
 
 target_link_libraries(ui PUBLIC
     Eigen3::Eigen
@@ -212,7 +290,7 @@ if(WIN32)
 endif()
 target_compile_features(ui PUBLIC cxx_std_23)
 
-target_compile_options(ui PUBLIC
+target_compile_options(ui PRIVATE
      
     # GCC
     $<$<AND:$<CXX_COMPILER_ID:GNU>,$<CONFIG:Debug>>:-Wall -Wextra -Wpedantic -O0 -g >

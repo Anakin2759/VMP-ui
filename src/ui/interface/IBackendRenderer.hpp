@@ -15,6 +15,9 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
+#include <span>
+#include <string_view>
 #include <SDL3/SDL.h>
 #include "../common/RenderTypes.hpp"
 
@@ -62,6 +65,25 @@ public:
      * @param whiteTextureTag 用于绘制纯色图形的白色纹理标签
      */
     virtual void drawBatch(const render::RenderBatch& batch, SDL_GPUTexture* whiteTextureTag) = 0;
+
+    virtual bool drawCachedBitmap(std::string_view cacheKey,
+                                  std::span<const std::uint8_t> rgbaPixels,
+                                  int bitmapWidth,
+                                  int bitmapHeight,
+                                  const SDL_FRect& destinationRect,
+                                  const std::optional<SDL_Rect>& scissorRect,
+                                  std::uint8_t alphaMod)
+    {
+        static_cast<void>(cacheKey);
+        static_cast<void>(rgbaPixels);
+        static_cast<void>(bitmapWidth);
+        static_cast<void>(bitmapHeight);
+        static_cast<void>(destinationRect);
+        static_cast<void>(scissorRect);
+        static_cast<void>(alphaMod);
+        return false;
+    }
+
     /**
      * @brief 结束渲染一帧
      */

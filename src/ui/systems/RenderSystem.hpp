@@ -26,7 +26,6 @@
 #include <SDL3/SDL_gpu.h>
 #include <entt/entt.hpp>
 #include <Eigen/Dense>
-#include <cmrc/cmrc.hpp>
 
 #include "../singleton/Logger.hpp"
 #include "../singleton/Dispatcher.hpp"
@@ -43,8 +42,6 @@
 #include "../interface/IRenderer.hpp"
 #include "../interface/IBackendRenderer.hpp"
 #include "../core/RenderContext.hpp"
-
-CMRC_DECLARE(ui_fonts);
 
 namespace ui::systems
 {
@@ -76,9 +73,15 @@ public:
         uint32_t textureCount = 0;
         float lastFrameTime = 0.0F;
     };
-
+    /**
+     * @brief 获取当前渲染统计数据
+     * @return const RenderStats& 当前渲染统计数据的常量引用
+     */
     [[nodiscard]] const RenderStats& getStats() const { return m_stats; }
 
+    /**
+     * @brief 注册事件处理程序
+     */
     void registerHandlersImpl()
     {
         Logger::info("[RenderSystem] Registering event handlers");
@@ -90,6 +93,9 @@ public:
         Logger::info("[RenderSystem] Event handlers registered successfully");
     }
 
+    /**
+     * @brief 注销事件处理程序
+     */
     void unregisterHandlersImpl()
     {
         Dispatcher::Sink<events::WindowGraphicsContextSetEvent>()
@@ -100,11 +106,28 @@ public:
     }
 
 private:
+    /**
+     * @brief 处理窗口图形上下文设置事件
+     * @param event 窗口图形上下文设置事件
+     */
     void onWindowsGraphicsContextSet(const events::WindowGraphicsContextSetEvent& event);
+    /**
+     * @brief 处理窗口图形上下文取消事件
+     * @param event 窗口图形上下文取消事件
+     */
     void onWindowsGraphicsContextUnset(const events::WindowGraphicsContextUnsetEvent& event);
+    /**
+     * @brief 渲染系统清理资源
+     */
     void cleanup();
+    /**
+     * @brief 创建一个纯白色纹理，用于默认渲染
+     */
     void createWhiteTexture();
-
+    /**
+     * @brief 渲染项结构体
+     * @note 包含排序键、实体、渲染器指针和渲染上下文，用于渲染队列中的项
+     */
     struct RenderItem
     {
         uint64_t sortKey = 0; // Sort key for rendering order
@@ -158,6 +181,7 @@ private:
 
     bool m_useFallback = false;
     bool m_forceFallback = false;
+    bool m_backendSelectionLogged = false;
 
     float m_screenWidth = 0.0F;
     float m_screenHeight = 0.0F;

@@ -1,12 +1,12 @@
 /**
  * ************************************************************************
- * 
+ *
  * @file FallbackBackendRenderer.hpp
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-02-24
  * @version 0.1
  * @brief SDL_Renderer 后备渲染器实现
- * 
+ *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
  * For study and research only, no reprinting.
@@ -16,6 +16,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <optional>
+#include <span>
+#include <string>
+#include <unordered_map>
+#include <vector>
 #include <SDL3/SDL.h>
 #include "../interface/IBackendRenderer.hpp"
 #include "../singleton/Logger.hpp"
@@ -26,6 +32,13 @@ namespace ui::renderers
 class FallbackBackendRenderer final : public interface::IBackendRenderer
 {
 public:
+    struct CachedBitmapTexture
+    {
+        SDL_Texture* texture = nullptr;
+        int width = 0;
+        int height = 0;
+    };
+
     FallbackBackendRenderer() = default;
     ~FallbackBackendRenderer() override { cleanup(); }
 
@@ -71,6 +84,15 @@ public:
 
     void cleanup() override
     {
+        for (auto& cacheEntry : m_bitmapTextureCache)
+        {
+            if (cacheEntry.second.texture != nullptr)
+            {
+                SDL_DestroyTexture(cacheEntry.second.texture);
+            }
+        }
+        m_bitmapTextureCache.clear();
+
         if (m_renderer != nullptr)
         {
             SDL_DestroyRenderer(m_renderer);
@@ -150,6 +172,38 @@ public:
         }
     }
 
+    bool drawCachedBitmap(std::string_view cacheKey,
+                          std::span<const std::uint8_t> rgbaPixels,
+                          int bitmapWidth,
+                          int bitmapHeight,
+                          const SDL_FRect& destinationRect,
+                          const std::optional<SDL_Rect>& scissorRect,
+                          std::uint8_t alphaMod) override
+    {
+        if (m_renderer == nullptr || bitmapWidth <= 0 || bitmapHeight <= 0 || rgbaPixels.empty())
+        {
+            return false;
+        }
+
+        CachedBitmapTexture* cachedTexture = getOrCreateBitmapTexture(cacheKey, rgbaPixels, bitmapWidth, bitmapHeight);
+        if (cachedTexture == nullptr || cachedTexture->texture == nullptr)
+        {
+            return false;
+        }
+
+        if (scissorRect.has_value())
+        {
+            SDL_SetRenderClipRect(m_renderer, &scissorRect.value());
+        }
+        else
+        {
+            SDL_SetRenderClipRect(m_renderer, nullptr);
+        }
+
+        SDL_SetTextureAlphaMod(cachedTexture->texture, alphaMod);
+        return SDL_RenderTexture(m_renderer, cachedTexture->texture, nullptr, &destinationRect);
+    }
+
     void endFrame() override
     {
         if (m_renderer == nullptr)
@@ -164,8 +218,53 @@ public:
     [[nodiscard]] interface::BackendType getType() const override { return interface::BackendType::FALLBACK; }
 
 private:
+    CachedBitmapTexture* getOrCreateBitmapTexture(std::string_view cacheKey,
+                                                  std::span<const std::uint8_t> rgbaPixels,
+                                                  int width,
+                                                  int height)
+    {
+        const std::string key(cacheKey);
+        auto cacheIterator = m_bitmapTextureCache.find(key);
+        const bool needsRecreate = (cacheIterator == m_bitmapTextureCache.end()) ||
+                                   cacheIterator->second.texture == nullptr || cacheIterator->second.width != width ||
+                                   cacheIterator->second.height != height;
+
+        if (needsRecreate)
+        {
+            if (cacheIterator != m_bitmapTextureCache.end() && cacheIterator->second.texture != nullptr)
+            {
+                SDL_DestroyTexture(cacheIterator->second.texture);
+            }
+
+            CachedBitmapTexture newEntry{};
+            newEntry.texture =
+                SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, width, height);
+            newEntry.width = width;
+            newEntry.height = height;
+
+            if (newEntry.texture == nullptr)
+            {
+                Logger::error("[FallbackBackendRenderer] create SDL_Texture failed: {}", SDL_GetError());
+                m_bitmapTextureCache.erase(key);
+                return nullptr;
+            }
+
+            SDL_SetTextureBlendMode(newEntry.texture, SDL_BLENDMODE_BLEND);
+            cacheIterator = m_bitmapTextureCache.insert_or_assign(key, newEntry).first;
+        }
+
+        if (!SDL_UpdateTexture(cacheIterator->second.texture, nullptr, rgbaPixels.data(), width * 4))
+        {
+            Logger::error("[FallbackBackendRenderer] update SDL_Texture failed: {}", SDL_GetError());
+            return nullptr;
+        }
+
+        return &cacheIterator->second;
+    }
+
     SDL_Renderer* m_renderer = nullptr;
     SDL_WindowID m_windowID = 0;
+    std::unordered_map<std::string, CachedBitmapTexture> m_bitmapTextureCache;
 };
 
 } // namespace ui::renderers

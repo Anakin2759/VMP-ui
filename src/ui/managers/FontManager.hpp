@@ -336,7 +336,7 @@ public:
 
         // 加载字形
         FT_UInt glyphIndex = FT_Get_Char_Index(m_ftFace, static_cast<FT_ULong>(codepoint));
-        FT_Error error = FT_Load_Glyph(m_ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);
+        FT_Error error = FT_Load_Glyph(m_ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL);
         if (error)
         {
             Logger::warn("[FontManager] Failed to load glyph for codepoint {}: error {}", codepoint, error);
@@ -726,7 +726,7 @@ public:
         }
 
         // 加载字形
-        FT_Error error = FT_Load_Glyph(m_ftFace, glyphId, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);
+        FT_Error error = FT_Load_Glyph(m_ftFace, glyphId, FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL);
         if (error)
         {
             Logger::warn("[FontManager] Failed to load glyph index {}: error {}", glyphId, error);

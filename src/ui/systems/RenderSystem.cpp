@@ -15,9 +15,7 @@
 
 #include "RenderSystem.hpp"
 #include <algorithm>
-#include <bit>
-#include <filesystem>
-#include <fstream>
+#include <cctype>
 #include "../renderers/ShapeRenderer.hpp"
 #include "../renderers/TextRenderer.hpp"
 #include "../renderers/IconRenderer.hpp"
@@ -26,6 +24,7 @@
 #include "../renderers/ProgressBarRenderer.hpp"
 #include "../renderers/FallbackBackendRenderer.hpp"
 #include "../managers/IconManager.hpp"
+#include "../managers/ResourceProvider.hpp"
 
 #ifndef UI_ASSETS_DIR
 #define UI_ASSETS_DIR "assets"
@@ -34,34 +33,37 @@
 namespace
 {
 
-std::filesystem::path GetUiAssetPath(std::string_view relativePath)
+bool IsTruthyEnvironmentValue(const char* value)
 {
-    return std::filesystem::path(UI_ASSETS_DIR) / relativePath;
+    if (value == nullptr)
+    {
+        return false;
+    }
+
+    std::string normalized(value);
+    std::transform(normalized.begin(),
+                   normalized.end(),
+                   normalized.begin(),
+                   [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+
+    return normalized == "1" || normalized == "true" || normalized == "on" || normalized == "yes" || normalized == "y";
 }
 
-std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path& filePath)
+std::shared_ptr<const ui::managers::IResourceProvider> GetUiResourceProvider()
 {
-    // NOLINTNEXTLINE(hicpp-signed-bitwise) -- std::ios::openmode 底层为有符号类型，属标准库既有设计
-    std::ifstream file(filePath, std::ios::binary | std::ios::ate);
-    if (!file.is_open())
+    static const auto RESOURCE_PROVIDER = ui::managers::GetDefaultUiResourceProvider();
+    return RESOURCE_PROVIDER;
+}
+
+std::expected<ui::managers::BinaryResource, std::string> LoadUiResource(std::string_view resourcePath)
+{
+    const auto resourceProvider = GetUiResourceProvider();
+    if (resourceProvider == nullptr)
     {
-        return {};
+        return std::unexpected("UI resource provider unavailable");
     }
 
-    const auto fileSize = file.tellg();
-    if (fileSize <= 0)
-    {
-        return {};
-    }
-
-    std::vector<uint8_t> buffer(static_cast<size_t>(fileSize));
-    file.seekg(0, std::ios::beg);
-    if (!file.read(std::bit_cast<char*>(buffer.data()), fileSize))
-    {
-        return {};
-    }
-
-    return buffer;
+    return resourceProvider->loadBinary(resourcePath);
 }
 
 } // namespace
@@ -74,11 +76,16 @@ RenderSystem::RenderSystem()
       m_fontManager(std::make_unique<managers::FontManager>()),
       m_iconManager(std::make_unique<managers::IconManager>(m_deviceManager.get())), m_pipelineCache(nullptr),
       m_textTextureCache(nullptr), m_batchManager(std::make_unique<managers::BatchManager>()), m_commandBuffer(nullptr),
-      m_backendRenderer(nullptr)
+      m_backendRenderer(nullptr), m_forceFallback(IsTruthyEnvironmentValue(SDL_getenv("PESTMANKILL_FORCE_FALLBACK")))
 {
     m_stats.frameCount = 0;
     m_stats.batchCount = 0;
     m_stats.vertexCount = 0;
+
+    if (m_forceFallback)
+    {
+        Logger::warn("[RenderSystem] 检测到环境变量 PESTMANKILL_FORCE_FALLBACK，强制启用 SDL_Renderer fallback 后端");
+    }
 }
 
 RenderSystem::~RenderSystem()
@@ -91,10 +98,16 @@ RenderSystem::RenderSystem(RenderSystem&& other) noexcept
     : m_deviceManager(std::move(other.m_deviceManager)), m_fontManager(std::move(other.m_fontManager)),
       m_iconManager(std::move(other.m_iconManager)), m_pipelineCache(std::move(other.m_pipelineCache)),
       m_textTextureCache(std::move(other.m_textTextureCache)), m_batchManager(std::move(other.m_batchManager)),
-      m_commandBuffer(std::move(other.m_commandBuffer)), m_renderers(std::move(other.m_renderers)),
-      m_stats(other.m_stats), m_whiteTexture(std::move(other.m_whiteTexture)), m_screenWidth(other.m_screenWidth),
+      m_commandBuffer(std::move(other.m_commandBuffer)), m_backendRenderer(std::move(other.m_backendRenderer)),
+      m_renderers(std::move(other.m_renderers)), m_stats(other.m_stats),
+      m_whiteTexture(std::move(other.m_whiteTexture)), m_fallbackWhiteTextureTag(other.m_fallbackWhiteTextureTag),
+      m_useFallback(other.m_useFallback), m_forceFallback(other.m_forceFallback),
+      m_backendSelectionLogged(other.m_backendSelectionLogged), m_screenWidth(other.m_screenWidth),
       m_screenHeight(other.m_screenHeight)
 {
+    other.m_useFallback = false;
+    other.m_forceFallback = false;
+    other.m_backendSelectionLogged = false;
     Logger::info("[RenderSystem] 移动构造完成");
 }
 
@@ -112,13 +125,21 @@ RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
         m_textTextureCache = std::move(other.m_textTextureCache);
         m_batchManager = std::move(other.m_batchManager);
         m_commandBuffer = std::move(other.m_commandBuffer);
+        m_backendRenderer = std::move(other.m_backendRenderer);
         m_renderers = std::move(other.m_renderers);
         m_stats = other.m_stats;
         m_whiteTexture = std::move(other.m_whiteTexture);
+        m_fallbackWhiteTextureTag = other.m_fallbackWhiteTextureTag;
+        m_useFallback = other.m_useFallback;
+        m_forceFallback = other.m_forceFallback;
+        m_backendSelectionLogged = other.m_backendSelectionLogged;
         m_screenWidth = other.m_screenWidth;
         m_screenHeight = other.m_screenHeight;
 
         other.m_iconManager = nullptr;
+        other.m_useFallback = false;
+        other.m_forceFallback = false;
+        other.m_backendSelectionLogged = false;
         Logger::info("[RenderSystem] 移动赋值完成");
     }
     return *this;
@@ -377,6 +398,7 @@ void RenderSystem::update() noexcept
             rootContext.fontManager = m_fontManager.get();
             rootContext.textTextureCache = m_textTextureCache.get();
             rootContext.batchManager = m_batchManager.get();
+            rootContext.backendRenderer = m_useFallback ? m_backendRenderer.get() : nullptr;
             rootContext.sdlWindow = sdlWindow;
             rootContext.whiteTexture = m_useFallback ? m_fallbackWhiteTextureTag : m_whiteTexture.get();
 
@@ -394,6 +416,34 @@ void RenderSystem::update() noexcept
 
         // Sort render queue by RenderKey (Z-Order primarily)
         std::sort(m_renderQueue.begin(), m_renderQueue.end());
+
+        if (m_useFallback)
+        {
+            if (!tryInitializeFallback(sdlWindow) ||
+                !m_backendRenderer->beginFrame({.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 0.0F}))
+            {
+                continue;
+            }
+
+            for (auto& renderItem : m_renderQueue)
+            {
+                renderItem.renderer->collect(renderItem.entity, renderItem.context);
+
+                m_batchManager->optimize();
+                const auto& fallbackBatches = m_batchManager->getBatches();
+                for (const auto& batch : fallbackBatches)
+                {
+                    m_backendRenderer->drawBatch(batch, m_fallbackWhiteTextureTag);
+                }
+
+                m_stats.batchCount += static_cast<uint32_t>(fallbackBatches.size());
+                m_stats.vertexCount += static_cast<uint32_t>(m_batchManager->getTotalVertexCount());
+                m_batchManager->clear();
+            }
+
+            m_backendRenderer->endFrame();
+            continue;
+        }
 
         // Execute collected render commands
         for (auto& item : m_renderQueue)
@@ -447,11 +497,48 @@ void RenderSystem::ensureInitialized()
     if (m_forceFallback)
     {
         m_useFallback = true;
+
+        if (!m_backendSelectionLogged)
+        {
+            Logger::info("[RenderSystem] 当前渲染后端: fallback (source=environment)");
+            m_backendSelectionLogged = true;
+        }
     }
     else if (!m_deviceManager->initialize())
     {
         Logger::warn("Failed to initialize RenderSystem GPU backend, switching to fallback renderer");
         m_useFallback = true;
+
+        if (!m_backendSelectionLogged)
+        {
+            Logger::info("[RenderSystem] 当前渲染后端: fallback (source=gpu-init-failure)");
+            m_backendSelectionLogged = true;
+        }
+    }
+
+    if (!m_useFallback && !m_backendSelectionLogged)
+    {
+        Logger::info("[RenderSystem] 当前渲染后端: gpu ({})", m_deviceManager->getDriverName());
+        m_backendSelectionLogged = true;
+    }
+
+    if (!m_fontManager->isLoaded())
+    {
+        constexpr std::string_view DEFAULT_FONT_RESOURCE = "assets/fonts/NotoSansSC-VariableFont_wght.ttf";
+        if (auto fontResource = LoadUiResource(DEFAULT_FONT_RESOURCE); fontResource.has_value())
+        {
+            const auto& fontBytes = fontResource.value();
+            if (auto loadResult = m_fontManager->loadFromMemory(
+                    reinterpret_cast<const uint8_t*>(fontBytes.data()), fontBytes.size(), 14.0F);
+                !loadResult.has_value())
+            {
+                Logger::error("[RenderSystem] 默认字体加载失败: {}", loadResult.error().message());
+            }
+        }
+        else
+        {
+            Logger::error("[RenderSystem] 默认字体资源加载失败: {} ({})", DEFAULT_FONT_RESOURCE, fontResource.error());
+        }
     }
 
     if (m_useFallback)
@@ -475,23 +562,6 @@ void RenderSystem::ensureInitialized()
         m_pipelineCache->loadShaders();
     }
 
-    if (!m_fontManager->isLoaded())
-    {
-        const auto fontPath = GetUiAssetPath("fonts/NotoSansSC-VariableFont_wght.ttf");
-        if (const auto fontBytes = ReadBinaryFile(fontPath); !fontBytes.empty())
-        {
-            if (auto loadResult = m_fontManager->loadFromMemory(fontBytes.data(), fontBytes.size(), 14.0F);
-                !loadResult.has_value())
-            {
-                Logger::error("[RenderSystem] 默认字体加载失败: {}", loadResult.error().message());
-            }
-        }
-        else
-        {
-            Logger::error("[RenderSystem] 默认字体文件不存在: {}", fontPath.string());
-        }
-    }
-
     if (m_textTextureCache == nullptr)
     {
         m_textTextureCache = std::make_unique<managers::TextTextureCache>(*m_deviceManager, *m_fontManager);
@@ -503,26 +573,46 @@ void RenderSystem::ensureInitialized()
         if (!iconsLoaded)
         {
             Logger::info("[RenderSystem] 初始化 IconManager 并加载默认图标字体");
-            // 加载 MaterialSymbols 字体
             try
             {
-                const auto fontPath = GetUiAssetPath("icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf");
-                const auto cpPath = GetUiAssetPath("icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints");
+                constexpr std::string_view ICON_FONT_RESOURCE =
+                    "assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf";
+                constexpr std::string_view ICON_CODEPOINT_RESOURCE =
+                    "assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints";
 
-                if (std::filesystem::exists(fontPath) && std::filesystem::exists(cpPath))
+                auto fontResource = LoadUiResource(ICON_FONT_RESOURCE);
+                auto codepointResource = LoadUiResource(ICON_CODEPOINT_RESOURCE);
+
+                if (fontResource.has_value() && codepointResource.has_value())
                 {
-                    if (m_iconManager->loadIconFont("MaterialSymbols", fontPath.string(), cpPath.string(), 24))
+                    auto loadResult = m_iconManager->loadIconFontFromMemory("MaterialSymbols",
+                                                                            fontResource->data(),
+                                                                            fontResource->size(),
+                                                                            codepointResource->data(),
+                                                                            codepointResource->size(),
+                                                                            24);
+                    if (loadResult.has_value())
                     {
                         Logger::info("[RenderSystem]默认图标字体加载完成");
                     }
                     else
                     {
-                        Logger::error("[RenderSystem] 默认图标字体加载失败");
+                        Logger::error("[RenderSystem] 默认图标字体加载失败: {}", loadResult.error().message());
                     }
                 }
                 else
                 {
-                    Logger::warn("[RenderSystem] 默认图标字体文件不存在");
+                    if (!fontResource.has_value())
+                    {
+                        Logger::warn(
+                            "[RenderSystem] 默认图标字体资源不存在: {} ({})", ICON_FONT_RESOURCE, fontResource.error());
+                    }
+                    if (!codepointResource.has_value())
+                    {
+                        Logger::warn("[RenderSystem] 默认图标码点资源不存在: {} ({})",
+                                     ICON_CODEPOINT_RESOURCE,
+                                     codepointResource.error());
+                    }
                 }
             }
             catch (const std::exception& e)

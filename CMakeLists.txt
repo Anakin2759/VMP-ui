@@ -13,7 +13,8 @@ if(MSVC)
 endif()
 
 option(ENABLE_BUILD_TESTS "Enable building of unit tests" OFF)
-option(ENABLE_LTO "Enable IPO/LTO for Release and RelWithDebInfo builds" OFF)
+option(ENABLE_LTO "Enable IPO/LTO for Release and RelWithDebInfo builds" ON)
+option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 
 #==================== IPO / LTO 设置 ====================
 check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
@@ -129,7 +130,7 @@ add_subdirectory(third_party/harfbuzz)
 # ==================== 静态分析工具 clang-tidy ====================
 # 常规构建默认关闭 clang-tidy；它应作为显式的静态分析步骤启用，
 # 否则在 Windows + clang-cl + 大型模板/生成源码下很容易出现 OOM。
-option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
+
 
 # 查找 clang-tidy 可执行文件
 find_program(CLANG_TIDY_EXE
@@ -166,5 +167,6 @@ add_subdirectory(src/net)
  add_subdirectory(src/server)
 # ===================== 单元测试 =====================
 if(ENABLE_BUILD_TESTS)
+    enable_testing()
     add_subdirectory(tests/unittest)
 endif()

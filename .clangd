@@ -12,6 +12,8 @@ CompileFlags:
 Diagnostics:
   Suppress:
     - "unused-parameter"
+    - "c++98-compat"
+    - "c++98-compat-pedantic"
 
 Index:
   Background: Build

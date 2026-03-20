@@ -29,6 +29,7 @@
 #include "../singleton/Registry.hpp"
 #include "../singleton/Logger.hpp"
 #include "../interface/Isystem.hpp"
+#include "../api/Animation.hpp"
 #include "../common/Components.hpp"
 #include "../common/GlobalContext.hpp"
 namespace ui::systems
@@ -61,7 +62,6 @@ public:
     }
 
 private:
-    // 辅助函数：应用动画 (Scale + Offset)
     void applyAnimation(entt::entity entity,
                         const std::optional<Vec2>& targetScale,
                         const std::optional<Vec2>& targetOffset,
@@ -69,49 +69,13 @@ private:
                         const Vec2& defaultScale,
                         const Vec2& defaultOffset)
     {
-        bool changed = false;
+        ui::animation::TweenOptions options;
+        options.duration = duration;
+        options.easing = policies::Easing::EASE_OUT_QUAD;
+        options.mode = policies::Play::ONCE;
+        options.autoCleanup = true;
 
-        // --- Scale ---
-        if (targetScale.has_value() ||
-            (duration > 0 && (targetScale.has_value() && targetScale.value() == defaultScale)))
-        {
-            auto& animScale = Registry::GetOrEmplace<components::AnimationScale>(entity);
-            Vec2 target = targetScale.value_or(defaultScale);
-
-            // 只有目标值不同时才重置
-            if (animScale.to != target)
-            {
-                const auto* currentScale = Registry::TryGet<components::Scale>(entity);
-                animScale.from = currentScale != nullptr ? currentScale->value : defaultScale;
-                animScale.to = target;
-                changed = true;
-            }
-        }
-
-        // --- Offset ---
-        if (targetOffset.has_value() ||
-            (duration > 0 && (targetOffset.has_value() && targetOffset.value() == defaultOffset)))
-        {
-            auto& animOffset = Registry::GetOrEmplace<components::AnimationRenderOffset>(entity);
-            Vec2 target = targetOffset.value_or(defaultOffset);
-
-            if (animOffset.to != target)
-            {
-                const auto* currentOffset = Registry::TryGet<components::RenderOffset>(entity);
-                animOffset.from = currentOffset != nullptr ? currentOffset->value : defaultOffset;
-                animOffset.to = target;
-                changed = true;
-            }
-        }
-
-        if (changed)
-        {
-            auto& animTime = Registry::GetOrEmplace<components::AnimationTime>(entity);
-            animTime.duration = duration;
-            animTime.elapsed = 0.0F;
-            animTime.mode = policies::Play::ONCE;
-            animTime.easing = policies::Easing::EASE_OUT_QUAD;
-        }
+        ui::animation::StartTransformAnimation(entity, targetScale, targetOffset, options, defaultScale, defaultOffset);
     }
     /**
      * @brief 处理命中点的指针移动事件
@@ -130,6 +94,12 @@ private:
         {
             // 只有当鼠标移动且按下时
             if (event.raw.delta == Vec2{0, 0}) return;
+
+            if (!draggable->dragging)
+            {
+                draggable->dragging = true;
+                if (draggable->onDragStart) draggable->onDragStart();
+            }
 
             // 应用移动
             if (auto* pos = Registry::TryGet<components::Position>(entity))
@@ -166,6 +136,11 @@ private:
 
         if (!Registry::Valid(entity)) return;
 
+        if (auto* draggable = Registry::TryGet<components::Draggable>(entity))
+        {
+            draggable->dragging = false;
+        }
+
         if (auto* interact = Registry::TryGet<components::InteractiveAnimation>(entity))
         {
             applyAnimation(entity,
@@ -183,6 +158,12 @@ private:
         entt::entity entity = event.entity;
 
         if (!Registry::Valid(entity)) return;
+
+        if (auto* draggable = Registry::TryGet<components::Draggable>(entity); draggable != nullptr)
+        {
+            if (draggable->dragging && draggable->onDragEnd) draggable->onDragEnd();
+            draggable->dragging = false;
+        }
 
         if (auto* interact = Registry::TryGet<components::InteractiveAnimation>(entity))
         {

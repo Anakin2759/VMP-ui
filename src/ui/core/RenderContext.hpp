@@ -29,6 +29,11 @@ class TextTextureCache;
 class BatchManager;
 } // namespace ui::managers
 
+namespace ui::interface
+{
+class IBackendRenderer;
+} // namespace ui::interface
+
 namespace ui::core
 {
 
@@ -67,6 +72,7 @@ struct RenderContext
     managers::FontManager* fontManager = nullptr;
     managers::TextTextureCache* textTextureCache = nullptr;
     managers::BatchManager* batchManager = nullptr;
+    interface::IBackendRenderer* backendRenderer = nullptr;
 
     // SDL窗口指针（用于IME等）
     SDL_Window* sdlWindow = nullptr;

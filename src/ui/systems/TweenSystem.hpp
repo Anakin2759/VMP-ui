@@ -31,6 +31,7 @@
 #include "../common/Events.hpp"
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
+#include "../api/Utils.hpp"
 #include "../interface/Isystem.hpp"
 #include <sys/stat.h>
 
@@ -59,24 +60,47 @@ private:
             }
         }
 
-        // 获取所有具有动画时间组件的实体
-        auto view = ui::Registry::View<components::AnimationTime>();
+        auto view = ui::Registry::View<components::AnimationTime, components::AnimatingTag>();
+        std::vector<entt::entity> completedEntities;
 
         view.each(
-            [this, deltaTime](entt::entity entity, components::AnimationTime& anim)
+            [this, deltaTime, &completedEntities](entt::entity entity, components::AnimationTime& anim)
             {
+                if (anim.state != policies::AnimationState::Playing)
+                {
+                    completedEntities.push_back(entity);
+                    return;
+                }
+
                 float time = updateTime(anim, deltaTime);
 
                 // 4. 应用缓动函数计算插值系数
                 float val = applyEasing(time, anim.easing);
 
                 // 5. 应用到具体的动画属性组件
-                updatePosition(entity, val);
-                updateAlpha(entity, val);
-                updateScale(entity, val);
-                updateRenderOffset(entity, val);
-                updateColor(entity, val);
+                bool dirty = false;
+                dirty |= updatePosition(entity, val);
+                dirty |= updateAlpha(entity, val);
+                dirty |= updateScale(entity, val);
+                dirty |= updateRenderOffset(entity, val);
+                dirty |= updateColor(entity, val);
+
+                if (dirty)
+                {
+                    ui::utils::MarkRenderDirty(entity);
+                }
+
+                if (anim.mode == policies::Play::ONCE && time >= 1.0F)
+                {
+                    anim.state = policies::AnimationState::Stopped;
+                    completedEntities.push_back(entity);
+                }
             });
+
+        for (const auto entity : completedEntities)
+        {
+            finishAnimation(entity);
+        }
     }
 
     float updateTime(components::AnimationTime& anim, float deltaTime)
@@ -122,18 +146,22 @@ private:
         return time;
     }
 
-    void updatePosition(entt::entity entity, float val)
+    bool updatePosition(entt::entity entity, float val)
     {
         if (auto* animPos = ui::Registry::TryGet<components::AnimationPosition>(entity))
         {
             if (auto* pos = ui::Registry::TryGet<components::Position>(entity))
             {
                 pos->value = animPos->from + ((animPos->to - animPos->from) * val);
+                ui::utils::MarkLayoutDirty(entity);
+                return true;
             }
         }
+
+        return false;
     }
 
-    void updateAlpha(entt::entity entity, float val)
+    bool updateAlpha(entt::entity entity, float val)
     {
         if (auto* animAlpha = ui::Registry::TryGet<components::AnimationAlpha>(entity))
         {
@@ -163,30 +191,40 @@ private:
             {
                 alpha->value = currentAlpha;
             }
+
+            return true;
         }
+
+        return false;
     }
     /**
      * @brief 更新缩放动画
      */
-    void updateScale(entt::entity entity, float val)
+    bool updateScale(entt::entity entity, float val)
     {
         if (auto* animScale = ui::Registry::TryGet<components::AnimationScale>(entity))
         {
             auto& scale = ui::Registry::GetOrEmplace<components::Scale>(entity);
             scale.value = animScale->from + ((animScale->to - animScale->from) * val);
+            return true;
         }
+
+        return false;
     }
 
-    void updateRenderOffset(entt::entity entity, float val)
+    bool updateRenderOffset(entt::entity entity, float val)
     {
         if (auto* animOffset = ui::Registry::TryGet<components::AnimationRenderOffset>(entity))
         {
             auto& offset = ui::Registry::GetOrEmplace<components::RenderOffset>(entity);
             offset.value = animOffset->from + ((animOffset->to - animOffset->from) * val);
+            return true;
         }
+
+        return false;
     }
 
-    void updateColor(entt::entity entity, float val)
+    bool updateColor(entt::entity entity, float val)
     {
         if (auto* animColor = ui::Registry::TryGet<components::AnimationColor>(entity))
         {
@@ -200,7 +238,33 @@ private:
             {
                 background->color = currentColor;
             }
+
+            return true;
         }
+
+        return false;
+    }
+
+    static void finishAnimation(entt::entity entity)
+    {
+        if (!ui::Registry::Valid(entity)) return;
+
+        auto* animTime = ui::Registry::TryGet<components::AnimationTime>(entity);
+        if (animTime == nullptr) return;
+
+        ui::Registry::Remove<components::AnimatingTag>(entity);
+
+        if (!animTime->autoCleanup)
+        {
+            return;
+        }
+
+        ui::Registry::Remove<components::AnimationPosition>(entity);
+        ui::Registry::Remove<components::AnimationAlpha>(entity);
+        ui::Registry::Remove<components::AnimationScale>(entity);
+        ui::Registry::Remove<components::AnimationRenderOffset>(entity);
+        ui::Registry::Remove<components::AnimationColor>(entity);
+        ui::Registry::Remove<components::AnimationTime>(entity);
     }
 
     /**

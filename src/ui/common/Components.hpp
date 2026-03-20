@@ -259,7 +259,7 @@ struct TextEdit
     bool hasSelection = false; // 是否有选中内容
 
     // Callbacks
-    on_event<> onSubmit;                      // 按回车键时触发（单行模式）
+    on_event<> onSubmit;                        // 按回车键时触发（单行模式）
     on_event<const std::string&> onTextChanged; // 文本内容改变时触发
 };
 
@@ -301,6 +301,7 @@ struct Draggable
     policies::Feature enabled = policies::Feature::Enabled;
     bool lockX = false; // 锁定X轴
     bool lockY = false; // 锁定Y轴
+    bool dragging = false;
 
     // 拖拽开始/结束的回调
     on_event<> onDragStart;
@@ -351,6 +352,8 @@ struct AnimationTime
     float elapsed = 0.0F;
     policies::Easing easing = policies::Easing::LINEAR;
     policies::Play mode = policies::Play::ONCE;
+    policies::AnimationState state = policies::AnimationState::Playing;
+    bool autoCleanup = true;
 };
 
 /**

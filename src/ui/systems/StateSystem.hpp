@@ -149,6 +149,7 @@ public:
     void onMousePressEvent(const events::MousePressEvent& event)
     {
         auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        state.activeDragMoved = false;
 
         // 标记旧激活实体需要移除 Active 标签
         if (state.activeEntity != entt::null && Registry::Valid(state.activeEntity))
@@ -185,6 +186,8 @@ public:
         {
             state.activeEntity = entt::null;
         }
+
+        state.activeDragMoved = false;
     }
 
     // ===================================================================
@@ -196,6 +199,13 @@ public:
         auto& state = Registry::ctx().get<globalcontext::StateContext>();
         state.latestMousePosition = event.raw.position;
         state.latestMouseDelta = event.raw.delta;
+
+        if (!state.activeDragMoved && state.activeEntity != entt::null && Registry::Valid(state.activeEntity) &&
+            Registry::TryGet<components::Draggable>(state.activeEntity) != nullptr &&
+            event.raw.delta != Vec2{0.0F, 0.0F})
+        {
+            state.activeDragMoved = true;
+        }
 
         if (m_isDraggingSlider)
         {
@@ -912,6 +922,7 @@ private:
     {
         // 先保存当前激活实体，点击逻辑需要在释放清理之前完成
         const entt::entity releasedEntity = state.activeEntity;
+        const bool suppressClick = state.activeDragMoved;
 
         if (m_isDraggingSlider)
         {
@@ -933,7 +944,7 @@ private:
             // 不 return，允许释放 activeEntity（如果有）
         }
 
-        if (releasedEntity != entt::null && releasedEntity == event.hitEntity)
+        if (!suppressClick && releasedEntity != entt::null && releasedEntity == event.hitEntity)
         {
             if (Registry::TryGet<components::Clickable>(releasedEntity) != nullptr)
             {
@@ -958,7 +969,8 @@ private:
         else
         {
             // 兜底：如果没有 activeEntity 但命中了可点击实体，也触发点击
-            if (event.hitEntity != entt::null && Registry::TryGet<components::Clickable>(event.hitEntity) != nullptr)
+            if (!suppressClick && event.hitEntity != entt::null &&
+                Registry::TryGet<components::Clickable>(event.hitEntity) != nullptr)
             {
                 Logger::debug("StateSystem: Click Event (fallback) on entity {}",
                               static_cast<uint32_t>(event.hitEntity));

@@ -12,9 +12,12 @@
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "Utils.hpp"
+#include "Animation.hpp"
 #include "../core/PlatformWindow.hpp"
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_video.h>
 
+#include <cmath>
 #include <memory>
 #include <system_error>
 
@@ -63,13 +66,12 @@ void CreateFadeInAnimation(entt::entity entity, float duration)
     if (!Registry::Valid(entity)) return;
     auto& alpha = Registry::GetOrEmplace<components::Alpha>(entity);
     alpha.value = 0.0F;
-    auto& time = Registry::GetOrEmplace<components::AnimationTime>(entity);
-    time.duration = duration;
-    time.elapsed = 0.0F;
-    auto& alphaAnim = Registry::GetOrEmplace<components::AnimationAlpha>(entity);
-    alphaAnim.from = 0.0F;
-    alphaAnim.to = 1.0F;
-    Registry::EmplaceOrReplace<components::AnimatingTag>(entity);
+    ui::animation::TweenOptions options;
+    options.duration = duration;
+    options.easing = policies::Easing::EASE_OUT_QUAD;
+    options.mode = policies::Play::ONCE;
+    options.autoCleanup = true;
+    ui::animation::StartAlphaAnimation(entity, 0.0F, 1.0F, options);
 }
 
 entt::entity CreateButton(const std::string& content, std::string_view alias)
@@ -185,10 +187,8 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
     dialog.flags |= policies::WindowFlag::NoTitleBar;
     constexpr int DEFAULT_DIALOG_WIDTH = 400;
     constexpr int DEFAULT_DIALOG_HEIGHT = 300;
-    SDL_Window* sdlWindow = SDL_CreateWindow(dialog.title.c_str(),
-                                             DEFAULT_DIALOG_WIDTH,
-                                             DEFAULT_DIALOG_HEIGHT,
-                                             SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+    SDL_Window* sdlWindow = SDL_CreateWindow(
+        dialog.title.c_str(), DEFAULT_DIALOG_WIDTH, DEFAULT_DIALOG_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     dialog.windowID = SDL_GetWindowID(sdlWindow);
     platform::InitCustomWindow(sdlWindow);
     Registry::Remove<components::VisibleTag>(entity);
@@ -232,10 +232,8 @@ entt::entity CreateWindow(std::string_view title, std::string_view alias)
     Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
     constexpr int DEFAULT_WINDOW_WIDTH = 800;
     constexpr int DEFAULT_WINDOW_HEIGHT = 600;
-    SDL_Window* sdlWindow = SDL_CreateWindow(window.title.c_str(),
-                                             DEFAULT_WINDOW_WIDTH,
-                                             DEFAULT_WINDOW_HEIGHT,
-                                             SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+    SDL_Window* sdlWindow = SDL_CreateWindow(
+        window.title.c_str(), DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     window.windowID = SDL_GetWindowID(sdlWindow);
     Logger::info("[Factory] Enqueuing WindowGraphicsContextSetEvent for window entity {}",
                  static_cast<uint32_t>(entity));
@@ -287,15 +285,78 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
 
     // 通过 SDL API 移动窗口
     uint32_t windowID = windowComp->windowID;
-    draggable.onDragMove = [windowID](Vec2 delta)
+    struct TitleBarDragState
+    {
+        Vec2 dragStartMouseGlobal{0.0F, 0.0F};
+        Vec2 dragStartWindowPos{0.0F, 0.0F};
+        bool dragAnchorValid = false;
+    };
+    auto dragState = std::make_shared<TitleBarDragState>();
+
+    draggable.onDragStart = [windowEntity, windowID, dragState]()
+    {
+        SDL_Window* sdlWin = SDL_GetWindowFromID(windowID);
+        auto* position = Registry::TryGet<components::Position>(windowEntity);
+        if (sdlWin == nullptr || position == nullptr)
+        {
+            dragState->dragAnchorValid = false;
+            return;
+        }
+
+        float globalMouseX = 0.0F;
+        float globalMouseY = 0.0F;
+        SDL_GetGlobalMouseState(&globalMouseX, &globalMouseY);
+
+        int windowX = 0;
+        int windowY = 0;
+        SDL_GetWindowPosition(sdlWin, &windowX, &windowY);
+
+        dragState->dragStartMouseGlobal = Vec2{globalMouseX, globalMouseY};
+        dragState->dragStartWindowPos = Vec2{static_cast<float>(windowX), static_cast<float>(windowY)};
+        position->value = dragState->dragStartWindowPos;
+        dragState->dragAnchorValid = true;
+    };
+
+    draggable.onDragMove = [windowEntity, windowID, dragState]([[maybe_unused]] Vec2 delta)
     {
         SDL_Window* sdlWin = SDL_GetWindowFromID(windowID);
         if (sdlWin == nullptr) return;
-        int curX = 0;
-        int curY = 0;
-        SDL_GetWindowPosition(sdlWin, &curX, &curY);
-        SDL_SetWindowPosition(sdlWin, curX + static_cast<int>(delta.x()), curY + static_cast<int>(delta.y()));
+
+        auto* position = Registry::TryGet<components::Position>(windowEntity);
+        if (position == nullptr) return;
+
+        float globalMouseX = 0.0F;
+        float globalMouseY = 0.0F;
+        SDL_GetGlobalMouseState(&globalMouseX, &globalMouseY);
+
+        int currentX = 0;
+        int currentY = 0;
+        SDL_GetWindowPosition(sdlWin, &currentX, &currentY);
+
+        constexpr float POSITION_EPSILON = 0.01F;
+        if (!dragState->dragAnchorValid)
+        {
+            dragState->dragStartMouseGlobal = Vec2{globalMouseX, globalMouseY};
+            dragState->dragStartWindowPos = Vec2{static_cast<float>(currentX), static_cast<float>(currentY)};
+            dragState->dragAnchorValid = true;
+        }
+        else if (std::abs(position->value.x()) < POSITION_EPSILON && std::abs(position->value.y()) < POSITION_EPSILON)
+        {
+            position->value = Vec2{static_cast<float>(currentX), static_cast<float>(currentY)};
+        }
+
+        const Vec2 globalDelta = Vec2{globalMouseX, globalMouseY} - dragState->dragStartMouseGlobal;
+        position->value = dragState->dragStartWindowPos + globalDelta;
+
+        const int targetX = static_cast<int>(std::lround(position->value.x()));
+        const int targetY = static_cast<int>(std::lround(position->value.y()));
+
+        if (targetX != currentX || targetY != currentY)
+        {
+            SDL_SetWindowPosition(sdlWin, targetX, targetY);
+        }
     };
+    draggable.onDragEnd = [dragState]() { dragState->dragAnchorValid = false; };
 
     // ---- 标题文本 ----
     auto titleLabel = CreateLabel(windowComp->title, std::string(alias) + "_title");

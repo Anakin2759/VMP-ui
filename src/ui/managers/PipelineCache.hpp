@@ -13,15 +13,13 @@
  * ************************************************************************
  */
 #pragma once
+#include <memory>
 #include <SDL3/SDL_gpu.h>
-#include <cmrc/cmrc.hpp>
 #include "../singleton/Logger.hpp"
 #include "../common/RenderTypes.hpp"
 #include "../common/GPUWrappers.hpp"
 #include "DeviceManager.hpp"
-
-// 声明资源
-CMRC_DECLARE(ui_fonts);
+#include "ResourceProvider.hpp"
 
 namespace ui::managers
 {
@@ -29,7 +27,11 @@ namespace ui::managers
 class PipelineCache
 {
 public:
-    explicit PipelineCache(DeviceManager& deviceManager) : m_deviceManager(&deviceManager) {}
+    explicit PipelineCache(DeviceManager& deviceManager,
+                           std::shared_ptr<const IResourceProvider> resourceProvider = GetDefaultUiResourceProvider())
+        : m_deviceManager(&deviceManager), m_resourceProvider(std::move(resourceProvider))
+    {
+    }
     ~PipelineCache() { cleanup(); }
     PipelineCache(const PipelineCache&) = delete;
     PipelineCache& operator=(const PipelineCache&) = delete;
@@ -209,17 +211,23 @@ private:
     wrappers::UniqueGPUShader
         loadShaderFromResource(const char* resourcePath, SDL_GPUShaderStage stage, SDL_GPUShaderFormat format)
     {
-        auto fs = cmrc::ui_fonts::get_filesystem();
-        if (!fs.exists(resourcePath))
+        if (m_resourceProvider == nullptr)
         {
-            Logger::error("着色器资源未找到: {}", resourcePath);
+            Logger::error("着色器资源提供器未初始化: {}", resourcePath);
             return nullptr;
         }
 
-        auto file = fs.open(resourcePath);
+        auto resourceResult = m_resourceProvider->loadBinary(resourcePath);
+        if (!resourceResult.has_value())
+        {
+            Logger::error("着色器资源加载失败: {} ({})", resourcePath, resourceResult.error());
+            return nullptr;
+        }
+
+        const BinaryResource& resource = resourceResult.value();
         SDL_GPUShaderCreateInfo shaderInfo = {};
-        shaderInfo.code = reinterpret_cast<const uint8_t*>(file.begin());
-        shaderInfo.code_size = static_cast<size_t>(file.size());
+        shaderInfo.code = static_cast<const uint8_t*>(static_cast<const void*>(resource.data()));
+        shaderInfo.code_size = resource.size();
         shaderInfo.entrypoint = (stage == SDL_GPU_SHADERSTAGE_VERTEX) ? "main_vs" : "main_ps";
         shaderInfo.format = format;
         shaderInfo.stage = stage;
@@ -231,6 +239,7 @@ private:
     }
 
     DeviceManager* m_deviceManager;
+    std::shared_ptr<const IResourceProvider> m_resourceProvider;
     wrappers::UniqueGPUGraphicsPipeline m_pipeline;
     wrappers::UniqueGPUShader m_vertexShader;
     wrappers::UniqueGPUShader m_fragmentShader;

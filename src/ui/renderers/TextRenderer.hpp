@@ -21,9 +21,12 @@
 #include "../managers/TextTextureCache.hpp"
 #include "../managers/FontManager.hpp"
 #include "../managers/BatchManager.hpp"
+#include "../interface/IBackendRenderer.hpp"
 #include "../core/TextUtils.hpp"
 #include "../api/Utils.hpp"
-#include <functional>
+#include <cstdint>
+#include <unordered_map>
+#include <vector>
 
 namespace ui::renderers
 {
@@ -50,7 +53,7 @@ public:
 
     void collect(entt::entity entity, core::RenderContext& context) override
     {
-        if (context.fontManager == nullptr || context.textTextureCache == nullptr || context.batchManager == nullptr)
+        if (context.fontManager == nullptr || context.batchManager == nullptr)
         {
             return;
         }
@@ -83,6 +86,85 @@ public:
     }
 
 private:
+    struct FallbackTextBitmap
+    {
+        std::vector<uint8_t> pixels;
+        uint32_t rasterWidth = 0;
+        uint32_t rasterHeight = 0;
+        float logicalWidth = 0.0F;
+        float logicalHeight = 0.0F;
+    };
+
+    static uint8_t quantizeColor(float value)
+    {
+        return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * 255.0F));
+    }
+
+    [[nodiscard]] bool isUsingFallbackBackend(const core::RenderContext& context) const
+    {
+        return context.backendRenderer != nullptr &&
+               context.backendRenderer->getType() == interface::BackendType::FALLBACK;
+    }
+
+    static std::string buildFallbackTextCacheKey(const std::string& text, const Eigen::Vector4f& color, float fontSize)
+    {
+        return text + "_" + std::to_string(static_cast<int>(fontSize * 10.0F)) + "_" +
+               std::to_string(quantizeColor(color.x())) + "_" + std::to_string(quantizeColor(color.y())) + "_" +
+               std::to_string(quantizeColor(color.z())) + "_" + std::to_string(quantizeColor(color.w()));
+    }
+
+    const FallbackTextBitmap* getOrCreateFallbackTextBitmap(const std::string& text,
+                                                            const Eigen::Vector4f& color,
+                                                            float fontSize,
+                                                            managers::FontManager& fontManager)
+    {
+        const std::string cacheKey = buildFallbackTextCacheKey(text, color, fontSize);
+        if (auto cacheIterator = m_fallbackTextCache.find(cacheKey); cacheIterator != m_fallbackTextCache.end())
+        {
+            return &cacheIterator->second;
+        }
+
+        int bitmapWidth = 0;
+        int bitmapHeight = 0;
+        std::vector<uint8_t> alphaMask =
+            fontManager.renderTextAlphaMask(text, quantizeColor(color.w()), bitmapWidth, bitmapHeight, fontSize);
+        if (alphaMask.empty() || bitmapWidth <= 0 || bitmapHeight <= 0)
+        {
+            return nullptr;
+        }
+
+        std::vector<uint8_t> bitmap(static_cast<size_t>(bitmapWidth) * static_cast<size_t>(bitmapHeight) * 4ULL, 0);
+        const uint8_t red = quantizeColor(color.x());
+        const uint8_t green = quantizeColor(color.y());
+        const uint8_t blue = quantizeColor(color.z());
+        const uint8_t alpha = quantizeColor(color.w());
+
+        for (size_t pixelIndex = 0; pixelIndex < alphaMask.size(); ++pixelIndex)
+        {
+            const uint8_t coverage = alphaMask[pixelIndex];
+            const uint8_t finalAlpha =
+                static_cast<uint8_t>((static_cast<uint16_t>(coverage) * static_cast<uint16_t>(alpha)) / 255U);
+            const size_t rgbaOffset = pixelIndex * 4ULL;
+            bitmap[rgbaOffset] = red;
+            bitmap[rgbaOffset + 1] = green;
+            bitmap[rgbaOffset + 2] = blue;
+            bitmap[rgbaOffset + 3] = finalAlpha;
+        }
+
+        const float oversampleScale = fontManager.getOversampleScale();
+
+        FallbackTextBitmap newBitmap{};
+        newBitmap.pixels = std::move(bitmap);
+        newBitmap.rasterWidth = static_cast<uint32_t>(bitmapWidth);
+        newBitmap.rasterHeight = static_cast<uint32_t>(bitmapHeight);
+        newBitmap.logicalWidth = static_cast<float>(bitmapWidth) / oversampleScale;
+        newBitmap.logicalHeight = static_cast<float>(bitmapHeight) / oversampleScale;
+
+        auto [cacheIterator, inserted] = m_fallbackTextCache.emplace(cacheKey, std::move(newBitmap));
+        static_cast<void>(inserted);
+        return &cacheIterator->second;
+    }
+
     void renderText(entt::entity entity, const components::Text& textComp, core::RenderContext& context)
     {
         Eigen::Vector4f color(textComp.color.red, textComp.color.green, textComp.color.blue, textComp.color.alpha);
@@ -535,16 +617,45 @@ private:
     {
         if (!context.fontManager->isLoaded() || text.empty()) return;
 
+        const bool useFallbackText = isUsingFallbackBackend(context);
+
         uint32_t textWidth = 0;
         uint32_t textHeight = 0;
 
-        SDL_GPUTexture* textTexture =
-            context.textTextureCache->getOrUpload(text, color, textWidth, textHeight, fontSize);
+        SDL_GPUTexture* textTexture = nullptr;
+        Eigen::Vector2f textSize(0.0F, 0.0F);
+        std::string fallbackCacheKey;
+        const FallbackTextBitmap* fallbackBitmap = nullptr;
 
-        if (textTexture == nullptr) return;
+        if (useFallbackText)
+        {
+            fallbackCacheKey = buildFallbackTextCacheKey(text, color, fontSize);
+            fallbackBitmap = getOrCreateFallbackTextBitmap(text, color, fontSize, *context.fontManager);
+            if (fallbackBitmap == nullptr)
+            {
+                return;
+            }
 
-        float scale = context.fontManager->getOversampleScale();
-        Eigen::Vector2f textSize(static_cast<float>(textWidth) / scale, static_cast<float>(textHeight) / scale);
+            textWidth = fallbackBitmap->rasterWidth;
+            textHeight = fallbackBitmap->rasterHeight;
+            textSize = {fallbackBitmap->logicalWidth, fallbackBitmap->logicalHeight};
+        }
+        else
+        {
+            if (context.textTextureCache == nullptr)
+            {
+                return;
+            }
+
+            textTexture = context.textTextureCache->getOrUpload(text, color, textWidth, textHeight, fontSize);
+            if (textTexture == nullptr)
+            {
+                return;
+            }
+
+            const float scale = context.fontManager->getOversampleScale();
+            textSize = {static_cast<float>(textWidth) / scale, static_cast<float>(textHeight) / scale};
+        }
 
         float drawX = pos.x();
         float drawY = pos.y();
@@ -572,6 +683,20 @@ private:
         // 对齐到整数像素，避免亚像素偏移导致线性滤波在预乘 Alpha 纹理上产生暗边
         drawX = std::round(drawX);
         drawY = std::round(drawY);
+
+        if (useFallbackText)
+        {
+            const SDL_FRect destinationRect = {drawX, drawY, textSize.x(), textSize.y()};
+            const uint8_t alphaMod = static_cast<uint8_t>(std::lround(std::clamp(opacity, 0.0F, 1.0F) * 255.0F));
+            context.backendRenderer->drawCachedBitmap(fallbackCacheKey,
+                                                      fallbackBitmap->pixels,
+                                                      static_cast<int>(fallbackBitmap->rasterWidth),
+                                                      static_cast<int>(fallbackBitmap->rasterHeight),
+                                                      destinationRect,
+                                                      context.currentScissor,
+                                                      alphaMod);
+            return;
+        }
 
         render::UiPushConstants pushConstants{};
         pushConstants.screen_size[0] = context.screenWidth;
@@ -639,6 +764,8 @@ private:
             y += lineHeight;
         }
     }
+
+    std::unordered_map<std::string, FallbackTextBitmap> m_fallbackTextCache;
 };
 
 } // namespace ui::renderers
