@@ -1,5 +1,16 @@
 /**
- * API header for UI factory functions
+ * ************************************************************************
+ *
+ * @file Factory.cpp
+ * @author AnakinLiu (azrael2759@qq.com)
+ * @date 2026-03-23
+ * @version 0.1
+ * @brief 工厂实现 - 提供UI组件和应用程序的创建函数
+ *
+ * ************************************************************************
+ * @copyright Copyright (c) 2026 AnakinLiu
+ * For study and research only, no reprinting.
+ * ************************************************************************
  */
 #pragma once
 #include <expected>

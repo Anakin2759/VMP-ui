@@ -702,19 +702,32 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
     entityContext.position = absolutePos;
     entityContext.size = finalSize;
     entityContext.alpha = globalAlpha;
+    core::RenderContext childBaseContext = entityContext;
 
     // 处理 ScrollArea
     const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
     bool pushScissor = false;
     if (scrollArea != nullptr)
     {
-        SDL_Rect currentScissor;
-        currentScissor.x = static_cast<int>(absolutePos.x());
-        currentScissor.y = static_cast<int>(absolutePos.y());
-        currentScissor.w = static_cast<int>(size.size.x());
-        currentScissor.h = static_cast<int>(size.size.y());
+        float paddingTop = 0.0F;
+        float paddingRight = 0.0F;
+        float paddingBottom = 0.0F;
+        float paddingLeft = 0.0F;
+        if (const auto* padding = Registry::TryGet<components::Padding>(entity))
+        {
+            paddingTop = padding->values.x();
+            paddingRight = padding->values.y();
+            paddingBottom = padding->values.z();
+            paddingLeft = padding->values.w();
+        }
 
-        entityContext.pushScissor(currentScissor);
+        SDL_Rect currentScissor{};
+        currentScissor.x = static_cast<int>(absolutePos.x() + paddingLeft);
+        currentScissor.y = static_cast<int>(absolutePos.y() + paddingTop);
+        currentScissor.w = static_cast<int>(std::max(0.0F, finalSize.x() - paddingLeft - paddingRight));
+        currentScissor.h = static_cast<int>(std::max(0.0F, finalSize.y() - paddingTop - paddingBottom));
+
+        childBaseContext.pushScissor(currentScissor);
         pushScissor = true;
         contentOffset = -scrollArea->scrollOffset;
     }
@@ -753,7 +766,7 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
     {
         for (entt::entity child : hierarchy->children)
         {
-            core::RenderContext childContext = entityContext;
+            core::RenderContext childContext = childBaseContext;
             childContext.position = absolutePos + contentOffset;
             collectRenderData(child, childContext);
         }
@@ -761,7 +774,7 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
 
     if (pushScissor)
     {
-        entityContext.popScissor();
+        childBaseContext.popScissor();
     }
 }
 

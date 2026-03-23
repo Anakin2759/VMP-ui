@@ -18,7 +18,7 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include "Utils.hpp"
+#include "../common/Types.hpp"
 #include "Chains.hpp" // Changed: Include Chains.hpp for DSL
 
 namespace ui::visibility
@@ -44,38 +44,53 @@ void SetBorderThickness(::entt::entity entity, float thickness);
 
 } // namespace ui::visibility
 
+namespace ui::actions
+{
+namespace visibility
+{
+inline constexpr EntityAction<&ui::visibility::SetVisible> SET_VISIBLE_ACTION{};
+inline constexpr EntityAction<&ui::visibility::Show> SHOW_ACTION{};
+inline constexpr EntityAction<&ui::visibility::Hide> HIDE_ACTION{};
+inline constexpr EntityAction<&ui::visibility::SetAlpha> SET_ALPHA_ACTION{};
+inline constexpr EntityAction<&ui::visibility::SetBackgroundColor> SET_BACKGROUND_COLOR_ACTION{};
+inline constexpr EntityAction<&ui::visibility::SetBorderRadius> SET_BORDER_RADIUS_ACTION{};
+inline constexpr EntityAction<&ui::visibility::SetBorderColor> SET_BORDER_COLOR_ACTION{};
+inline constexpr EntityAction<&ui::visibility::SetBorderThickness> SET_BORDER_THICKNESS_ACTION{};
+} // namespace visibility
+} // namespace ui::actions
+
 namespace ui::chains
 {
-inline auto Visible(bool v)
+inline auto Visible(bool visible)
 {
-    return Call<ui::visibility::SetVisible>(v);
+    return ui::actions::visibility::SET_VISIBLE_ACTION.bind(visible);
 }
 inline auto Show()
 {
-    return Call<ui::visibility::Show>();
+    return ui::actions::visibility::SHOW_ACTION.bind();
 }
 inline auto Hide()
 {
-    return Call<ui::visibility::Hide>();
+    return ui::actions::visibility::HIDE_ACTION.bind();
 }
-inline auto Alpha(float v)
+inline auto Alpha(float alpha)
 {
-    return Call<ui::visibility::SetAlpha>(v);
+    return ui::actions::visibility::SET_ALPHA_ACTION.bind(alpha);
 }
-inline auto BackgroundColor(const Color& c)
+inline auto BackgroundColor(const Color& color)
 {
-    return Call<ui::visibility::SetBackgroundColor>(c);
+    return ui::actions::visibility::SET_BACKGROUND_COLOR_ACTION.bind(color);
 }
-inline auto BorderRadius(float r)
+inline auto BorderRadius(float radius)
 {
-    return Call<ui::visibility::SetBorderRadius>(r);
+    return ui::actions::visibility::SET_BORDER_RADIUS_ACTION.bind(radius);
 }
-inline auto BorderColor(const Color& c)
+inline auto BorderColor(const Color& color)
 {
-    return Call<ui::visibility::SetBorderColor>(c);
+    return ui::actions::visibility::SET_BORDER_COLOR_ACTION.bind(color);
 }
-inline auto BorderThickness(float t)
+inline auto BorderThickness(float thickness)
 {
-    return Call<ui::visibility::SetBorderThickness>(t);
+    return ui::actions::visibility::SET_BORDER_THICKNESS_ACTION.bind(thickness);
 }
 } // namespace ui::chains

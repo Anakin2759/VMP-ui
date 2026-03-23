@@ -50,7 +50,6 @@
 #include <entt/entt.hpp>
 #include <algorithm>
 #include <string>
-#include <utility>
 #include <SDL3/SDL.h>
 #include "common/Events.hpp"
 #include "singleton/Registry.hpp"
@@ -140,12 +139,12 @@ public:
                 }
                 case SDL_EVENT_MOUSE_BUTTON_UP:
                 {
-                    float mx = static_cast<float>(event.button.x);
-                    float my = static_cast<float>(event.button.y);
+                    float buttonx = event.button.x;
+                    float buttony = event.button.y;
                     uint32_t winId = event.button.windowID;
                     uint8_t button = event.button.button;
                     Dispatcher::Enqueue<ui::events::RawPointerButton>(
-                        ui::events::RawPointerButton{Vec2(mx, my), winId, false, button});
+                        ui::events::RawPointerButton{Vec2(buttonx, buttony), winId, false, button});
 
                     break;
                 }
@@ -156,7 +155,7 @@ public:
                 case SDL_EVENT_KEY_DOWN:
                     if (!event.key.repeat) // 只处理真实按下，忽略系统重复
                     {
-                        m_heldKey = event.key.key;
+                        HELD_KEY = event.key.key;
                         m_keyPressTime = SDL_GetTicks();
                         m_lastRepeatTime = m_keyPressTime;
                         handleKeyDown(event.key.key);
@@ -165,9 +164,9 @@ public:
                     break;
                 case SDL_EVENT_KEY_UP:
                     // 重置长按状态
-                    if (event.key.key == m_heldKey)
+                    if (event.key.key == HELD_KEY)
                     {
-                        m_heldKey = SDLK_UNKNOWN;
+                        HELD_KEY = SDLK_UNKNOWN;
                         m_keyPressTime = 0;
                         m_lastRepeatTime = 0;
                     }
@@ -194,7 +193,7 @@ public:
 
     static void ProcessKeyRepeat()
     {
-        if (m_heldKey == SDLK_UNKNOWN) return;
+        if (HELD_KEY == SDLK_UNKNOWN) return;
 
         uint64_t now = SDL_GetTicks();
 
@@ -206,7 +205,7 @@ public:
 
         // 触发重复输入
         m_lastRepeatTime = now;
-        handleKeyDown(m_heldKey);
+        handleKeyDown(HELD_KEY);
         Dispatcher::Trigger<ui::events::UpdateRendering>();
     }
 
@@ -565,7 +564,8 @@ private:
                     if (edit.onTextChanged)
                     {
                         edit.onTextChanged(edit.buffer);
-                    }                }
+                    }
+                }
             }
             else if (ctrl && key == SDLK_V)
             {
@@ -789,7 +789,7 @@ private:
     }
 
     // 键盘长按状态
-    inline static SDL_Keycode m_heldKey = SDLK_UNKNOWN;        // 当前按下的按键
+    inline static SDL_Keycode HELD_KEY = SDLK_UNKNOWN;        // 当前按下的按键
     inline static uint64_t m_keyPressTime = 0;                 // 按键按下时间（毫秒）
     inline static uint64_t m_lastRepeatTime = 0;               // 上次重复输入时间
     inline static constexpr uint64_t KEY_REPEAT_DELAY = 500;   // 长按触发延迟（毫秒）

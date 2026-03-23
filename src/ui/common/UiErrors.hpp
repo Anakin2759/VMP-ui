@@ -11,13 +11,16 @@ enum class UiErrc
     UnknownInitializationFailure,
 };
 
+/**
+ * @brief 字体错误码
+ */
 enum class FontErrc
 {
-    FreeTypeNotInitialized = 1,
-    InvalidFontData,
-    LoadFaceFailed,
-    SetPixelSizeFailed,
-    GpuDeviceUnavailable,
+    FreeTypeNotInitialized = 1, // FreeType未初始化
+    InvalidFontData,            // 字体数据无效（空数据、非字体数据等）
+    LoadFaceFailed,             // 加载字体面失败（数据损坏、不受支持的格式等）
+    SetPixelSizeFailed,         // 设置字体像素大小失败（可能是因为无效的尺寸参数）
+    GpuDeviceUnavailable,       // 字体图集生成时GPU设备不可用（可能是渲染上下文未正确初始化）
 };
 
 enum class IconErrc
@@ -51,9 +54,9 @@ public:
 class FontErrorCategory final : public std::error_category
 {
 public:
-    const char* name() const noexcept override { return "ui.font"; }
+    [[nodiscard]] const char* name() const noexcept override { return "ui.font"; }
 
-    std::string message(int condition) const override
+    [[nodiscard]] std::string message(int condition) const override
     {
         switch (static_cast<FontErrc>(condition))
         {

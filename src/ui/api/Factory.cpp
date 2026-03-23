@@ -1,6 +1,4 @@
-/**
- * Implementation for UI factory API
- */
+
 
 #include "Factory.hpp"
 
@@ -194,6 +192,7 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
     Registry::Remove<components::VisibleTag>(entity);
     auto& dialogLayout = Registry::Emplace<components::LayoutInfo>(entity);
     dialogLayout.direction = policies::LayoutDirection::VERTICAL;
+    dialogLayout.alignment = policies::Alignment::CENTER;
     Registry::Emplace<components::Padding>(entity);
     Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
     Logger::info("[Factory] Enqueuing WindowGraphicsContextSetEvent for dialog entity {}",
@@ -228,6 +227,7 @@ entt::entity CreateWindow(std::string_view title, std::string_view alias)
     size.sizePolicy = ui::policies::Size::Fixed;
     auto& layoutInfo = Registry::Emplace<components::LayoutInfo>(entity);
     layoutInfo.direction = policies::LayoutDirection::VERTICAL;
+    layoutInfo.alignment = policies::Alignment::CENTER;
     Registry::Emplace<components::Padding>(entity);
     Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
     constexpr int DEFAULT_WINDOW_WIDTH = 800;
@@ -268,6 +268,7 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
     Registry::Emplace<components::TitleBarTag>(titleBar);
     auto& layout = Registry::Emplace<components::LayoutInfo>(titleBar);
     layout.direction = policies::LayoutDirection::HORIZONTAL;
+    layout.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
     auto& titleBarSize = Registry::Get<components::Size>(titleBar);
     titleBarSize.size = {0.0F, TITLE_BAR_HEIGHT};
     titleBarSize.sizePolicy = policies::Size::HFill | policies::Size::VFixed;
@@ -468,6 +469,7 @@ entt::entity CreateVBoxLayout(std::string_view alias)
     auto entity = CreateBaseWidget(alias);
     auto& layout = Registry::Emplace<components::LayoutInfo>(entity);
     layout.direction = ui::policies::LayoutDirection::VERTICAL;
+    layout.alignment = ui::policies::Alignment::CENTER;
     auto& size = Registry::Get<components::Size>(entity);
     size.sizePolicy = ui::policies::Size::Auto;
     Registry::Emplace<components::Padding>(entity);
@@ -479,6 +481,7 @@ entt::entity CreateHBoxLayout(std::string_view alias)
     auto entity = CreateBaseWidget(alias);
     auto& layout = Registry::Emplace<components::LayoutInfo>(entity);
     layout.direction = ui::policies::LayoutDirection::HORIZONTAL;
+    layout.alignment = ui::policies::Alignment::CENTER;
     auto& size = Registry::Get<components::Size>(entity);
     size.sizePolicy = ui::policies::Size::Auto;
     Registry::Emplace<components::Padding>(entity);

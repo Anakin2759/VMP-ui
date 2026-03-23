@@ -31,6 +31,16 @@
 #include <utility>
 #include <functional>
 
+namespace ui::actions
+{
+/**
+ * @brief 实体动作封装
+ * @note 约定：模块级动作常量统一使用 UPPER_SNAKE_CASE + _ACTION 后缀。
+ */
+template <auto Fn>
+struct EntityAction;
+} // namespace ui::actions
+
 namespace ui::chains
 {
 
@@ -47,7 +57,7 @@ struct Chain
 {
     mutable F func;
 
-    constexpr explicit Chain(F&& f) : func(std::forward<F>(f)) {}
+    constexpr explicit Chain(F&& callable) : func(std::move(callable)) {}
 
     // 动作组合: Chain | Chain -> Chain
     // 允许将多个设置组合成一个可复用的样式/配置块
@@ -55,10 +65,11 @@ struct Chain
     auto operator|(this Self&& self, Next&& next)
         requires Action<Next>
     {
-        auto combined = [f = std::forward<Self>(self).func, n = std::forward<Next>(next)](::entt::entity e) mutable
+        auto combined = [currentAction = std::forward<Self>(self).func,
+                         nextAction = std::forward<Next>(next)](::entt::entity entity) mutable
         {
-            std::invoke(f, e);
-            std::invoke(n, e);
+            std::invoke(currentAction, entity);
+            std::invoke(nextAction, entity);
         };
         return Chain<decltype(combined)>{std::move(combined)};
     }
@@ -89,8 +100,27 @@ template <typename F>
 template <auto Func, typename... Args>
 auto Call(Args&&... args)
 {
-    return Chain{[... args = std::forward<Args>(args)](::entt::entity entity) mutable
-                 { std::invoke(Func, entity, std::move(args)...); }};
+    return ui::actions::EntityAction<Func>{}.bind(std::forward<Args>(args)...);
 }
 
 } // namespace ui::chains
+
+namespace ui::actions
+{
+template <auto Fn>
+struct EntityAction
+{
+    template <typename... Args>
+    void operator()(::entt::entity entity, Args&&... args) const
+    {
+        Fn(entity, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    auto bind(Args&&... args) const
+    {
+        return ui::chains::Chain{[... args = std::forward<Args>(args)](::entt::entity entity) mutable
+                                 { Fn(entity, std::move(args)...); }};
+    }
+};
+} // namespace ui::actions

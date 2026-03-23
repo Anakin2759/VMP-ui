@@ -162,4 +162,24 @@ TEST_F(UiIntegrationTest, TextBrowserFactoryCombinesScrollableReadOnlyEditorStat
     EXPECT_NE(textEdit.inputMode, policies::TextFlag::Default);
 }
 
+TEST_F(UiIntegrationTest, ContainerFactoriesUseSensibleDefaultAlignment)
+{
+    const auto vbox = factory::CreateVBoxLayout("vbox_layout");
+    const auto hbox = factory::CreateHBoxLayout("hbox_layout");
+    const auto scrollArea = factory::CreateScrollArea("scroll_area");
+
+    const auto& vboxLayout = Registry::Get<components::LayoutInfo>(vbox);
+    const auto& hboxLayout = Registry::Get<components::LayoutInfo>(hbox);
+    const auto& scrollLayout = Registry::Get<components::LayoutInfo>(scrollArea);
+
+    EXPECT_EQ(vboxLayout.direction, policies::LayoutDirection::VERTICAL);
+    EXPECT_EQ(vboxLayout.alignment, policies::Alignment::TOP_LEFT);
+
+    EXPECT_EQ(hboxLayout.direction, policies::LayoutDirection::HORIZONTAL);
+    EXPECT_EQ(hboxLayout.alignment, policies::Alignment::LEFT | policies::Alignment::VCENTER);
+
+    EXPECT_EQ(scrollLayout.direction, policies::LayoutDirection::VERTICAL);
+    EXPECT_EQ(scrollLayout.alignment, policies::Alignment::TOP_LEFT);
+}
+
 } // namespace ui::tests

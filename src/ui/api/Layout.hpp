@@ -33,26 +33,40 @@ void CenterInParent(::entt::entity entity);
 
 } // namespace ui::layout
 
+namespace ui::actions
+{
+namespace layout
+{
+inline constexpr EntityAction<&ui::layout::SetLayoutDirection> SET_LAYOUT_DIRECTION_ACTION{};
+inline constexpr EntityAction<&ui::layout::SetLayoutSpacing> SET_LAYOUT_SPACING_ACTION{};
+inline constexpr EntityAction<static_cast<void (*)(::entt::entity, float, float, float, float)>(ui::layout::SetPadding)>
+    SET_PADDING_EDGES_ACTION{};
+inline constexpr EntityAction<static_cast<void (*)(::entt::entity, float)>(ui::layout::SetPadding)>
+    SET_PADDING_ALL_ACTION{};
+inline constexpr EntityAction<&ui::layout::CenterInParent> CENTER_IN_PARENT_ACTION{};
+} // namespace layout
+} // namespace ui::actions
+
 namespace ui::chains
 {
-inline auto LayoutDirection(ui::policies::LayoutDirection d)
+inline auto LayoutDirection(ui::policies::LayoutDirection direction)
 {
-    return Call<ui::layout::SetLayoutDirection>(d);
+    return ui::actions::layout::SET_LAYOUT_DIRECTION_ACTION.bind(direction);
 }
-inline auto Spacing(float v)
+inline auto Spacing(float spacing)
 {
-    return Call<ui::layout::SetLayoutSpacing>(v);
+    return ui::actions::layout::SET_LAYOUT_SPACING_ACTION.bind(spacing);
 }
-inline auto Padding(float l, float t, float r, float b)
+inline auto Padding(float left, float top, float right, float bottom)
 {
-    return Call<static_cast<void (*)(::entt::entity, float, float, float, float)>(ui::layout::SetPadding)>(l, t, r, b);
+    return ui::actions::layout::SET_PADDING_EDGES_ACTION.bind(left, top, right, bottom);
 }
-inline auto Padding(float v)
+inline auto Padding(float padding)
 {
-    return Call<static_cast<void (*)(::entt::entity, float)>(ui::layout::SetPadding)>(v);
+    return ui::actions::layout::SET_PADDING_ALL_ACTION.bind(padding);
 }
 inline auto Center()
 {
-    return Call<ui::layout::CenterInParent>();
+    return ui::actions::layout::CENTER_IN_PARENT_ACTION.bind();
 }
 } // namespace ui::chains

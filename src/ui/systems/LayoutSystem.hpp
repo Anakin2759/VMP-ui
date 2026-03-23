@@ -188,7 +188,7 @@ private:
         entt::entity current = entity;
         // 防止无限循环 (虽然 tree 结构不应该有环)
         int safetyCounter = 0;
-        const int MAX_DEPTH = 1000;
+        constexpr int MAX_DEPTH = 1000;
 
         while (Registry::Valid(current) && safetyCounter++ < MAX_DEPTH)
         {
@@ -227,20 +227,20 @@ private:
 
     void cleanupInvalidNodes()
     {
-        auto it = m_entityToNode.begin();
-        while (it != m_entityToNode.end())
+        auto iterator = m_entityToNode.begin();
+        while (iterator != m_entityToNode.end())
         {
-            if (!Registry::Valid(it->first))
+            if (!Registry::Valid(iterator->first))
             {
-                if (it->second)
+                if (iterator->second)
                 {
-                    YGNodeFree(it->second);
+                    YGNodeFree(iterator->second);
                 }
-                it = m_entityToNode.erase(it);
+                iterator = m_entityToNode.erase(iterator);
             }
             else
             {
-                ++it;
+                ++iterator;
             }
         }
     }
@@ -358,340 +358,585 @@ private:
      */
     YGNodeRef buildYogaTree(entt::entity entity) { return getOrCreateNode(entity); }
 
+    [[nodiscard]] static policies::Alignment resolveContainerAlignment(entt::entity entity,
+                                                                       const components::LayoutInfo& layoutInfo)
+    {
+        const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
+        if (scrollArea == nullptr)
+        {
+            return layoutInfo.alignment;
+        }
+
+        policies::Alignment alignment = layoutInfo.alignment;
+
+        auto hasHorizontalAlignment = [&](policies::Alignment value)
+        {
+            return policies::HasFlag(value, policies::Alignment::LEFT) ||
+                   policies::HasFlag(value, policies::Alignment::HCENTER) ||
+                   policies::HasFlag(value, policies::Alignment::RIGHT);
+        };
+
+        auto hasVerticalAlignment = [&](policies::Alignment value)
+        {
+            return policies::HasFlag(value, policies::Alignment::TOP) ||
+                   policies::HasFlag(value, policies::Alignment::VCENTER) ||
+                   policies::HasFlag(value, policies::Alignment::BOTTOM);
+        };
+
+        if (!hasHorizontalAlignment(alignment))
+        {
+            alignment = alignment | policies::Alignment::HCENTER;
+        }
+
+        if (!hasVerticalAlignment(alignment))
+        {
+            alignment = alignment | policies::Alignment::VCENTER;
+        }
+
+        switch (scrollArea->scroll)
+        {
+            case policies::Scroll::Vertical:
+                alignment = static_cast<policies::Alignment>((static_cast<uint8_t>(alignment) &
+                                                              ~static_cast<uint8_t>(policies::Alignment::BOTTOM) &
+                                                              ~static_cast<uint8_t>(policies::Alignment::VCENTER)) |
+                                                             static_cast<uint8_t>(policies::Alignment::TOP));
+                break;
+            case policies::Scroll::Horizontal:
+                alignment = static_cast<policies::Alignment>((static_cast<uint8_t>(alignment) &
+                                                              ~static_cast<uint8_t>(policies::Alignment::RIGHT) &
+                                                              ~static_cast<uint8_t>(policies::Alignment::HCENTER)) |
+                                                             static_cast<uint8_t>(policies::Alignment::LEFT));
+                break;
+            case policies::Scroll::Both:
+                alignment = policies::Alignment::TOP_LEFT;
+                break;
+            case policies::Scroll::NONE:
+            default:
+                break;
+        }
+
+        return alignment;
+    }
+
+    [[nodiscard]] static Vec4 resolveEffectivePadding(entt::entity entity)
+    {
+        Vec4 paddingValues{0.0F, 0.0F, 0.0F, 0.0F};
+        if (const auto* padding = Registry::TryGet<components::Padding>(entity))
+        {
+            paddingValues = padding->values;
+        }
+
+        const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
+        if (scrollArea == nullptr || policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::NoVisibility))
+        {
+            return paddingValues;
+        }
+
+        constexpr float SCROLLBAR_GUTTER = 14.0F;
+
+        if (scrollArea->scroll == policies::Scroll::Vertical || scrollArea->scroll == policies::Scroll::Both)
+        {
+            paddingValues.y() += SCROLLBAR_GUTTER;
+        }
+
+        if (scrollArea->scroll == policies::Scroll::Horizontal || scrollArea->scroll == policies::Scroll::Both)
+        {
+            paddingValues.z() += SCROLLBAR_GUTTER;
+        }
+
+        return paddingValues;
+    }
+
+    static void setPaddingIfChanged(YGNodeRef node, YGEdge edge, float value)
+    {
+        YGValue current = YGNodeStyleGetPadding(node, edge);
+        if (current.unit != YGUnitPoint || current.value != value)
+        {
+            YGNodeStyleSetPadding(node, edge, value);
+        }
+    }
+
+    static void configureLayoutDirectionAndGap(entt::entity entity, YGNodeRef node)
+    {
+        const auto* layoutInfo = Registry::TryGet<components::LayoutInfo>(entity);
+        if (layoutInfo == nullptr)
+        {
+            return;
+        }
+
+        YGFlexDirection targetDirection =
+            (layoutInfo->direction == policies::LayoutDirection::VERTICAL) ? YGFlexDirectionColumn : YGFlexDirectionRow;
+        if (YGNodeStyleGetFlexDirection(node) != targetDirection)
+        {
+            YGNodeStyleSetFlexDirection(node, targetDirection);
+        }
+
+        YGValue currentGap = YGNodeStyleGetGap(node, YGGutterAll);
+        if (currentGap.unit != YGUnitPoint || currentGap.value != layoutInfo->spacing)
+        {
+            YGNodeStyleSetGap(node, YGGutterAll, layoutInfo->spacing);
+        }
+    }
+
+    static void configurePadding(entt::entity entity, YGNodeRef node)
+    {
+        const Vec4 effectivePadding = resolveEffectivePadding(entity);
+        setPaddingIfChanged(node, YGEdgeTop, effectivePadding.x());
+        setPaddingIfChanged(node, YGEdgeRight, effectivePadding.y());
+        setPaddingIfChanged(node, YGEdgeBottom, effectivePadding.z());
+        setPaddingIfChanged(node, YGEdgeLeft, effectivePadding.w());
+    }
+
+    static bool configureSpacerNode(entt::entity entity, YGNodeRef node)
+    {
+        if (!Registry::AnyOf<components::SpacerTag>(entity))
+        {
+            return false;
+        }
+
+        const auto* spacer = Registry::TryGet<components::Spacer>(entity);
+        const float stretchFactor = spacer != nullptr ? static_cast<float>(spacer->stretchFactor) : 1.0F;
+
+        if (YGNodeStyleGetFlexGrow(node) != stretchFactor)
+        {
+            YGNodeStyleSetFlexGrow(node, stretchFactor);
+        }
+
+        if (YGNodeStyleGetFlexShrink(node) != 1.0F)
+        {
+            YGNodeStyleSetFlexShrink(node, 1.0F);
+        }
+
+        YGValue basis = YGNodeStyleGetFlexBasis(node);
+        if (basis.unit != YGUnitPoint || basis.value != 0.0F)
+        {
+            YGNodeStyleSetFlexBasis(node, 0.0F);
+        }
+
+        YGValue minWidth = YGNodeStyleGetMinWidth(node);
+        if (minWidth.unit != YGUnitPoint || minWidth.value != 0.0F)
+        {
+            YGNodeStyleSetMinWidth(node, 0.0F);
+        }
+
+        YGValue minHeight = YGNodeStyleGetMinHeight(node);
+        if (minHeight.unit != YGUnitPoint || minHeight.value != 0.0F)
+        {
+            YGNodeStyleSetMinHeight(node, 0.0F);
+        }
+
+        return true;
+    }
+
+    static void
+        configureMainAxisFlex(const components::Size& sizeComp, YGNodeRef node, bool isRow, bool parentIsScrollArea)
+    {
+        const bool widthFill = policies::HasFlag(sizeComp.sizePolicy, policies::Size::HFill);
+        const bool widthFixed = policies::HasFlag(sizeComp.sizePolicy, policies::Size::HFixed);
+        const bool heightFill = policies::HasFlag(sizeComp.sizePolicy, policies::Size::VFill);
+        const bool heightFixed = policies::HasFlag(sizeComp.sizePolicy, policies::Size::VFixed);
+
+        const bool mainAxisFill = (isRow && widthFill) || (!isRow && heightFill);
+        if (mainAxisFill)
+        {
+            if (YGNodeStyleGetFlexGrow(node) != 1.0F)
+            {
+                YGNodeStyleSetFlexGrow(node, 1.0F);
+            }
+            if (YGNodeStyleGetFlexShrink(node) != 1.0F)
+            {
+                YGNodeStyleSetFlexShrink(node, 1.0F);
+            }
+
+            YGValue basis = YGNodeStyleGetFlexBasis(node);
+            if (basis.unit != YGUnitPoint || basis.value != 0.0F)
+            {
+                YGNodeStyleSetFlexBasis(node, 0.0F);
+            }
+            return;
+        }
+
+        if (YGNodeStyleGetFlexGrow(node) != 0.0F)
+        {
+            YGNodeStyleSetFlexGrow(node, 0.0F);
+        }
+
+        const bool mainAxisFixed = (isRow && widthFixed) || (!isRow && heightFixed);
+        float shrinkValue = (mainAxisFixed || parentIsScrollArea) ? 0.0F : 1.0F;
+        if (YGNodeStyleGetFlexShrink(node) != shrinkValue)
+        {
+            YGNodeStyleSetFlexShrink(node, shrinkValue);
+        }
+    }
+
+    static void configureCrossAxisStretch(const components::Size& sizeComp, YGNodeRef node, bool isRow)
+    {
+        const bool widthFill = policies::HasFlag(sizeComp.sizePolicy, policies::Size::HFill);
+        const bool heightFill = policies::HasFlag(sizeComp.sizePolicy, policies::Size::VFill);
+        const bool crossAxisFill = (isRow && heightFill) || (!isRow && widthFill);
+        if (crossAxisFill && YGNodeStyleGetAlignSelf(node) != YGAlignStretch)
+        {
+            YGNodeStyleSetAlignSelf(node, YGAlignStretch);
+        }
+    }
+
+    static void configureFlexBehaviorFromSize(const components::Size& sizeComp,
+                                              YGNodeRef node,
+                                              bool isRow,
+                                              bool parentIsScrollArea)
+    {
+        configureMainAxisFlex(sizeComp, node, isRow, parentIsScrollArea);
+        configureCrossAxisStretch(sizeComp, node, isRow);
+    }
+
+    static void configureExplicitWidth(const components::Size& sizeComp, YGNodeRef node)
+    {
+        const bool widthFixed = policies::HasFlag(sizeComp.sizePolicy, policies::Size::HFixed);
+        const bool widthAuto = policies::HasFlag(sizeComp.sizePolicy, policies::Size::HAuto);
+        const bool widthPercent = policies::HasFlag(sizeComp.sizePolicy, policies::Size::HPercentage);
+
+        YGValue currentWidth = YGNodeStyleGetWidth(node);
+        if (widthFixed && sizeComp.size.x() > 0.0F)
+        {
+            if (currentWidth.unit != YGUnitPoint || currentWidth.value != sizeComp.size.x())
+            {
+                YGNodeStyleSetWidth(node, sizeComp.size.x());
+            }
+            return;
+        }
+
+        if (widthPercent)
+        {
+            float percentValue = sizeComp.percentage * 100.0F;
+            if (currentWidth.unit != YGUnitPercent || currentWidth.value != percentValue)
+            {
+                YGNodeStyleSetWidthPercent(node, percentValue);
+            }
+            return;
+        }
+
+        if (widthAuto && currentWidth.unit != YGUnitAuto)
+        {
+            YGNodeStyleSetWidthAuto(node);
+        }
+    }
+
+    static void configureExplicitHeight(const components::Size& sizeComp, YGNodeRef node)
+    {
+        const bool heightFixed = policies::HasFlag(sizeComp.sizePolicy, policies::Size::VFixed);
+        const bool heightAuto = policies::HasFlag(sizeComp.sizePolicy, policies::Size::VAuto);
+        const bool heightPercent = policies::HasFlag(sizeComp.sizePolicy, policies::Size::VPercentage);
+
+        YGValue currentHeight = YGNodeStyleGetHeight(node);
+        if (heightFixed && sizeComp.size.y() > 0.0F)
+        {
+            if (currentHeight.unit != YGUnitPoint || currentHeight.value != sizeComp.size.y())
+            {
+                YGNodeStyleSetHeight(node, sizeComp.size.y());
+            }
+            return;
+        }
+
+        if (heightPercent)
+        {
+            float percentValue = sizeComp.percentage * 100.0F;
+            if (currentHeight.unit != YGUnitPercent || currentHeight.value != percentValue)
+            {
+                YGNodeStyleSetHeightPercent(node, percentValue);
+            }
+            return;
+        }
+
+        if (!heightAuto)
+        {
+            return;
+        }
+
+        if (sizeComp.size.y() > 0.0F)
+        {
+            if (currentHeight.unit != YGUnitPoint || currentHeight.value != sizeComp.size.y())
+            {
+                YGNodeStyleSetHeight(node, sizeComp.size.y());
+            }
+            return;
+        }
+
+        if (currentHeight.unit != YGUnitAuto)
+        {
+            YGNodeStyleSetHeightAuto(node);
+        }
+    }
+
+    static void configureExplicitSize(const components::Size& sizeComp, YGNodeRef node)
+    {
+        configureExplicitWidth(sizeComp, node);
+        configureExplicitHeight(sizeComp, node);
+    }
+
+    static void configureMinMaxSize(const components::Size& sizeComp, YGNodeRef node)
+    {
+        auto setMinOrMax = [node](auto getter, auto setter, float value, bool isMax)
+        {
+            YGValue current = getter(node);
+            if (isMax)
+            {
+                if (value < FLT_MAX && (current.unit != YGUnitPoint || current.value != value))
+                {
+                    setter(node, value);
+                }
+            }
+            else if (value > 0.0F && (current.unit != YGUnitPoint || current.value != value))
+            {
+                setter(node, value);
+            }
+        };
+
+        setMinOrMax(YGNodeStyleGetMinWidth, YGNodeStyleSetMinWidth, sizeComp.minSize.x(), false);
+        setMinOrMax(YGNodeStyleGetMinHeight, YGNodeStyleSetMinHeight, sizeComp.minSize.y(), false);
+        setMinOrMax(YGNodeStyleGetMaxWidth, YGNodeStyleSetMaxWidth, sizeComp.maxSize.x(), true);
+        setMinOrMax(YGNodeStyleGetMaxHeight, YGNodeStyleSetMaxHeight, sizeComp.maxSize.y(), true);
+    }
+
+    static void configureSizeNode(entt::entity entity, YGNodeRef node)
+    {
+        const auto* sizeComp = Registry::TryGet<components::Size>(entity);
+        if (sizeComp == nullptr)
+        {
+            return;
+        }
+
+        policies::LayoutDirection parentDirection = policies::LayoutDirection::VERTICAL;
+        bool parentIsScrollArea = false;
+        if (const auto* hierarchy = Registry::TryGet<components::Hierarchy>(entity))
+        {
+            if (hierarchy->parent != entt::null)
+            {
+                if (const auto* parentLayout = Registry::TryGet<components::LayoutInfo>(hierarchy->parent))
+                {
+                    parentDirection = parentLayout->direction;
+                }
+                parentIsScrollArea = Registry::AnyOf<components::ScrollArea>(hierarchy->parent);
+            }
+        }
+
+        const bool isRow = (parentDirection == policies::LayoutDirection::HORIZONTAL);
+        configureFlexBehaviorFromSize(*sizeComp, node, isRow, parentIsScrollArea);
+        configureExplicitSize(*sizeComp, node);
+        configureMinMaxSize(*sizeComp, node);
+    }
+
+    static void configureAbsolutePosition(entt::entity entity, YGNodeRef node)
+    {
+        const auto* posPolicy = Registry::TryGet<components::Position>(entity);
+        if (posPolicy == nullptr)
+        {
+            return;
+        }
+
+        const bool horizontalAbsolute = policies::HasFlag(posPolicy->positionPolicy, policies::Position::HAbsolute);
+        const bool verticalAbsolute = policies::HasFlag(posPolicy->positionPolicy, policies::Position::VAbsolute);
+        if (!horizontalAbsolute && !verticalAbsolute)
+        {
+            return;
+        }
+
+        if (YGNodeStyleGetPositionType(node) != YGPositionTypeAbsolute)
+        {
+            YGNodeStyleSetPositionType(node, YGPositionTypeAbsolute);
+        }
+
+        const auto* pos = Registry::TryGet<components::Position>(entity);
+        if (pos == nullptr)
+        {
+            return;
+        }
+
+        if (horizontalAbsolute)
+        {
+            YGValue currentLeft = YGNodeStyleGetPosition(node, YGEdgeLeft);
+            if (currentLeft.unit != YGUnitPoint || currentLeft.value != pos->value.x())
+            {
+                YGNodeStyleSetPosition(node, YGEdgeLeft, pos->value.x());
+            }
+        }
+
+        if (verticalAbsolute)
+        {
+            YGValue currentTop = YGNodeStyleGetPosition(node, YGEdgeTop);
+            if (currentTop.unit != YGUnitPoint || currentTop.value != pos->value.y())
+            {
+                YGNodeStyleSetPosition(node, YGEdgeTop, pos->value.y());
+            }
+        }
+    }
+
+    [[nodiscard]] static YGJustify resolveJustifyContent(policies::Alignment alignment, bool isRow)
+    {
+        auto has = [&](policies::Alignment flag) { return policies::HasFlag(alignment, flag); };
+
+        if (isRow)
+        {
+            if (has(policies::Alignment::HCENTER))
+            {
+                return YGJustifyCenter;
+            }
+            if (has(policies::Alignment::RIGHT))
+            {
+                return YGJustifyFlexEnd;
+            }
+            if (has(policies::Alignment::LEFT))
+            {
+                return YGJustifyFlexStart;
+            }
+            return YGJustifyCenter;
+        }
+
+        if (has(policies::Alignment::VCENTER))
+        {
+            return YGJustifyCenter;
+        }
+        if (has(policies::Alignment::BOTTOM))
+        {
+            return YGJustifyFlexEnd;
+        }
+        if (has(policies::Alignment::TOP))
+        {
+            return YGJustifyFlexStart;
+        }
+        return YGJustifyCenter;
+    }
+
+    [[nodiscard]] static YGAlign resolveAlignItems(policies::Alignment alignment, bool isRow)
+    {
+        auto has = [&](policies::Alignment flag) { return policies::HasFlag(alignment, flag); };
+
+        if (isRow)
+        {
+            if (has(policies::Alignment::VCENTER))
+            {
+                return YGAlignCenter;
+            }
+            if (has(policies::Alignment::BOTTOM))
+            {
+                return YGAlignFlexEnd;
+            }
+            if (has(policies::Alignment::TOP))
+            {
+                return YGAlignFlexStart;
+            }
+            return YGAlignCenter;
+        }
+
+        if (has(policies::Alignment::HCENTER))
+        {
+            return YGAlignCenter;
+        }
+        if (has(policies::Alignment::RIGHT))
+        {
+            return YGAlignFlexEnd;
+        }
+        if (has(policies::Alignment::LEFT))
+        {
+            return YGAlignFlexStart;
+        }
+        return YGAlignCenter;
+    }
+
+    static void configureOverflow(entt::entity entity, YGNodeRef node)
+    {
+        YGOverflow targetOverflow =
+            Registry::AnyOf<components::ScrollArea>(entity) ? YGOverflowScroll : YGOverflowHidden;
+        if (YGNodeStyleGetOverflow(node) != targetOverflow)
+        {
+            YGNodeStyleSetOverflow(node, targetOverflow);
+        }
+    }
+
+    static void configureContainerAlignmentAndOverflow(entt::entity entity, YGNodeRef node)
+    {
+        const auto* layoutInfo = Registry::TryGet<components::LayoutInfo>(entity);
+        if (layoutInfo == nullptr)
+        {
+            return;
+        }
+
+        const bool isRow = (layoutInfo->direction == policies::LayoutDirection::HORIZONTAL);
+        const auto alignment = resolveContainerAlignment(entity, *layoutInfo);
+        YGJustify justify = resolveJustifyContent(alignment, isRow);
+        YGAlign alignItems = resolveAlignItems(alignment, isRow);
+
+        if (YGNodeStyleGetJustifyContent(node) != justify)
+        {
+            YGNodeStyleSetJustifyContent(node, justify);
+        }
+
+        if (YGNodeStyleGetAlignItems(node) != alignItems)
+        {
+            YGNodeStyleSetAlignItems(node, alignItems);
+        }
+
+        configureOverflow(entity, node);
+    }
+
+    static void configureLeafAutoSize(entt::entity entity, YGNodeRef node)
+    {
+        if (Registry::AnyOf<components::LayoutInfo>(entity))
+        {
+            return;
+        }
+
+        const auto* sizeComp = Registry::TryGet<components::Size>(entity);
+        if (sizeComp == nullptr)
+        {
+            return;
+        }
+
+        float defaultWidth = 100.0F;
+        float defaultHeight = 20.0F;
+
+        if (const auto* text = Registry::TryGet<components::Text>(entity))
+        {
+            if (!text->content.empty())
+            {
+                defaultWidth = (static_cast<float>(text->content.length()) * 8.0F) + 10.0F;
+            }
+        }
+
+        if (policies::HasFlag(sizeComp->sizePolicy, policies::Size::HAuto))
+        {
+            YGValue currentMinWidth = YGNodeStyleGetMinWidth(node);
+            if (currentMinWidth.unit != YGUnitPoint || currentMinWidth.value != defaultWidth)
+            {
+                YGNodeStyleSetMinWidth(node, defaultWidth);
+            }
+        }
+
+        if (policies::HasFlag(sizeComp->sizePolicy, policies::Size::VAuto))
+        {
+            YGValue currentMinHeight = YGNodeStyleGetMinHeight(node);
+            if (currentMinHeight.unit != YGUnitPoint || currentMinHeight.value != defaultHeight)
+            {
+                YGNodeStyleSetMinHeight(node, defaultHeight);
+            }
+        }
+    }
+
     /**
      * @brief 配置单个 Yoga 节点的样式
      */
     void configureYogaNode(entt::entity entity, YGNodeRef node)
     {
-        // 1. 布局方向 (Flex Direction)
-        if (const auto* layoutInfo = Registry::TryGet<components::LayoutInfo>(entity))
+        configureLayoutDirectionAndGap(entity, node);
+        configurePadding(entity, node);
+        if (configureSpacerNode(entity, node))
         {
-            YGFlexDirection targetDir = (layoutInfo->direction == policies::LayoutDirection::VERTICAL)
-                                            ? YGFlexDirectionColumn
-                                            : YGFlexDirectionRow;
-            if (YGNodeStyleGetFlexDirection(node) != targetDir)
-            {
-                YGNodeStyleSetFlexDirection(node, targetDir);
-            }
-
-            // 间距通过 gap 实现
-            YGValue currentGap = YGNodeStyleGetGap(node, YGGutterAll);
-            if (currentGap.unit != YGUnitPoint || currentGap.value != layoutInfo->spacing)
-            {
-                YGNodeStyleSetGap(node, YGGutterAll, layoutInfo->spacing);
-            }
-        }
-
-        // 2. 内边距 (Padding)
-        if (const auto* padding = Registry::TryGet<components::Padding>(entity))
-        {
-            auto setPaddingIfChanged = [node](YGEdge edge, float val)
-            {
-                YGValue current = YGNodeStyleGetPadding(node, edge);
-                if (current.unit != YGUnitPoint || current.value != val)
-                {
-                    YGNodeStyleSetPadding(node, edge, val);
-                }
-            };
-
-            setPaddingIfChanged(YGEdgeTop, padding->values.x());
-            setPaddingIfChanged(YGEdgeRight, padding->values.y());
-            setPaddingIfChanged(YGEdgeBottom, padding->values.w());
-            setPaddingIfChanged(YGEdgeLeft, padding->values.z());
-        }
-
-        // 3. Spacer 处理 (优先级最高，跳过后续 Size 配置)
-        // Spacer 是纯弹性元素，大小完全由 flexGrow 决定，在其他固定尺寸组件布局后填充剩余空间
-        if (Registry::AnyOf<components::SpacerTag>(entity))
-        {
-            const auto* spacer = Registry::TryGet<components::Spacer>(entity);
-            const float stretchFactor = spacer != nullptr ? static_cast<float>(spacer->stretchFactor) : 1.0F;
-
-            if (YGNodeStyleGetFlexGrow(node) != stretchFactor) YGNodeStyleSetFlexGrow(node, stretchFactor);
-
-            // 允许收缩，防止在空间不足时撑开容器
-            if (YGNodeStyleGetFlexShrink(node) != 1.0F) YGNodeStyleSetFlexShrink(node, 1.0F);
-
-            // flexBasis 为 0，确保 Spacer 初始大小为 0，完全依赖 flexGrow 分配空间
-            YGValue basis = YGNodeStyleGetFlexBasis(node);
-            if (basis.unit != YGUnitPoint || basis.value != 0.0F) YGNodeStyleSetFlexBasis(node, 0.0F);
-
-            // 最小尺寸为 0，不占用任何固定空间
-            YGValue minW = YGNodeStyleGetMinWidth(node);
-            if (minW.unit != YGUnitPoint || minW.value != 0.0F) YGNodeStyleSetMinWidth(node, 0.0F);
-
-            YGValue minH = YGNodeStyleGetMinHeight(node);
-            if (minH.unit != YGUnitPoint || minH.value != 0.0F) YGNodeStyleSetMinHeight(node, 0.0F);
-
-            // Spacer 不设置固定宽高，跳过后续 Size 配置
             return;
         }
 
-        // 4. 尺寸 (Size) - 仅对非 Spacer 实体生效
-        if (const auto* sizeComp = Registry::TryGet<components::Size>(entity))
-        {
-            // 1. 获取父容器布局方向 (用于判定主轴/交叉轴)
-            policies::LayoutDirection parentDir = policies::LayoutDirection::VERTICAL; // Yoga 默认是 Vertical
-            if (const auto* hierarchy = Registry::TryGet<components::Hierarchy>(entity))
-            {
-                if (hierarchy->parent != entt::null)
-                {
-                    if (const auto* parentLayout = Registry::TryGet<components::LayoutInfo>(hierarchy->parent))
-                    {
-                        parentDir = parentLayout->direction;
-                    }
-                }
-            }
-
-            const bool isRow = (parentDir == policies::LayoutDirection::HORIZONTAL);
-
-            // 提取策略标志
-            const bool wFill = policies::HasFlag(sizeComp->sizePolicy, policies::Size::HFill);
-            const bool wFixed = policies::HasFlag(sizeComp->sizePolicy, policies::Size::HFixed);
-            const bool wAuto = policies::HasFlag(sizeComp->sizePolicy, policies::Size::HAuto);
-            const bool wPct = policies::HasFlag(sizeComp->sizePolicy, policies::Size::HPercentage);
-
-            const bool hFill = policies::HasFlag(sizeComp->sizePolicy, policies::Size::VFill);
-            const bool hFixed = policies::HasFlag(sizeComp->sizePolicy, policies::Size::VFixed);
-            const bool hAuto = policies::HasFlag(sizeComp->sizePolicy, policies::Size::VAuto);
-            const bool hPct = policies::HasFlag(sizeComp->sizePolicy, policies::Size::VPercentage);
-
-            // 2. 主轴行为 (Main Axis) -> FlexGrow
-            // Row布局的主轴是Width，Col布局的主轴是Height
-            const bool mainAxisFill = (isRow && wFill) || (!isRow && hFill);
-
-            if (mainAxisFill)
-            {
-                if (YGNodeStyleGetFlexGrow(node) != 1.0F) YGNodeStyleSetFlexGrow(node, 1.0F);
-                if (YGNodeStyleGetFlexShrink(node) != 1.0F) YGNodeStyleSetFlexShrink(node, 1.0F);
-
-                YGValue basis = YGNodeStyleGetFlexBasis(node);
-                if (basis.unit != YGUnitPoint || basis.value != 0.0F) YGNodeStyleSetFlexBasis(node, 0.0F);
-            }
-            else
-            {
-                if (YGNodeStyleGetFlexGrow(node) != 0.0F) YGNodeStyleSetFlexGrow(node, 0.0F);
-
-                // 如果主轴是 Fixed，则不收缩(Shrink=0)；否则默认允许收缩(Shrink=1)
-                const bool mainAxisFixed = (isRow && wFixed) || (!isRow && hFixed);
-                float shrinkVal = mainAxisFixed ? 0.0F : 1.0F;
-                if (YGNodeStyleGetFlexShrink(node) != shrinkVal) YGNodeStyleSetFlexShrink(node, shrinkVal);
-            }
-
-            // 3. 交叉轴行为 (Cross Axis) -> AlignSelf: Stretch
-            // Row布局的交叉轴是Height，Col布局的交叉轴是Width
-            const bool crossAxisFill = (isRow && hFill) || (!isRow && wFill);
-
-            if (crossAxisFill)
-            {
-                if (YGNodeStyleGetAlignSelf(node) != YGAlignStretch) YGNodeStyleSetAlignSelf(node, YGAlignStretch);
-            }
-
-            // 4. 设置显式尺寸 (Width)
-            YGValue currentW = YGNodeStyleGetWidth(node);
-            if (wFixed && sizeComp->size.x() > 0)
-            {
-                if (currentW.unit != YGUnitPoint || currentW.value != sizeComp->size.x())
-                    YGNodeStyleSetWidth(node, sizeComp->size.x());
-            }
-            else if (wPct)
-            {
-                float pctVal = sizeComp->percentage * 100.0F;
-                if (currentW.unit != YGUnitPercent || currentW.value != pctVal)
-                    YGNodeStyleSetWidthPercent(node, pctVal);
-            }
-            else if (wAuto)
-            {
-                if (currentW.unit != YGUnitAuto) YGNodeStyleSetWidthAuto(node);
-            }
-
-            // 5. 设置显式尺寸 (Height)
-            YGValue currentH = YGNodeStyleGetHeight(node);
-            if (hFixed && sizeComp->size.y() > 0)
-            {
-                if (currentH.unit != YGUnitPoint || currentH.value != sizeComp->size.y())
-                    YGNodeStyleSetHeight(node, sizeComp->size.y());
-            }
-            else if (hPct)
-            {
-                float pctVal = sizeComp->percentage * 100.0F;
-                if (currentH.unit != YGUnitPercent || currentH.value != pctVal)
-                    YGNodeStyleSetHeightPercent(node, pctVal);
-            }
-            else if (hAuto)
-            {
-                // [Fix] 若 Auto 策略下已有由 RenderSystem 计算出的有效高度，则作为参考值设置
-                if (sizeComp->size.y() > 0.0F)
-                {
-                    if (currentH.unit != YGUnitPoint || currentH.value != sizeComp->size.y())
-                        YGNodeStyleSetHeight(node, sizeComp->size.y());
-                }
-                else
-                {
-                    if (currentH.unit != YGUnitAuto) YGNodeStyleSetHeightAuto(node);
-                }
-            }
-
-            // 最小/最大尺寸约束
-            auto setMinMax = [node](auto getter, auto setter, float val, float defaultVal, bool isMax = false)
-            {
-                YGValue cur = getter(node);
-                // 对于 Max，默认是 Undefined (NaN?) 需要检查 FLT_MAX
-                // 这里保持原有逻辑：如果有效值则设置
-                if (isMax)
-                {
-                    if (val < FLT_MAX)
-                    {
-                        if (cur.unit != YGUnitPoint || cur.value != val) setter(node, val);
-                    }
-                }
-                else
-                { // Min
-                    if (val > 0)
-                    {
-                        if (cur.unit != YGUnitPoint || cur.value != val) setter(node, val);
-                    }
-                }
-            };
-
-            setMinMax(YGNodeStyleGetMinWidth, YGNodeStyleSetMinWidth, sizeComp->minSize.x(), 0, false);
-            setMinMax(YGNodeStyleGetMinHeight, YGNodeStyleSetMinHeight, sizeComp->minSize.y(), 0, false);
-            setMinMax(YGNodeStyleGetMaxWidth, YGNodeStyleSetMaxWidth, sizeComp->maxSize.x(), FLT_MAX, true);
-            setMinMax(YGNodeStyleGetMaxHeight, YGNodeStyleSetMaxHeight, sizeComp->maxSize.y(), FLT_MAX, true);
-        }
-
-        // 5. 绝对定位处理
-        if (const auto* posPolicy = Registry::TryGet<components::Position>(entity))
-        {
-            const bool hAbs = policies::HasFlag(posPolicy->positionPolicy, policies::Position::HAbsolute);
-            const bool vAbs = policies::HasFlag(posPolicy->positionPolicy, policies::Position::VAbsolute);
-
-            if (hAbs || vAbs)
-            {
-                if (YGNodeStyleGetPositionType(node) != YGPositionTypeAbsolute)
-                    YGNodeStyleSetPositionType(node, YGPositionTypeAbsolute);
-
-                // 如果设置了绝对定位，并且有 Position 组件，将其值作为 Left/Top
-                if (const auto* pos = Registry::TryGet<components::Position>(entity))
-                {
-                    if (hAbs)
-                    {
-                        YGValue curL = YGNodeStyleGetPosition(node, YGEdgeLeft);
-                        if (curL.unit != YGUnitPoint || curL.value != pos->value.x())
-                            YGNodeStyleSetPosition(node, YGEdgeLeft, pos->value.x());
-                    }
-                    if (vAbs)
-                    {
-                        YGValue curT = YGNodeStyleGetPosition(node, YGEdgeTop);
-                        if (curT.unit != YGUnitPoint || curT.value != pos->value.y())
-                            YGNodeStyleSetPosition(node, YGEdgeTop, pos->value.y());
-                    }
-                }
-            }
-        }
-
-        // 7. 容器子元素对齐与溢出 (LayoutInfo)
-        if (const auto* layoutInfo = Registry::TryGet<components::LayoutInfo>(entity))
-        {
-            // 默认 FlexStart
-            YGJustify justify = YGJustifyFlexStart;
-            YGAlign alignItems = YGAlignFlexStart;
-
-            const bool isRow = (layoutInfo->direction == policies::LayoutDirection::HORIZONTAL);
-            const auto alignment = layoutInfo->alignment;
-
-            auto has = [&](policies::Alignment flag) { return policies::HasFlag(alignment, flag); };
-
-            // 主轴与交叉轴映射
-            if (isRow)
-            {
-                // 主轴: Horizontal
-                if (has(policies::Alignment::HCENTER))
-                    justify = YGJustifyCenter;
-                else if (has(policies::Alignment::RIGHT))
-                    justify = YGJustifyFlexEnd;
-                else if (has(policies::Alignment::LEFT))
-                    justify = YGJustifyFlexStart;
-
-                // 交叉轴: Vertical
-                if (has(policies::Alignment::VCENTER))
-                    alignItems = YGAlignCenter;
-                else if (has(policies::Alignment::BOTTOM))
-                    alignItems = YGAlignFlexEnd;
-                else if (has(policies::Alignment::TOP))
-                    alignItems = YGAlignFlexStart;
-            }
-            else
-            {
-                // 主轴: Vertical
-                if (has(policies::Alignment::VCENTER))
-                    justify = YGJustifyCenter;
-                else if (has(policies::Alignment::BOTTOM))
-                    justify = YGJustifyFlexEnd;
-                else if (has(policies::Alignment::TOP))
-                    justify = YGJustifyFlexStart;
-
-                // 交叉轴: Horizontal
-                if (has(policies::Alignment::HCENTER))
-                    alignItems = YGAlignCenter;
-                else if (has(policies::Alignment::RIGHT))
-                    alignItems = YGAlignFlexEnd;
-                else if (has(policies::Alignment::LEFT))
-                    alignItems = YGAlignFlexStart;
-            }
-
-            if (YGNodeStyleGetJustifyContent(node) != justify) YGNodeStyleSetJustifyContent(node, justify);
-
-            if (YGNodeStyleGetAlignItems(node) != alignItems) YGNodeStyleSetAlignItems(node, alignItems);
-
-            // 容器默认隐藏溢出内容，防止子元素超出边界
-            // 如果是 ScrollArea 则在后面设置为 Scroll
-            if (!Registry::AnyOf<components::ScrollArea>(entity))
-            {
-                if (YGNodeStyleGetOverflow(node) != YGOverflowHidden) YGNodeStyleSetOverflow(node, YGOverflowHidden);
-            }
-        }
-
-        // 处理 ScrollArea
-        if (Registry::AnyOf<components::ScrollArea>(entity))
-        {
-            if (YGNodeStyleGetOverflow(node) != YGOverflowScroll) YGNodeStyleSetOverflow(node, YGOverflowScroll);
-        }
-
-        // 8. 文本/按钮等叶子节点：使用 Size 组件中已有的尺寸
-        if (!Registry::AnyOf<components::LayoutInfo>(entity))
-        {
-            // 叶子节点：如果没有设置固定尺寸，给一个合理的默认值
-            if (const auto* sizeComp = Registry::TryGet<components::Size>(entity))
-            {
-                float defaultWidth = 100.0F;
-                float defaultHeight = 20.0F;
-
-                // 如果有文本，根据文本长度估算
-                if (const auto* text = Registry::TryGet<components::Text>(entity))
-                {
-                    if (!text->content.empty())
-                    {
-                        // 粗略估算：每个字符约 8 像素宽，高度 20 像素
-                        defaultWidth = static_cast<float>(text->content.length()) * 8.0F + 10.0F;
-                    }
-                }
-
-                if (policies::HasFlag(sizeComp->sizePolicy, policies::Size::HAuto))
-                {
-                    YGValue curMinW = YGNodeStyleGetMinWidth(node);
-                    if (curMinW.unit != YGUnitPoint || curMinW.value != defaultWidth)
-                        YGNodeStyleSetMinWidth(node, defaultWidth);
-                }
-
-                if (policies::HasFlag(sizeComp->sizePolicy, policies::Size::VAuto))
-                {
-                    YGValue curMinH = YGNodeStyleGetMinHeight(node);
-                    if (curMinH.unit != YGUnitPoint || curMinH.value != defaultHeight)
-                        YGNodeStyleSetMinHeight(node, defaultHeight);
-                }
-            }
-        }
+        configureSizeNode(entity, node);
+        configureAbsolutePosition(entity, node);
+        configureContainerAlignmentAndOverflow(entity, node);
+        configureLeafAutoSize(entity, node);
     }
 
     static void applyYogaLayout(entt::entity entity, YGNodeRef node, float parentX, float parentY)
@@ -794,11 +1039,12 @@ private:
                 return;
             }
 
-            float pR = 0.0F, pB = 0.0F;
+            float pR = 0.0F;
+            float pB = 0.0F;
             if (auto* padding = Registry::TryGet<components::Padding>(entity))
             {
                 pR = padding->values.y();
-                pB = padding->values.w();
+                pB = padding->values.z();
             }
 
             float newContentW = maxContentRight + pR;

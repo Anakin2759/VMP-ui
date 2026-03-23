@@ -398,7 +398,7 @@ struct AnimationRenderOffset
 
 /**
  * @brief 颜色动画目标
- * 注意：目前只支持 Background 组件的 Color
+ * 支持驱动常见可着色组件（如 Background、Text、Image、Icon 等）
  */
 struct AnimationColor
 {

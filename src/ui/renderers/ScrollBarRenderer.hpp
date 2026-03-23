@@ -66,7 +66,6 @@ private:
                         float alpha,
                         core::RenderContext& context)
     {
-        // 计算可视区域高度（减去垂直内边距）
         float viewportHeight = size.y();
         if (const auto* padding = Registry::TryGet<components::Padding>(entity))
         {

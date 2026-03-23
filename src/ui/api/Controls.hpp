@@ -1,3 +1,17 @@
+/**
+ * ************************************************************************
+ *
+ * @file Controls.hpp
+ * @author AnakinLiu (azrael2759@qq.com)
+ * @date 2026-03-23
+ * @version 0.1
+ * @brief UI 控件相关的 API 定义 - 包含滑动条、进度条、滚动区域等常用控件的属性设置函数
+ *
+ * ************************************************************************
+ * @copyright Copyright (c) 2026 AnakinLiu
+ * For study and research only, no reprinting.
+ * ************************************************************************
+ */
 #pragma once
 
 #include <entt/entt.hpp>
@@ -25,6 +39,17 @@ void SetScrollBarPolicy(::entt::entity entity, policies::ScrollBar policy);
 void SetScrollAnchor(::entt::entity entity, policies::ScrollAnchor anchor);
 void SetScrollSpeed(::entt::entity entity, float speed);
 } // namespace ui::controls
+
+namespace ui::actions
+{
+namespace controls
+{
+inline constexpr EntityAction<&ui::controls::SetScrollMode> SET_SCROLL_MODE_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetScrollBarPolicy> SET_SCROLL_BAR_POLICY_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetScrollAnchor> SET_SCROLL_ANCHOR_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetScrollSpeed> SET_SCROLL_SPEED_ACTION{};
+} // namespace controls
+} // namespace ui::actions
 
 namespace ui::chains
 {
@@ -80,21 +105,21 @@ inline auto ProgressAnimated(ui::policies::AnimationState animated)
 
 inline auto ScrollMode(ui::policies::Scroll mode)
 {
-    return Call<ui::controls::SetScrollMode>(mode);
+    return ui::actions::controls::SET_SCROLL_MODE_ACTION.bind(mode);
 }
 
 inline auto ScrollBarPolicy(ui::policies::ScrollBar policy)
 {
-    return Call<ui::controls::SetScrollBarPolicy>(policy);
+    return ui::actions::controls::SET_SCROLL_BAR_POLICY_ACTION.bind(policy);
 }
 
 inline auto ScrollAnchor(ui::policies::ScrollAnchor anchor)
 {
-    return Call<ui::controls::SetScrollAnchor>(anchor);
+    return ui::actions::controls::SET_SCROLL_ANCHOR_ACTION.bind(anchor);
 }
 
 inline auto ScrollSpeed(float speed)
 {
-    return Call<ui::controls::SetScrollSpeed>(speed);
+    return ui::actions::controls::SET_SCROLL_SPEED_ACTION.bind(speed);
 }
 } // namespace ui::chains

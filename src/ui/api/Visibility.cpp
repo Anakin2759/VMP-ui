@@ -3,7 +3,7 @@
 #include "../common/Components.hpp"
 #include "../common/Tags.hpp"
 #include "../common/Policies.hpp"
-#include "Layout.hpp"
+#include "Utils.hpp"
 #include <SDL3/SDL.h>
 
 namespace ui::visibility
@@ -12,9 +12,13 @@ void SetVisible(::entt::entity entity, bool visible)
 {
     if (!Registry::Valid(entity)) return;
     if (visible)
+    {
         Registry::EmplaceOrReplace<components::VisibleTag>(entity);
+    }
     else
+    {
         Registry::Remove<components::VisibleTag>(entity);
+    }
 }
 
 void Show(::entt::entity entity)
@@ -33,18 +37,19 @@ void Show(::entt::entity entity)
             if (targetW > 0 && targetH > 0)
             {
                 SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID);
-                if (sdlWindow)
+                if (sdlWindow != nullptr)
                 {
                     SDL_SetWindowSize(sdlWindow, targetW, targetH);
                 }
             }
         }
         SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID);
-        if (sdlWindow)
+        if (sdlWindow != nullptr)
         {
             SDL_SetWindowPosition(sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
             SDL_ShowWindow(sdlWindow);
-            int posX = 0, posY = 0;
+            int posX = 0;
+            int posY = 0;
             SDL_GetWindowPosition(sdlWindow, &posX, &posY);
             auto* posComp = Registry::TryGet<components::Position>(entity);
             if (posComp != nullptr)
@@ -53,8 +58,8 @@ void Show(::entt::entity entity)
             }
         }
     }
-    utils::MarkLayoutDirty(entity);
-    utils::MarkRenderDirty(entity);
+    ui::utils::MarkLayoutDirty(entity);
+    ui::utils::MarkRenderDirty(entity);
 }
 
 void Hide(::entt::entity entity)
@@ -65,7 +70,7 @@ void Hide(::entt::entity entity)
     if (windowComp != nullptr && windowComp->windowID != 0)
     {
         SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID);
-        if (sdlWindow)
+        if (sdlWindow != nullptr)
         {
             SDL_HideWindow(sdlWindow);
         }

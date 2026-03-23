@@ -243,7 +243,7 @@ enum class Scroll : uint8_t
     NONE,       // 不滚动
     Vertical,   // 垂直滚动
     Horizontal, // 水平滚动
-    Both        // 双向滚动
+    Both,       // 双向滚动
 };
 
 enum class ScrollBar : uint8_t

@@ -145,7 +145,13 @@ private:
         }
         return time;
     }
-
+    /**
+     * @brief 更新位置动画
+     * @param entity 要更新的实体
+     * @param val 插值系数
+     * @return true 如果位置更新成功
+     * @return false 如果位置更新失败
+     */
     bool updatePosition(entt::entity entity, float val)
     {
         if (auto* animPos = ui::Registry::TryGet<components::AnimationPosition>(entity))
@@ -234,12 +240,57 @@ private:
             currentColor.blue = animColor->from.blue + ((animColor->to.blue - animColor->from.blue) * val);
             currentColor.alpha = animColor->from.alpha + ((animColor->to.alpha - animColor->from.alpha) * val);
 
+            bool updated = false;
+
             if (auto* background = ui::Registry::TryGet<components::Background>(entity))
             {
                 background->color = currentColor;
+                updated = true;
             }
 
-            return true;
+            if (auto* text = ui::Registry::TryGet<components::Text>(entity))
+            {
+                text->color = currentColor;
+                updated = true;
+            }
+
+            if (auto* textEdit = ui::Registry::TryGet<components::TextEdit>(entity))
+            {
+                textEdit->textColor = currentColor;
+                updated = true;
+            }
+
+            if (auto* border = ui::Registry::TryGet<components::Border>(entity))
+            {
+                border->color = currentColor;
+                updated = true;
+            }
+
+            if (auto* shadow = ui::Registry::TryGet<components::Shadow>(entity))
+            {
+                shadow->color = currentColor;
+                updated = true;
+            }
+
+            if (auto* arrow = ui::Registry::TryGet<components::Arrow>(entity))
+            {
+                arrow->color = currentColor;
+                updated = true;
+            }
+
+            if (auto* image = ui::Registry::TryGet<components::Image>(entity))
+            {
+                image->tintColor = currentColor;
+                updated = true;
+            }
+
+            if (auto* icon = ui::Registry::TryGet<components::Icon>(entity))
+            {
+                icon->tintColor = currentColor;
+                updated = true;
+            }
+
+            return updated;
         }
 
         return false;

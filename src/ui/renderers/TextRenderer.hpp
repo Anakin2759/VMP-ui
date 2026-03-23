@@ -24,6 +24,7 @@
 #include "../interface/IBackendRenderer.hpp"
 #include "../core/TextUtils.hpp"
 #include "../api/Utils.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -45,6 +46,12 @@ class TextRenderer : public core::IRenderer
 public:
     TextRenderer() = default;
 
+    /**
+     * @brief 检查实体是否可以由文本渲染器处理
+     * @param entity 要检查的实体
+     * @return true 如果实体可以由文本渲染器处理
+     * @return false 如果实体不能由文本渲染器处理
+     */
     [[nodiscard]] bool canHandle(entt::entity entity) const override
     {
         return Registry::
@@ -73,7 +80,7 @@ public:
         {
             const auto* textComp = Registry::TryGet<components::Text>(entity);
             const auto* textEdit = Registry::TryGet<components::TextEdit>(entity);
-            if (textComp && textEdit)
+            if (textComp != nullptr && textEdit != nullptr)
             {
                 renderTextEdit(entity, *textComp, *textEdit, context);
             }
@@ -93,6 +100,56 @@ private:
         uint32_t rasterHeight = 0;
         float logicalWidth = 0.0F;
         float logicalHeight = 0.0F;
+    };
+
+    struct TextEditCursorLineInfo
+    {
+        int lineIndex = 0;
+        float lineOffsetX = 0.0F;
+    };
+
+    struct TextEditSingleLineView
+    {
+        std::string visibleText;
+        float cursorOffsetInVisible = 0.0F;
+    };
+
+    struct TextEditRenderArgs
+    {
+        entt::entity entity = entt::null;
+        const components::Text* textComp = nullptr;
+        const components::TextEdit* textEdit = nullptr;
+        const std::string* displayText = nullptr;
+        Eigen::Vector2f textPos = Eigen::Vector2f::Zero();
+        Eigen::Vector2f textSize = Eigen::Vector2f::Zero();
+        Eigen::Vector4f color = Eigen::Vector4f::Zero();
+        float lineHeight = 0.0F;
+        float fontSize = 0.0F;
+        core::RenderContext* context = nullptr;
+        core::RenderContext* textEditContext = nullptr;
+
+        [[nodiscard]] const components::Text& text() const { return *textComp; }
+        [[nodiscard]] const components::TextEdit& edit() const { return *textEdit; }
+        [[nodiscard]] const std::string& textValue() const { return *displayText; }
+        [[nodiscard]] core::RenderContext& renderContext() const { return *context; }
+        [[nodiscard]] core::RenderContext& clippedContext() const { return *textEditContext; }
+    };
+
+    struct WrappedTextRenderArgs
+    {
+        const std::string* text = nullptr;
+        Eigen::Vector2f pos = Eigen::Vector2f::Zero();
+        Eigen::Vector2f size = Eigen::Vector2f::Zero();
+        Eigen::Vector4f color = Eigen::Vector4f::Zero();
+        policies::Alignment alignment = policies::Alignment::NONE;
+        policies::TextWrap wrapMode = policies::TextWrap::NONE;
+        float wrapWidth = 0.0F;
+        float opacity = 0.0F;
+        float fontSize = 0.0F;
+        core::RenderContext* context = nullptr;
+
+        [[nodiscard]] const std::string& textValue() const { return *text; }
+        [[nodiscard]] core::RenderContext& renderContext() const { return *context; }
     };
 
     static uint8_t quantizeColor(float value)
@@ -142,7 +199,7 @@ private:
         for (size_t pixelIndex = 0; pixelIndex < alphaMask.size(); ++pixelIndex)
         {
             const uint8_t coverage = alphaMask[pixelIndex];
-            const uint8_t finalAlpha =
+            const auto finalAlpha =
                 static_cast<uint8_t>((static_cast<uint16_t>(coverage) * static_cast<uint16_t>(alpha)) / 255U);
             const size_t rgbaOffset = pixelIndex * 4ULL;
             bitmap[rgbaOffset] = red;
@@ -169,15 +226,12 @@ private:
     {
         Eigen::Vector4f color(textComp.color.red, textComp.color.green, textComp.color.blue, textComp.color.alpha);
 
-        // 获取字体大小（0 表示使用默认值）
         float fontSize = textComp.fontSize;
-
         policies::TextWrap wrapMode = textComp.wordWrap;
         float wrapWidth = textComp.wrapWidth;
 
         if (wrapMode == policies::TextWrap::NONE)
         {
-            // 如果在 ScrollArea 内，默认启用换行
             float inferredWidth = getAncestorScrollAreaTextWidth(entity);
             if (inferredWidth > 0.0F)
             {
@@ -196,17 +250,16 @@ private:
 
         if (wrapMode != policies::TextWrap::NONE && wrapWidth > 0.0F)
         {
-            // 根据换行结果动态修正自动高度，避免滚动区内容高度不匹配
             if (auto* sizeComp = Registry::TryGet<components::Size>(entity))
             {
                 if (policies::HasFlag(sizeComp->sizePolicy, policies::Size::VAuto))
                 {
-                    const float lineHeight = static_cast<float>(context.fontManager->getFontHeight(fontSize));
+                    const auto lineHeight = static_cast<float>(context.fontManager->getFontHeight(fontSize));
                     if (lineHeight > 0.0F)
                     {
                         const auto lines = ui::utils::WrapTextLines(
                             textComp.content, static_cast<int>(wrapWidth), wrapMode, measureFunc);
-                        const float desiredHeight = static_cast<float>(lines.size()) * lineHeight;
+                        const auto desiredHeight = static_cast<float>(lines.size()) * lineHeight;
                         if (std::abs(sizeComp->size.y() - desiredHeight) > 0.5F)
                         {
                             sizeComp->size.y() = desiredHeight;
@@ -216,16 +269,16 @@ private:
                 }
             }
 
-            addWrappedText(textComp.content,
-                           context.position,
-                           context.size,
-                           color,
-                           textComp.alignment,
-                           wrapMode,
-                           wrapWidth,
-                           context.alpha,
-                           fontSize,
-                           context);
+            addWrappedText(WrappedTextRenderArgs{&textComp.content,
+                                                 context.position,
+                                                 context.size,
+                                                 color,
+                                                 textComp.alignment,
+                                                 wrapMode,
+                                                 wrapWidth,
+                                                 context.alpha,
+                                                 fontSize,
+                                                 &context});
         }
         else
         {
@@ -245,12 +298,44 @@ private:
                         const components::TextEdit& textEdit,
                         core::RenderContext& context)
     {
-        // 获取字体大小
-        float fontSize = textComp.fontSize;
-
-        // 计算文本区域（考虑内边距）
+        const float fontSize = textComp.fontSize;
         Eigen::Vector2f textPos = context.position;
         Eigen::Vector2f textSize = context.size;
+        core::RenderContext textEditContext = context;
+        prepareTextEditLayout(entity, textPos, textSize, textEditContext);
+
+        std::string displayText = textEdit.buffer;
+        const Eigen::Vector4f color = resolveTextEditColor(entity, textEdit, context.alpha, displayText);
+        const auto lineHeight = static_cast<float>(context.fontManager->getFontHeight(fontSize));
+        TextEditRenderArgs textEditArgs{entity,
+                                        &textComp,
+                                        &textEdit,
+                                        &displayText,
+                                        textPos,
+                                        textSize,
+                                        color,
+                                        lineHeight,
+                                        fontSize,
+                                        &context,
+                                        &textEditContext};
+
+        if (isMultilineTextEdit(textEdit))
+        {
+            renderMultilineTextEdit(textEditArgs);
+        }
+        else
+        {
+            renderSingleLineTextEdit(textEditArgs);
+        }
+
+        textEditContext.popScissor();
+    }
+
+    void prepareTextEditLayout(entt::entity entity,
+                               Eigen::Vector2f& textPos,
+                               Eigen::Vector2f& textSize,
+                               core::RenderContext& textEditContext) const
+    {
         if (const auto* padding = Registry::TryGet<components::Padding>(entity))
         {
             textPos.x() += padding->values.w();
@@ -259,324 +344,308 @@ private:
             textSize.y() = std::max(0.0F, textSize.y() - padding->values.x() - padding->values.z());
         }
 
-        // 在输入框内部裁剪
-        core::RenderContext textEditContext = context;
-        SDL_Rect currentScissor;
+        SDL_Rect currentScissor{};
         currentScissor.x = static_cast<int>(textPos.x());
         currentScissor.y = static_cast<int>(textPos.y());
         currentScissor.w = static_cast<int>(textSize.x());
         currentScissor.h = static_cast<int>(textSize.y());
         textEditContext.pushScissor(currentScissor);
+    }
 
-        std::string displayText = textEdit.buffer;
-        // 优先使用 TextEdit 自身的 textColor，保持与 SetTextColor API 的一致性
+    Eigen::Vector4f resolveTextEditColor(entt::entity entity,
+                                         const components::TextEdit& textEdit,
+                                         float contextAlpha,
+                                         std::string& displayText) const
+    {
         const auto& effectiveColor = textEdit.textColor;
         Eigen::Vector4f color(effectiveColor.red, effectiveColor.green, effectiveColor.blue, effectiveColor.alpha);
 
-        // 如果没有内容且有 placeholder，显示 placeholder（灰色）
-        // 在获得焦点（点击）时不再显示
         if (displayText.empty() && !textEdit.placeholder.empty() && !Registry::AnyOf<components::FocusedTag>(entity))
         {
             displayText = textEdit.placeholder;
-            color = Eigen::Vector4f(0.5F, 0.5F, 0.5F, context.alpha);
+            color = Eigen::Vector4f(0.5F, 0.5F, 0.5F, contextAlpha);
         }
 
-        const float lineHeight = static_cast<float>(context.fontManager->getFontHeight(fontSize));
+        return color;
+    }
 
+    static bool isMultilineTextEdit(const components::TextEdit& textEdit)
+    {
         const auto modeVal = static_cast<uint8_t>(textEdit.inputMode);
         const auto multiFlag = static_cast<uint8_t>(policies::TextFlag::Multiline);
+        return (modeVal & multiFlag) != 0;
+    }
 
+    bool shouldRenderTextEditCaret(entt::entity entity, const core::RenderContext& context) const
+    {
+        if (!Registry::AnyOf<components::FocusedTag>(entity))
+        {
+            return false;
+        }
+
+        const auto* caret = Registry::TryGet<components::Caret>(entity);
+        return context.sdlWindow != nullptr && caret != nullptr && caret->visible;
+    }
+
+    void drawTextEditCaret(const Eigen::Vector2f& cursorPos,
+                           float lineHeight,
+                           const core::RenderContext& context,
+                           const core::RenderContext& textEditContext) const
+    {
+        render::UiPushConstants pushConstants{};
+        pushConstants.screen_size[0] = context.screenWidth;
+        pushConstants.screen_size[1] = context.screenHeight;
+        pushConstants.rect_size[0] = 2.0F;
+        pushConstants.rect_size[1] = lineHeight;
+        pushConstants.opacity = context.alpha;
+
+        context.batchManager->beginBatch(context.whiteTexture, textEditContext.currentScissor, pushConstants);
+        context.batchManager->addRect(cursorPos, {2.0F, lineHeight}, {1.0F, 1.0F, 1.0F, 1.0F});
+
+        SDL_Rect rect{};
+        rect.x = static_cast<int>(cursorPos.x());
+        rect.y = static_cast<int>(cursorPos.y());
+        rect.w = 2;
+        rect.h = static_cast<int>(lineHeight);
+        SDL_SetTextInputArea(context.sdlWindow, &rect, 0);
+    }
+
+    TextEditCursorLineInfo calculateCursorLineInfo(const std::vector<std::string>& lines,
+                                                   const components::TextEdit& textEdit,
+                                                   const std::string& displayText,
+                                                   float fontSize,
+                                                   managers::FontManager& fontManager) const
+    {
+        TextEditCursorLineInfo cursorInfo{};
+        cursorInfo.lineIndex = static_cast<int>(lines.size()) - 1;
+        cursorInfo.lineOffsetX =
+            lines.empty() ? 0.0F : static_cast<float>(fontManager.measureTextWidth(lines.back(), fontSize));
+
+        size_t byteOffset = 0;
+        for (int lineIdx = 0; lineIdx < static_cast<int>(lines.size()); ++lineIdx)
+        {
+            const size_t lineByteEnd = byteOffset + lines[lineIdx].size();
+            if (textEdit.cursorPosition <= lineByteEnd)
+            {
+                cursorInfo.lineIndex = lineIdx;
+                const size_t offsetInLine = textEdit.cursorPosition - byteOffset;
+                cursorInfo.lineOffsetX =
+                    static_cast<float>(fontManager.measureTextWidth(lines[lineIdx].substr(0, offsetInLine), fontSize));
+                break;
+            }
+
+            byteOffset = lineByteEnd;
+            if (byteOffset < displayText.size() && displayText[byteOffset] == '\n')
+            {
+                byteOffset++;
+            }
+        }
+
+        return cursorInfo;
+    }
+
+    TextEditSingleLineView buildSingleLineTextView(const components::TextEdit& textEdit,
+                                                   const std::string& displayText,
+                                                   const Eigen::Vector2f& textSize,
+                                                   float fontSize,
+                                                   core::RenderContext& context) const
+    {
         auto measureFunc = [fontManager = context.fontManager, fontSize](const std::string& str)
         { return fontManager->measureTextWidth(str, fontSize); };
 
-        if ((modeVal & multiFlag) == 0)
+        TextEditSingleLineView textView{};
+        const std::string leftOfCursor = displayText.substr(0, textEdit.cursorPosition);
+        const std::string visibleLeft = ui::utils::GetTailThatFits(
+            leftOfCursor, static_cast<int>(textSize.x()), measureFunc, textView.cursorOffsetInVisible);
+
+        const std::string rightOfCursor = displayText.substr(textEdit.cursorPosition);
+        size_t rightCharsFit = 0;
+        context.fontManager->measureString(rightOfCursor.c_str(),
+                                           rightOfCursor.size(),
+                                           static_cast<int>(textSize.x() - textView.cursorOffsetInVisible),
+                                           &rightCharsFit,
+                                           fontSize);
+        textView.visibleText = visibleLeft + rightOfCursor.substr(0, rightCharsFit);
+        return textView;
+    }
+
+    void renderTextEditLines(const TextEditRenderArgs& args,
+                             const std::vector<std::string>& lines,
+                             size_t startIndex,
+                             size_t endIndex,
+                             float startDrawY)
+    {
+        float drawY = startDrawY;
+        for (size_t lineIndex = startIndex; lineIndex < endIndex; ++lineIndex)
         {
-            // 单行：确保光标所在的区域可见
-            std::string leftOfCursor = displayText.substr(0, textEdit.cursorPosition);
-            float cursorOffsetInVisible = 0.0F;
-            std::string visibleLeft = ui::utils::GetTailThatFits(
-                leftOfCursor, static_cast<int>(textSize.x()), measureFunc, cursorOffsetInVisible);
-
-            std::string rightOfCursor = displayText.substr(textEdit.cursorPosition);
-            size_t rightCharsFit = 0;
-            context.fontManager->measureString(rightOfCursor.c_str(),
-                                               rightOfCursor.size(),
-                                               static_cast<int>(textSize.x() - cursorOffsetInVisible),
-                                               &rightCharsFit,
-                                               fontSize);
-            std::string visibleRight = rightOfCursor.substr(0, rightCharsFit);
-
-            std::string visibleText = visibleLeft + visibleRight;
-
-            const policies::Alignment align = policies::Alignment::LEFT | policies::Alignment::VCENTER;
-            if (!visibleText.empty())
+            if (!lines[lineIndex].empty())
             {
-                addText(visibleText, textPos, textSize, color, align, context.alpha, fontSize, textEditContext);
+                addText(lines[lineIndex],
+                        {args.textPos.x(), drawY},
+                        {args.textSize.x(), args.lineHeight},
+                        args.color,
+                        policies::Alignment::LEFT,
+                        args.renderContext().alpha,
+                        args.fontSize,
+                        args.clippedContext());
             }
+            drawY += args.lineHeight;
+        }
+    }
 
-            // 绘制光标 (仅当获焦时)
-            if (Registry::AnyOf<components::FocusedTag>(entity))
+    void renderScrollAreaTextEdit(const TextEditRenderArgs& args,
+                                  components::ScrollArea& scrollArea,
+                                  const std::vector<std::string>& lines,
+                                  float totalTextHeight)
+    {
+        updateTextEditScrollArea(scrollArea, totalTextHeight, args.textSize.y(), args.textSize.x());
+
+        const int maxVisibleLines = args.lineHeight > 0.0F ? static_cast<int>(args.textSize.y() / args.lineHeight) : 0;
+        const int scrollOffsetLines =
+            args.lineHeight > 0.0F ? static_cast<int>(scrollArea.scrollOffset.y() / args.lineHeight) : 0;
+        const size_t startIndex =
+            std::min(static_cast<size_t>(scrollOffsetLines), lines.empty() ? 0ULL : lines.size() - 1ULL);
+        const size_t endIndex = std::min(startIndex + static_cast<size_t>(maxVisibleLines) + 1ULL, lines.size());
+        const float startDrawY = args.textPos.y() - (scrollArea.scrollOffset.y() -
+                                                     (static_cast<float>(scrollOffsetLines) * args.lineHeight));
+
+        renderTextEditLines(args, lines, startIndex, endIndex, startDrawY);
+
+        if (!shouldRenderTextEditCaret(args.entity, args.renderContext()))
+        {
+            return;
+        }
+
+        const auto cursorInfo = calculateCursorLineInfo(
+            lines, args.edit(), args.textValue(), args.fontSize, *args.renderContext().fontManager);
+        if (cursorInfo.lineIndex < scrollOffsetLines || cursorInfo.lineIndex >= scrollOffsetLines + maxVisibleLines)
+        {
+            return;
+        }
+
+        const int visibleLineIndex = cursorInfo.lineIndex - scrollOffsetLines;
+        drawTextEditCaret(
+            {args.textPos.x() + cursorInfo.lineOffsetX,
+             args.textPos.y() + (static_cast<float>(visibleLineIndex) * args.lineHeight) -
+                 (scrollArea.scrollOffset.y() - (static_cast<float>(scrollOffsetLines) * args.lineHeight))},
+            args.lineHeight,
+            args.renderContext(),
+            args.clippedContext());
+    }
+
+    void renderPlainMultilineTextEdit(const TextEditRenderArgs& args, const std::vector<std::string>& lines)
+    {
+        const int maxLines = args.lineHeight > 0.0F ? static_cast<int>(args.textSize.y() / args.lineHeight) : 0;
+        const size_t startIndex = (maxLines > 0 && lines.size() > static_cast<size_t>(maxLines))
+                                      ? (lines.size() - static_cast<size_t>(maxLines))
+                                      : 0ULL;
+
+        renderTextEditLines(args, lines, startIndex, lines.size(), args.textPos.y());
+
+        if (!shouldRenderTextEditCaret(args.entity, args.renderContext()))
+        {
+            return;
+        }
+
+        const auto cursorInfo = calculateCursorLineInfo(
+            lines, args.edit(), args.textValue(), args.fontSize, *args.renderContext().fontManager);
+        if (cursorInfo.lineIndex < static_cast<int>(startIndex))
+        {
+            return;
+        }
+
+        const int relativeLine = cursorInfo.lineIndex - static_cast<int>(startIndex);
+        const float cursorY = (lines.size() == 1)
+                                  ? args.textPos.y() + ((args.textSize.y() - args.lineHeight) * 0.5F)
+                                  : args.textPos.y() + (static_cast<float>(relativeLine) * args.lineHeight);
+        drawTextEditCaret({args.textPos.x() + cursorInfo.lineOffsetX, cursorY},
+                          args.lineHeight,
+                          args.renderContext(),
+                          args.clippedContext());
+    }
+
+    void renderSingleLineTextEdit(const TextEditRenderArgs& args)
+    {
+        const auto textView =
+            buildSingleLineTextView(args.edit(), args.textValue(), args.textSize, args.fontSize, args.renderContext());
+
+        const policies::Alignment align = policies::Alignment::LEFT | policies::Alignment::VCENTER;
+        if (!textView.visibleText.empty())
+        {
+            addText(textView.visibleText,
+                    args.textPos,
+                    args.textSize,
+                    args.color,
+                    align,
+                    args.renderContext().alpha,
+                    args.fontSize,
+                    args.clippedContext());
+        }
+
+        if (!shouldRenderTextEditCaret(args.entity, args.renderContext()))
+        {
+            return;
+        }
+
+        drawTextEditCaret({args.textPos.x() + textView.cursorOffsetInVisible,
+                           args.textPos.y() + ((args.textSize.y() - args.lineHeight) * 0.5F)},
+                          args.lineHeight,
+                          args.renderContext(),
+                          args.clippedContext());
+    }
+
+    void updateTextEditScrollArea(components::ScrollArea& scrollArea,
+                                  float totalTextHeight,
+                                  float viewportHeight,
+                                  float contentWidth) const
+    {
+        if (scrollArea.contentSize.y() != totalTextHeight)
+        {
+            const float oldHeight = scrollArea.contentSize.y();
+            const float newHeight = totalTextHeight;
+
+            scrollArea.contentSize.x() = contentWidth;
+            scrollArea.contentSize.y() = totalTextHeight;
+
+            if (scrollArea.anchor == policies::ScrollAnchor::Bottom)
             {
-                const auto* caret = Registry::TryGet<components::Caret>(entity);
-                if (context.sdlWindow && caret != nullptr && caret->visible)
+                scrollArea.scrollOffset.y() += (newHeight - oldHeight);
+            }
+            else if (scrollArea.anchor == policies::ScrollAnchor::Smart)
+            {
+                const float oldMaxScroll = std::max(0.0F, oldHeight - viewportHeight);
+                const bool wasAtBottom = (scrollArea.scrollOffset.y() >= oldMaxScroll - 2.0F);
+
+                if (wasAtBottom)
                 {
-                    const float cursorX = textPos.x() + cursorOffsetInVisible;
-                    const float cursorY = textPos.y() + (textSize.y() - lineHeight) * 0.5F;
-
-                    render::UiPushConstants pushConstants{};
-                    pushConstants.screen_size[0] = context.screenWidth;
-                    pushConstants.screen_size[1] = context.screenHeight;
-                    pushConstants.rect_size[0] = 2.0F;
-                    pushConstants.rect_size[1] = lineHeight;
-                    pushConstants.opacity = context.alpha;
-
-                    context.batchManager->beginBatch(
-                        context.whiteTexture, textEditContext.currentScissor, pushConstants);
-                    context.batchManager->addRect({cursorX, cursorY}, {2.0F, lineHeight}, {1.0F, 1.0F, 1.0F, 1.0F});
-
-                    SDL_Rect rect;
-                    rect.x = static_cast<int>(cursorX);
-                    rect.y = static_cast<int>(cursorY);
-                    rect.w = 2;
-                    rect.h = static_cast<int>(lineHeight);
-                    SDL_SetTextInputArea(context.sdlWindow, &rect, 0);
+                    const float newMaxScroll = std::max(0.0F, newHeight - viewportHeight);
+                    scrollArea.scrollOffset.y() = newMaxScroll;
                 }
             }
         }
-        else
+
+        scrollArea.contentSize.x() = contentWidth;
+        const float maxScroll = std::max(0.0F, totalTextHeight - viewportHeight);
+        scrollArea.scrollOffset.y() = std::clamp(scrollArea.scrollOffset.y(), 0.0F, maxScroll);
+    }
+
+    void renderMultilineTextEdit(const TextEditRenderArgs& args)
+    {
+        policies::TextWrap wrapMode =
+            args.text().wordWrap != policies::TextWrap::NONE ? args.text().wordWrap : policies::TextWrap::Word;
+        auto measureFunc = [fontManager = args.renderContext().fontManager, fontSize = args.fontSize](
+                               const std::string& str) { return fontManager->measureTextWidth(str, fontSize); };
+        const std::vector<std::string> lines =
+            ui::utils::WrapTextLines(args.textValue(), static_cast<int>(args.textSize.x()), wrapMode, measureFunc);
+        const float totalTextHeight = static_cast<float>(lines.size()) * args.lineHeight;
+
+        if (auto* scrollArea = Registry::TryGet<components::ScrollArea>(args.entity))
         {
-            // 多行：自动换行 + 支持滚动
-            policies::TextWrap wrapMode =
-                textComp.wordWrap != policies::TextWrap::NONE ? textComp.wordWrap : policies::TextWrap::Word;
-            std::vector<std::string> lines =
-                ui::utils::WrapTextLines(displayText, static_cast<int>(textSize.x()), wrapMode, measureFunc);
-
-            // 计算文本总高度并更新 ScrollArea contentSize
-            float totalTextHeight = lines.size() * lineHeight;
-            if (auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity))
-            {
-                // 视口高度即为当前的 textSize.y() (已去除 Padding)
-                float viewportHeight = textSize.y();
-
-                if (scrollArea->contentSize.y() != totalTextHeight)
-                {
-                    float oldHeight = scrollArea->contentSize.y();
-                    float newHeight = totalTextHeight;
-
-                    scrollArea->contentSize.x() = textSize.x();
-                    scrollArea->contentSize.y() = totalTextHeight;
-
-                    // 应用锚定策略
-                    if (scrollArea->anchor == policies::ScrollAnchor::Bottom)
-                    {
-                        // 锚定底部：Offset 随高度差增加，保持距离底部不变
-                        scrollArea->scrollOffset.y() += (newHeight - oldHeight);
-                    }
-                    else if (scrollArea->anchor == policies::ScrollAnchor::Smart)
-                    {
-                        // 智能模式：如果之前在底部，则保持在底部
-                        float oldMaxScroll = std::max(0.0F, oldHeight - viewportHeight);
-                        // 给予 2.0 像素的容差
-                        bool wasAtBottom = (scrollArea->scrollOffset.y() >= oldMaxScroll - 2.0F);
-
-                        if (wasAtBottom)
-                        {
-                            float newMaxScroll = std::max(0.0F, newHeight - viewportHeight);
-                            scrollArea->scrollOffset.y() = newMaxScroll;
-                        }
-                    }
-                }
-
-                // 始终更新宽度记录
-                scrollArea->contentSize.x() = textSize.x();
-
-                // 始终执行 Clamping，防止视口变化(Resize)导致的越界
-                // 注意：这里使用当前的 totalTextHeight 和 viewportHeight 进行计算
-                float maxScroll = std::max(0.0F, totalTextHeight - viewportHeight);
-                scrollArea->scrollOffset.y() = std::clamp(scrollArea->scrollOffset.y(), 0.0F, maxScroll);
-
-                // 使用滚动偏移来确定起始行
-                const int maxVisibleLines = lineHeight > 0.0F ? static_cast<int>(textSize.y() / lineHeight) : 0;
-                const int scrollOffsetLines =
-                    lineHeight > 0.0F ? static_cast<int>(scrollArea->scrollOffset.y() / lineHeight) : 0;
-                const size_t startIndex =
-                    std::min(static_cast<size_t>(scrollOffsetLines), lines.size() > 0 ? lines.size() - 1 : 0);
-                const size_t endIndex = std::min(startIndex + static_cast<size_t>(maxVisibleLines) + 1, lines.size());
-
-                float y = textPos.y() - (scrollArea->scrollOffset.y() - scrollOffsetLines * lineHeight);
-                for (size_t i = startIndex; i < endIndex; ++i)
-                {
-                    const std::string& line = lines[i];
-                    if (!line.empty())
-                    {
-                        addText(line,
-                                {textPos.x(), y},
-                                {textSize.x(), lineHeight},
-                                color,
-                                policies::Alignment::LEFT,
-                                context.alpha,
-                                fontSize,
-                                textEditContext);
-                    }
-                    y += lineHeight;
-                }
-
-                // 绘制光标 (仅当获焦时) - ScrollArea 分支
-                if (Registry::AnyOf<components::FocusedTag>(entity))
-                {
-                    const auto* caret = Registry::TryGet<components::Caret>(entity);
-                    if (context.sdlWindow && caret != nullptr && caret->visible)
-                    {
-                        // 根据 cursorPosition (字节索引) 定位光标所在行和列偏移
-                        int cursorLineIdx = static_cast<int>(lines.size()) - 1;
-                        float cursorLineX =
-                            lines.empty() ? 0.0F : context.fontManager->measureTextWidth(lines.back(), fontSize);
-                        {
-                            size_t byteOffset = 0;
-                            for (int lineIdx = 0; lineIdx < static_cast<int>(lines.size()); ++lineIdx)
-                            {
-                                const size_t lineByteEnd = byteOffset + lines[lineIdx].size();
-                                if (textEdit.cursorPosition <= lineByteEnd)
-                                {
-                                    cursorLineIdx = lineIdx;
-                                    const size_t offsetInLine = textEdit.cursorPosition - byteOffset;
-                                    cursorLineX = context.fontManager->measureTextWidth(
-                                        lines[lineIdx].substr(0, offsetInLine), fontSize);
-                                    break;
-                                }
-                                byteOffset = lineByteEnd;
-                                // 跳过硬换行符
-                                if (byteOffset < displayText.size() && displayText[byteOffset] == '\n') byteOffset++;
-                            }
-                        }
-
-                        float cursorX = -1000.0F;
-                        float cursorY = -1000.0F;
-                        if (cursorLineIdx >= scrollOffsetLines && cursorLineIdx < scrollOffsetLines + maxVisibleLines)
-                        {
-                            const int visibleLineIndex = cursorLineIdx - scrollOffsetLines;
-                            cursorY =
-                                textPos.y() + static_cast<float>(visibleLineIndex) * lineHeight -
-                                (scrollArea->scrollOffset.y() - static_cast<float>(scrollOffsetLines) * lineHeight);
-                            cursorX = textPos.x() + cursorLineX;
-                        }
-
-                        if (cursorX >= 0.0F && cursorY >= 0.0F)
-                        {
-                            render::UiPushConstants pushConstants{};
-                            pushConstants.screen_size[0] = context.screenWidth;
-                            pushConstants.screen_size[1] = context.screenHeight;
-                            pushConstants.rect_size[0] = 2.0F;
-                            pushConstants.rect_size[1] = lineHeight;
-                            pushConstants.opacity = context.alpha;
-
-                            context.batchManager->beginBatch(
-                                context.whiteTexture, textEditContext.currentScissor, pushConstants);
-                            context.batchManager->addRect(
-                                {cursorX, cursorY}, {2.0F, lineHeight}, {1.0F, 1.0F, 1.0F, 1.0F});
-
-                            SDL_Rect rect;
-                            rect.x = static_cast<int>(cursorX);
-                            rect.y = static_cast<int>(cursorY);
-                            rect.w = 2;
-                            rect.h = static_cast<int>(lineHeight);
-                            SDL_SetTextInputArea(context.sdlWindow, &rect, 0);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // 没有 ScrollArea 的情况：显示末尾内容（保持原有行为）
-                const int maxLines = lineHeight > 0.0F ? static_cast<int>(textSize.y() / lineHeight) : 0;
-                const size_t startIndex = (maxLines > 0 && lines.size() > static_cast<size_t>(maxLines))
-                                              ? (lines.size() - static_cast<size_t>(maxLines))
-                                              : 0;
-
-                float y = textPos.y();
-                for (size_t i = startIndex; i < lines.size(); ++i)
-                {
-                    const std::string& line = lines[i];
-                    if (!line.empty())
-                    {
-                        addText(line,
-                                {textPos.x(), y},
-                                {textSize.x(), lineHeight},
-                                color,
-                                policies::Alignment::LEFT,
-                                context.alpha,
-                                fontSize,
-                                textEditContext);
-                    }
-                    y += lineHeight;
-                }
-
-                // 绘制光标 (仅当获焦时)
-                if (Registry::AnyOf<components::FocusedTag>(entity))
-                {
-                    const auto* caret = Registry::TryGet<components::Caret>(entity);
-                    if (context.sdlWindow && caret != nullptr && caret->visible)
-                    {
-                        // 根据 cursorPosition (字节索引) 定位光标所在行和列偏移
-                        int cursorLineIdx = static_cast<int>(lines.size()) - 1;
-                        float cursorLineX =
-                            lines.empty() ? 0.0F : context.fontManager->measureTextWidth(lines.back(), fontSize);
-                        {
-                            size_t byteOffset = 0;
-                            for (int lineIdx = 0; lineIdx < static_cast<int>(lines.size()); ++lineIdx)
-                            {
-                                const size_t lineByteEnd = byteOffset + lines[lineIdx].size();
-                                if (textEdit.cursorPosition <= lineByteEnd)
-                                {
-                                    cursorLineIdx = lineIdx;
-                                    const size_t offsetInLine = textEdit.cursorPosition - byteOffset;
-                                    cursorLineX = context.fontManager->measureTextWidth(
-                                        lines[lineIdx].substr(0, offsetInLine), fontSize);
-                                    break;
-                                }
-                                byteOffset = lineByteEnd;
-                                // 跳过硬换行符
-                                if (byteOffset < displayText.size() && displayText[byteOffset] == '\n') byteOffset++;
-                            }
-                        }
-
-                        // 仅在可见行范围内绘制光标
-                        float cursorX = -1000.0F;
-                        float cursorY = -1000.0F;
-                        if (cursorLineIdx >= static_cast<int>(startIndex))
-                        {
-                            const int relLine = cursorLineIdx - static_cast<int>(startIndex);
-                            cursorX = textPos.x() + cursorLineX;
-                            cursorY = (lines.size() == 1) ? textPos.y() + (textSize.y() - lineHeight) * 0.5F
-                                                          : textPos.y() + static_cast<float>(relLine) * lineHeight;
-                        }
-
-                        if (cursorX >= 0.0F && cursorY >= 0.0F)
-                        {
-                            render::UiPushConstants pushConstants{};
-                            pushConstants.screen_size[0] = context.screenWidth;
-                            pushConstants.screen_size[1] = context.screenHeight;
-                            pushConstants.rect_size[0] = 2.0F;
-                            pushConstants.rect_size[1] = lineHeight;
-                            pushConstants.opacity = context.alpha;
-
-                            context.batchManager->beginBatch(
-                                context.whiteTexture, textEditContext.currentScissor, pushConstants);
-                            context.batchManager->addRect(
-                                {cursorX, cursorY}, {2.0F, lineHeight}, {1.0F, 1.0F, 1.0F, 1.0F});
-
-                            SDL_Rect rect;
-                            rect.x = static_cast<int>(cursorX);
-                            rect.y = static_cast<int>(cursorY);
-                            rect.w = 2;
-                            rect.h = static_cast<int>(lineHeight);
-                            SDL_SetTextInputArea(context.sdlWindow, &rect, 0);
-                        }
-                    }
-                }
-            }
+            renderScrollAreaTextEdit(args, *scrollArea, lines, totalTextHeight);
+            return;
         }
-        textEditContext.popScissor();
+
+        renderPlainMultilineTextEdit(args, lines);
     }
 
     float getAncestorScrollAreaTextWidth(entt::entity entity) const
@@ -598,7 +667,7 @@ private:
                 float width = size->size.x();
                 if (const auto* padding = Registry::TryGet<components::Padding>(current))
                 {
-                    width -= (padding->values.y() + padding->values.z());
+                    width -= (padding->values.y() + padding->values.w());
                 }
                 return std::max(0.0F, width);
             }
@@ -710,59 +779,77 @@ private:
         context.batchManager->addRect({drawX, drawY}, textSize, color);
     }
 
-    void addWrappedText(const std::string& text,
-                        const Eigen::Vector2f& pos,
-                        const Eigen::Vector2f& size,
-                        const Eigen::Vector4f& color,
-                        policies::Alignment alignment,
-                        policies::TextWrap wrapMode,
-                        float wrapWidth,
-                        float opacity,
-                        float fontSize,
-                        core::RenderContext& context)
+    [[nodiscard]] float resolveWrappedTextStartY(const WrappedTextRenderArgs& args, float totalHeight) const
     {
-        if (!context.fontManager->isLoaded() || text.empty() || wrapWidth <= 0.0F) return;
-
-        const float lineHeight = static_cast<float>(context.fontManager->getFontHeight(fontSize));
-        if (lineHeight <= 0.0F) return;
-
-        auto measureFunc = [fontManager = context.fontManager, fontSize](const std::string& str)
-        { return fontManager->measureTextWidth(str, fontSize); };
-
-        std::vector<std::string> lines =
-            ui::utils::WrapTextLines(text, static_cast<int>(wrapWidth), wrapMode, measureFunc);
-        const float totalHeight = static_cast<float>(lines.size()) * lineHeight;
-
-        float startY = pos.y();
-        if (ui::utils::HasAlignment(alignment, policies::Alignment::VCENTER))
+        float startY = args.pos.y();
+        if (ui::utils::HasAlignment(args.alignment, policies::Alignment::VCENTER))
         {
-            startY += (size.y() - totalHeight) * 0.5F;
+            startY += (args.size.y() - totalHeight) * 0.5F;
         }
-        else if (ui::utils::HasAlignment(alignment, policies::Alignment::BOTTOM))
+        else if (ui::utils::HasAlignment(args.alignment, policies::Alignment::BOTTOM))
         {
-            startY += size.y() - totalHeight;
+            startY += args.size.y() - totalHeight;
         }
 
+        return startY;
+    }
+
+    [[nodiscard]] static policies::Alignment resolveWrappedTextHorizontalAlignment(policies::Alignment alignment)
+    {
         const uint8_t horizontalMask = static_cast<uint8_t>(policies::Alignment::LEFT) |
                                        static_cast<uint8_t>(policies::Alignment::HCENTER) |
                                        static_cast<uint8_t>(policies::Alignment::RIGHT);
-        const uint8_t alignValue = static_cast<uint8_t>(alignment);
-        policies::Alignment horizontalAlign = static_cast<policies::Alignment>(alignValue & horizontalMask);
+        const auto alignValue = static_cast<uint8_t>(alignment);
+        auto horizontalAlign = static_cast<policies::Alignment>(alignValue & horizontalMask);
         if (horizontalAlign == policies::Alignment::NONE)
         {
             horizontalAlign = policies::Alignment::LEFT;
         }
 
-        float y = startY;
+        return horizontalAlign;
+    }
+
+    void renderWrappedTextLines(const WrappedTextRenderArgs& args,
+                                const std::vector<std::string>& lines,
+                                float lineHeight,
+                                float startY,
+                                policies::Alignment horizontalAlign)
+    {
+        float drawY = startY;
         for (const auto& line : lines)
         {
             if (!line.empty())
             {
-                addText(
-                    line, {pos.x(), y}, {wrapWidth, lineHeight}, color, horizontalAlign, opacity, fontSize, context);
+                addText(line,
+                        {args.pos.x(), drawY},
+                        {args.wrapWidth, lineHeight},
+                        args.color,
+                        horizontalAlign,
+                        args.opacity,
+                        args.fontSize,
+                        args.renderContext());
             }
-            y += lineHeight;
+            drawY += lineHeight;
         }
+    }
+
+    void addWrappedText(const WrappedTextRenderArgs& args)
+    {
+        if (!args.renderContext().fontManager->isLoaded() || args.textValue().empty() || args.wrapWidth <= 0.0F) return;
+
+        const auto lineHeight = static_cast<float>(args.renderContext().fontManager->getFontHeight(args.fontSize));
+        if (lineHeight <= 0.0F) return;
+
+        auto measureFunc = [fontManager = args.renderContext().fontManager, fontSize = args.fontSize](
+                               const std::string& str) { return fontManager->measureTextWidth(str, fontSize); };
+
+        std::vector<std::string> lines =
+            ui::utils::WrapTextLines(args.textValue(), static_cast<int>(args.wrapWidth), args.wrapMode, measureFunc);
+        const float totalHeight = static_cast<float>(lines.size()) * lineHeight;
+
+        const float startY = resolveWrappedTextStartY(args, totalHeight);
+        const auto horizontalAlign = resolveWrappedTextHorizontalAlignment(args.alignment);
+        renderWrappedTextLines(args, lines, lineHeight, startY, horizontalAlign);
     }
 
     std::unordered_map<std::string, FallbackTextBitmap> m_fallbackTextCache;
