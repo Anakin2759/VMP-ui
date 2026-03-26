@@ -22,6 +22,7 @@
 #include "../managers/FontManager.hpp"
 #include "../managers/BatchManager.hpp"
 #include "../interface/IBackendRenderer.hpp"
+#include "../common/CustomizationPoints.hpp"
 #include "../core/TextUtils.hpp"
 #include "../api/Utils.hpp"
 #include <cstddef>
@@ -246,7 +247,7 @@ private:
         }
 
         auto measureFunc = [fontManager = context.fontManager, fontSize](const std::string& str)
-        { return fontManager->measureTextWidth(str, fontSize); };
+        { return ui::cpo::measure_text_width(*fontManager, str, fontSize); };
 
         if (wrapMode != policies::TextWrap::NONE && wrapWidth > 0.0F)
         {
@@ -419,7 +420,7 @@ private:
         TextEditCursorLineInfo cursorInfo{};
         cursorInfo.lineIndex = static_cast<int>(lines.size()) - 1;
         cursorInfo.lineOffsetX =
-            lines.empty() ? 0.0F : static_cast<float>(fontManager.measureTextWidth(lines.back(), fontSize));
+            lines.empty() ? 0.0F : static_cast<float>(ui::cpo::measure_text_width(fontManager, lines.back(), fontSize));
 
         size_t byteOffset = 0;
         for (int lineIdx = 0; lineIdx < static_cast<int>(lines.size()); ++lineIdx)
@@ -429,8 +430,8 @@ private:
             {
                 cursorInfo.lineIndex = lineIdx;
                 const size_t offsetInLine = textEdit.cursorPosition - byteOffset;
-                cursorInfo.lineOffsetX =
-                    static_cast<float>(fontManager.measureTextWidth(lines[lineIdx].substr(0, offsetInLine), fontSize));
+                cursorInfo.lineOffsetX = static_cast<float>(
+                    ui::cpo::measure_text_width(fontManager, lines[lineIdx].substr(0, offsetInLine), fontSize));
                 break;
             }
 
@@ -451,7 +452,7 @@ private:
                                                    core::RenderContext& context) const
     {
         auto measureFunc = [fontManager = context.fontManager, fontSize](const std::string& str)
-        { return fontManager->measureTextWidth(str, fontSize); };
+        { return ui::cpo::measure_text_width(*fontManager, str, fontSize); };
 
         TextEditSingleLineView textView{};
         const std::string leftOfCursor = displayText.substr(0, textEdit.cursorPosition);
@@ -633,8 +634,9 @@ private:
     {
         policies::TextWrap wrapMode =
             args.text().wordWrap != policies::TextWrap::NONE ? args.text().wordWrap : policies::TextWrap::Word;
-        auto measureFunc = [fontManager = args.renderContext().fontManager, fontSize = args.fontSize](
-                               const std::string& str) { return fontManager->measureTextWidth(str, fontSize); };
+        auto measureFunc =
+            [fontManager = args.renderContext().fontManager, fontSize = args.fontSize](const std::string& str)
+        { return ui::cpo::measure_text_width(*fontManager, str, fontSize); };
         const std::vector<std::string> lines =
             ui::utils::WrapTextLines(args.textValue(), static_cast<int>(args.textSize.x()), wrapMode, measureFunc);
         const float totalTextHeight = static_cast<float>(lines.size()) * args.lineHeight;
@@ -757,13 +759,21 @@ private:
         {
             const SDL_FRect destinationRect = {drawX, drawY, textSize.x(), textSize.y()};
             const uint8_t alphaMod = static_cast<uint8_t>(std::lround(std::clamp(opacity, 0.0F, 1.0F) * 255.0F));
-            context.backendRenderer->drawCachedBitmap(fallbackCacheKey,
-                                                      fallbackBitmap->pixels,
-                                                      static_cast<int>(fallbackBitmap->rasterWidth),
-                                                      static_cast<int>(fallbackBitmap->rasterHeight),
-                                                      destinationRect,
-                                                      context.currentScissor,
-                                                      alphaMod);
+            if (!ui::cpo::backend_supports(*context.backendRenderer, interface::BackendCapability::CACHED_BITMAP))
+            {
+                return;
+            }
+
+            if (!context.backendRenderer->drawCachedBitmap(fallbackCacheKey,
+                                                           fallbackBitmap->pixels,
+                                                           static_cast<int>(fallbackBitmap->rasterWidth),
+                                                           static_cast<int>(fallbackBitmap->rasterHeight),
+                                                           destinationRect,
+                                                           context.currentScissor,
+                                                           alphaMod))
+            {
+                return;
+            }
             return;
         }
 
@@ -840,8 +850,9 @@ private:
         const auto lineHeight = static_cast<float>(args.renderContext().fontManager->getFontHeight(args.fontSize));
         if (lineHeight <= 0.0F) return;
 
-        auto measureFunc = [fontManager = args.renderContext().fontManager, fontSize = args.fontSize](
-                               const std::string& str) { return fontManager->measureTextWidth(str, fontSize); };
+        auto measureFunc =
+            [fontManager = args.renderContext().fontManager, fontSize = args.fontSize](const std::string& str)
+        { return ui::cpo::measure_text_width(*fontManager, str, fontSize); };
 
         std::vector<std::string> lines =
             ui::utils::WrapTextLines(args.textValue(), static_cast<int>(args.wrapWidth), args.wrapMode, measureFunc);

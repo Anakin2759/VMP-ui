@@ -1,14 +1,16 @@
 #include "Utils.hpp"
+#include <algorithm>
 #include <cstdint>
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "../common/Components.hpp"
-#include "../common/GlobalContext.hpp"
 #include "../systems/TimerSystem.hpp"
 namespace ui::utils
 {
-void MarkLayoutDirty(::entt::entity entity)
+void MarkLayoutChanged(::entt::entity entity)
 {
+    if (!Registry::Valid(entity)) return;
+
     entt::entity current = entity;
     while (current != ::entt::null && Registry::Valid(current))
     {
@@ -17,7 +19,8 @@ void MarkLayoutDirty(::entt::entity entity)
         current = hierarchy != nullptr ? hierarchy->parent : entt::null;
     }
 }
-void MarkRenderDirty(::entt::entity entity)
+
+void MarkVisualChanged(::entt::entity entity)
 {
     if (!Registry::Valid(entity)) return;
 
@@ -41,6 +44,24 @@ void MarkRenderDirty(::entt::entity entity)
     {
         Registry::EmplaceOrReplace<components::RenderDirtyTag>(rootWindow);
     }
+}
+
+void MarkLayoutAndVisualChanged(::entt::entity entity)
+{
+    if (!Registry::Valid(entity)) return;
+
+    MarkLayoutChanged(entity);
+    MarkVisualChanged(entity);
+}
+
+void MarkLayoutDirty(::entt::entity entity)
+{
+    MarkLayoutChanged(entity);
+}
+
+void MarkRenderDirty(::entt::entity entity)
+{
+    MarkVisualChanged(entity);
 }
 
 bool HasAlignment(policies::Alignment value, policies::Alignment flag)
@@ -89,6 +110,21 @@ TaskHandle TimerCallback(uint32_t interval, std::move_only_function<void()> func
 void CancelQueuedTask(TaskHandle handle)
 {
     systems::TimerSystem::cancelTask(handle);
+}
+
+bool IsEntityExist(const std::string& alias)
+{
+    auto view = Registry::View<components::BaseInfo>();
+    for (const auto entity : view)
+    {
+        if (view.get<components::BaseInfo>(entity).alias == alias)
+        {
+            return true;
+        }
+    }
+    std::ranges::any_of(
+        view, [&view, &alias](entt::entity entity) { return view.get<components::BaseInfo>(entity).alias == alias; });
+    return false;
 }
 
 } // namespace ui::utils

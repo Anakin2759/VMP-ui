@@ -7,13 +7,21 @@
  * @version 0.2
  * @brief UI ECS 事件定义
  *
- * 事件分为两类：
- * 1. 紧急事件 [IMMEDIATE] - 使用 Dispatcher::Trigger() 立即执行
- *    适用场景：需要即时响应的用户交互、渲染指令、退出请求等
+ * 当前事件语义分为两类：
+ * 1. 立即事件 [IMMEDIATE]
+ *    - 通过 Dispatcher::Trigger() 立即执行
+ *    - 主要用于常规帧阶段事件（UpdateLayout / UpdateRendering / EndFrame / UpdateTimer）
+ *      以及必须即时响应的交互或平台事件
  *
- * 2. 缓冲区事件 [BUFFERED] - 使用 Dispatcher::Enqueue() 加入队列
- *    适用场景：可以延迟到下一帧处理的事件，如输入事件、状态变更等
- *    在事件循环每帧开始时通过 dispatcher.update() 统一处理
+ * 2. 队列事件 [BUFFERED]
+ *    - 通过 Dispatcher::Enqueue() 进入队列
+ *    - 由 QueuedTask 在每帧开始阶段调用 Dispatcher::Update() 统一派发
+ *    - 主要用于原始输入事件和可延迟到下一帧处理的状态事件
+ *
+ * 额外说明：
+ * - 常规帧刷新由 TaskChain::RenderTask 固定触发 UpdateLayout / UpdateRendering / EndFrame
+ * - InteractionSystem 在少数平台阻塞场景下会直接 Trigger 布局和渲染刷新，
+ *   这是即时补救通道，不代表常规帧流
  *
  * ************************************************************************
  */
@@ -45,7 +53,8 @@ struct ApplicationReadyEvent
 
 /**
  * @brief 图形上下文设置事件
- * [BUFFERED] 使用 enqueue - 在下一帧开始时统一处理
+ * 当前主要由 Factory 在窗口创建后立即 Trigger，确保 RenderSystem 能同步认领窗口图形上下文。
+ * 因此这里更适合理解为“生命周期事件”，而不是按输入事件那样依赖固定的队列派发。
  */
 struct WindowGraphicsContextSetEvent
 {
@@ -61,7 +70,7 @@ struct WindowGraphicsContextUnsetEvent
 
 // =====================================================================
 // C. 通用 UI 交互事件 (由 InteractionSystem 触发)
-//    交互事件为 [IMMEDIATE] 类型，使用 trigger 立即响应用户操作
+//    交互抽象事件当前按 [IMMEDIATE] 使用，目的是在当前帧内立即推进状态机
 // =====================================================================
 
 /**
@@ -216,8 +225,9 @@ struct CloseWindow
 };
 
 /**
- * @brief 渲染更新事件 - 每帧渲染时触发
- * [IMMEDIATE] 使用 trigger - 需立即执行渲染
+ * @brief 渲染更新事件
+ * [IMMEDIATE] 常规情况下由 TaskChain::RenderTask 每帧触发
+ * 在平台阻塞消息场景下也可能由 InteractionSystem 直接触发即时重绘
  */
 struct UpdateRendering
 {
@@ -225,8 +235,9 @@ struct UpdateRendering
 };
 
 /**
- * @brief 布局更新事件 - 每帧渲染前触发
- * [IMMEDIATE] 使用 trigger - 需在渲染前立即完成布局
+ * @brief 布局更新事件
+ * [IMMEDIATE] 常规情况下由 TaskChain::RenderTask 在每帧渲染前触发
+ * 在平台阻塞消息场景下也可能由 InteractionSystem 直接触发即时补救布局
  */
 struct UpdateLayout
 {
@@ -234,8 +245,8 @@ struct UpdateLayout
 };
 
 /**
- * @brief 帧结束事件 - 每帧渲染后触发
- * [IMMEDIATE] 使用 trigger - 用于批量应用状态更新
+ * @brief 帧结束事件
+ * [IMMEDIATE] 由 TaskChain::RenderTask 在常规帧末尾触发，用于批量应用状态更新
  */
 struct EndFrame
 {
@@ -261,7 +272,8 @@ struct QueuedTask
 // =====================================================================
 
 // 原始指针移动事件（由底层输入系统转发）
-// [BUFFERED] 使用 enqueue — 由输入系统记录原始位置/相对位移并转发
+// [BUFFERED] 由 InteractionSystem 记录原始位置/相对位移后入队，
+// 再由 QueuedTask 阶段统一派发到命中测试和状态系统
 struct RawPointerMove
 {
     using is_event_tag = void;
@@ -271,7 +283,7 @@ struct RawPointerMove
 };
 
 // 原始指针按键事件（按下/抬起）
-// [BUFFERED] 使用 enqueue
+// [BUFFERED] 由 InteractionSystem 入队，避免在 SDL 轮询点直接推进后续状态链
 struct RawPointerButton
 {
     using is_event_tag = void;
@@ -282,7 +294,7 @@ struct RawPointerButton
 };
 
 // 原始滚轮事件
-// [BUFFERED] 使用 enqueue
+// [BUFFERED] 由 InteractionSystem 入队，统一进入下一帧输入处理阶段
 struct RawPointerWheel
 {
     using is_event_tag = void;
@@ -297,7 +309,7 @@ struct RawPointerWheel
 // =====================================================================
 
 // 命中测试后的指针移动
-// [BUFFERED] 使用 enqueue
+// [BUFFERED] 由 HitTestSystem 入队，供 StateSystem / ActionSystem 在队列阶段消费
 struct HitPointerMove
 {
     using is_event_tag = void;
@@ -306,7 +318,7 @@ struct HitPointerMove
 };
 
 // 命中测试后的按键事件
-// [BUFFERED] 使用 enqueue
+// [BUFFERED] 由 HitTestSystem 入队，避免命中测试与状态修改在同一调用栈中耦合过深
 struct HitPointerButton
 {
     using is_event_tag = void;
@@ -315,7 +327,7 @@ struct HitPointerButton
 };
 
 // 命中测试后的滚轮事件
-// [BUFFERED] 使用 enqueue
+// [BUFFERED] 由 HitTestSystem 入队，供后续滚动和状态逻辑统一消费
 struct HitPointerWheel
 {
     using is_event_tag = void;

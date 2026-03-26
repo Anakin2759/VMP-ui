@@ -24,109 +24,126 @@ namespace ui
 {
 using traits::ComponentOrUiTag;
 
+class UiRuntime;
+class UiRuntimeScope;
+
 class Registry : public SingletonBase<Registry>
 {
     friend class SingletonBase<Registry>;
+    friend class UiRuntime;
+    friend class UiRuntimeScope;
 
 public:
+    static Registry& defaultInstance() { return SingletonBase<Registry>::getInstance(); }
+
+    static Registry& current()
+    {
+        if (auto* instance = activeInstance())
+        {
+            return *instance;
+        }
+
+        return defaultInstance();
+    }
+
+    static Registry& getInstance() { return current(); }
+
     static std::shared_ptr<Registry> GetRegistryPtr()
     {
-        return std::shared_ptr<Registry>(&getInstance(),
+        return std::shared_ptr<Registry>(&current(),
                                          [](Registry*)
                                          {
                                              // Do nothing, prevent deletion
                                          });
     }
-    static entt::entity Create() { return getInstance().m_registry.create(); }
+    static entt::entity Create() { return current().m_registry.create(); }
 
     template <ComponentOrUiTag... Type>
     static auto View()
     {
-        return getInstance().m_registry.view<Type...>();
+        return current().m_registry.view<Type...>();
     }
 
     template <typename... Owned, typename... Get, typename... Exclude>
     static auto Group(entt::get_t<Get...> get = {}, entt::exclude_t<Exclude...> exclude = {})
     {
-        return getInstance().m_registry.group<Owned...>(get, exclude);
+        return current().m_registry.group<Owned...>(get, exclude);
     }
 
     template <ComponentOrUiTag Type>
     static auto Get(::entt::entity entity) -> Type&
     {
-        return getInstance().m_registry.get<Type>(entity);
+        return current().m_registry.get<Type>(entity);
     }
 
     template <ComponentOrUiTag Type>
     static auto TryGet(::entt::entity entity) -> Type*
     {
-        return getInstance().m_registry.try_get<Type>(entity);
+        return current().m_registry.try_get<Type>(entity);
     }
 
     template <ComponentOrUiTag Type, typename... Args>
     static decltype(auto) Emplace(::entt::entity entity, Args&&... args)
     {
-        return getInstance().m_registry.emplace<Type>(entity, std::forward<Args>(args)...);
+        return current().m_registry.emplace<Type>(entity, std::forward<Args>(args)...);
     }
 
     template <ComponentOrUiTag Type, typename... Args>
     static auto Replace(::entt::entity entity, Args&&... args) -> Type&
     {
-        return getInstance().m_registry.replace<Type>(entity, std::forward<Args>(args)...);
+        return current().m_registry.replace<Type>(entity, std::forward<Args>(args)...);
     }
 
     template <ComponentOrUiTag Type, typename... Args>
     static void EmplaceOrReplace(::entt::entity entity, Args&&... args)
     {
-        getInstance().m_registry.emplace_or_replace<Type>(entity, std::forward<Args>(args)...);
+        current().m_registry.emplace_or_replace<Type>(entity, std::forward<Args>(args)...);
     }
     template <ComponentOrUiTag Type, typename... Args>
     static auto GetOrEmplace(::entt::entity entity, Args&&... args) -> Type&
     {
-        return getInstance().m_registry.get_or_emplace<Type>(entity, std::forward<Args>(args)...);
+        return current().m_registry.get_or_emplace<Type>(entity, std::forward<Args>(args)...);
     }
 
     template <ComponentOrUiTag Type>
     static void Remove(::entt::entity entity)
     {
-        getInstance().m_registry.remove<Type>(entity);
+        current().m_registry.remove<Type>(entity);
     }
 
     template <ComponentOrUiTag... Type>
     static auto AnyOf(::entt::entity entity) -> bool
     {
-        return getInstance().m_registry.any_of<Type...>(entity);
+        return current().m_registry.any_of<Type...>(entity);
     }
 
     template <ComponentOrUiTag... Type>
     static auto AllOf(::entt::entity entity) -> bool
     {
-        return getInstance().m_registry.all_of<Type...>(entity);
+        return current().m_registry.all_of<Type...>(entity);
     }
 
-    static bool Valid(::entt::entity entity) { return getInstance().m_registry.valid(entity); }
+    static bool Valid(::entt::entity entity) { return current().m_registry.valid(entity); }
 
-    static void Destroy(::entt::entity entity) { getInstance().m_registry.destroy(entity); }
-
-
+    static void Destroy(::entt::entity entity) { current().m_registry.destroy(entity); }
 
     template <ComponentOrUiTag... Type>
     static auto Clear()
     {
-        return getInstance().m_registry.clear<Type...>();
+        return current().m_registry.clear<Type...>();
     }
 
-    static void Clear() { return getInstance().m_registry.clear(); }
+    static void Clear() { current().m_registry.clear(); }
 
     template <ComponentOrUiTag Type>
     static auto OnUpdate()
     {
-        return getInstance().m_registry.on_update<Type>();
+        return current().m_registry.on_update<Type>();
     }
     template <ComponentOrUiTag Type>
     static auto OnDestroy()
     {
-        return getInstance().m_registry.on_destroy<Type>();
+        return current().m_registry.on_destroy<Type>();
     }
     /**
      * @brief 组件构造事件回调连接器
@@ -135,15 +152,28 @@ public:
     template <ComponentOrUiTag Type>
     static auto OnConstruct()
     {
-        return getInstance().m_registry.on_construct<Type>();
+        return current().m_registry.on_construct<Type>();
     }
 
     /**
      * @brief 获取全局上下文存储
      */
-    static auto& ctx() { return getInstance().m_registry.ctx(); }
+    static auto& ctx() { return current().m_registry.ctx(); }
 
 private:
+    static Registry*& activeInstance()
+    {
+        static thread_local Registry* instance = nullptr;
+        return instance;
+    }
+
+    static Registry* swapActiveInstance(Registry* instance)
+    {
+        Registry* previous = activeInstance();
+        activeInstance() = instance;
+        return previous;
+    }
+
     Registry() = default;
 
     entt::registry m_registry;

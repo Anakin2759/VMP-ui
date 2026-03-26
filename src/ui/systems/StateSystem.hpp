@@ -24,9 +24,7 @@
 #pragma once
 #include <entt/entt.hpp>
 #include <cmath>
-#include <cfloat>
 #include <algorithm>
-#include <string>
 #include <unordered_set>
 #include <SDL3/SDL.h>
 #include "api/Utils.hpp"
@@ -95,94 +93,146 @@ public:
         Dispatcher::Sink<events::EndFrame>().disconnect<&StateSystem::onEndFrame>(*this);
     }
 
+private:
     // ===================================================================
-    // 状态管理事件处理
+    // Pointer / Focus 辅助判定
     // ===================================================================
 
-    /**
-     * @brief 处理悬停事件 - 更新悬停状态（延迟应用）
-     */
-    void onHoverEvent(const events::HoverEvent& event)
+    static bool isWritableTextEdit(entt::entity entity)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        if (!Registry::Valid(entity) || !Registry::AnyOf<components::TextEditTag>(entity))
+        {
+            return false;
+        }
 
-        // 标记旧悬停实体需要移除 Hover 标签
+        const auto* edit = Registry::TryGet<components::TextEdit>(entity);
+        return edit == nullptr || !policies::HasFlag(edit->inputMode, policies::TextFlag::ReadOnly);
+    }
+
+    static bool shouldEmitPressForEntity(entt::entity entity)
+    {
+        return Registry::Valid(entity) &&
+               (Registry::AnyOf<components::Pressable>(entity) || Registry::AnyOf<components::Clickable>(entity) ||
+                Registry::AnyOf<components::TextEditTag>(entity));
+    }
+
+    static entt::entity findScrollTargetFromHit(entt::entity hitEntity)
+    {
+        entt::entity current = hitEntity;
+        while (current != entt::null && Registry::Valid(current))
+        {
+            if (Registry::AnyOf<components::ScrollArea>(current))
+            {
+                return current;
+            }
+
+            if (const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current))
+            {
+                current = hierarchy->parent;
+            }
+            else
+            {
+                current = entt::null;
+            }
+        }
+
+        return entt::null;
+    }
+
+    static entt::entity findScrollTargetAtPosition(const Vec2& pointerPosition)
+    {
+        auto view =
+            Registry::View<components::ScrollArea, components::Size, components::VisibleTag, components::Position>();
+        for (auto entity : view)
+        {
+            const auto& size = view.get<components::Size>(entity);
+            Vec2 absPos = HitTestSystem::getAbsolutePosition(entity);
+            if (HitTestSystem::isPointInRect(pointerPosition, absPos, size.size))
+            {
+                return entity;
+            }
+        }
+
+        return entt::null;
+    }
+
+    static void applyScrollWheelDelta(entt::entity target, const Vec2& scrollDelta)
+    {
+        auto& scroll = Registry::Get<components::ScrollArea>(target);
+        const auto& size = Registry::Get<components::Size>(target);
+
+        float step = 30.0F;
+        float delta = -scrollDelta.y() * step;
+        scroll.scrollOffset.y() += delta;
+
+        float viewportHeight = size.size.y();
+        if (const auto* padding = Registry::TryGet<components::Padding>(target))
+        {
+            viewportHeight -= (padding->values.x() + padding->values.z());
+        }
+        viewportHeight = std::max(0.0F, viewportHeight);
+
+        float maxScroll = std::max(0.0F, scroll.contentSize.y() - viewportHeight);
+        scroll.scrollOffset.y() = std::clamp(scroll.scrollOffset.y(), 0.0F, maxScroll);
+
+        ui::utils::MarkLayoutAndVisualChanged(target);
+    }
+
+    void queueHoveredEntity(globalcontext::StateContext& state, entt::entity entity)
+    {
         if (state.hoveredEntity != entt::null && Registry::Valid(state.hoveredEntity))
         {
             m_pendingHoverRemove.insert(state.hoveredEntity);
         }
 
-        // 设置新悬停实体
-        state.hoveredEntity = event.entity;
-        if (Registry::Valid(event.entity))
+        state.hoveredEntity = entity;
+        if (Registry::Valid(entity))
         {
-            m_pendingHoverAdd.insert(event.entity);
-            // 如果同一实体既要添加又要移除，取消移除操作
-            m_pendingHoverRemove.erase(event.entity);
+            m_pendingHoverAdd.insert(entity);
+            m_pendingHoverRemove.erase(entity);
         }
     }
 
-    /**
-     * @brief 处理取消悬停事件（延迟应用）
-     */
-    void onUnhoverEvent(const events::UnhoverEvent& event)
+    void queueHoverClear(globalcontext::StateContext& state, entt::entity entity)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
-
-        if (Registry::Valid(event.entity))
+        if (Registry::Valid(entity))
         {
-            m_pendingHoverRemove.insert(event.entity);
-            // 取消可能的添加操作
-            m_pendingHoverAdd.erase(event.entity);
+            m_pendingHoverRemove.insert(entity);
+            m_pendingHoverAdd.erase(entity);
         }
 
-        // 如果取消悬停的实体是当前悬停实体，清空全局状态
-        if (state.hoveredEntity == event.entity)
+        if (state.hoveredEntity == entity)
         {
             state.hoveredEntity = entt::null;
         }
     }
 
-    /**
-     * @brief 处理鼠标按下事件 - 设置激活状态（延迟应用）
-     */
-    void onMousePressEvent(const events::MousePressEvent& event)
+    void queueActiveEntity(globalcontext::StateContext& state, entt::entity entity)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
         state.activeDragMoved = false;
 
-        // 标记旧激活实体需要移除 Active 标签
         if (state.activeEntity != entt::null && Registry::Valid(state.activeEntity))
         {
             m_pendingActiveRemove.insert(state.activeEntity);
         }
 
-        // 设置新激活实体
-        state.activeEntity = event.entity;
-        if (Registry::Valid(event.entity))
+        state.activeEntity = entity;
+        if (Registry::Valid(entity))
         {
-            m_pendingActiveAdd.insert(event.entity);
-            // 如果同一实体既要添加又要移除，取消移除操作
-            m_pendingActiveRemove.erase(event.entity);
+            m_pendingActiveAdd.insert(entity);
+            m_pendingActiveRemove.erase(entity);
         }
     }
 
-    /**
-     * @brief 处理鼠标释放事件 - 清除激活状态（延迟应用）
-     */
-    void onMouseReleaseEvent(const events::MouseReleaseEvent& event)
+    void queueActiveClear(globalcontext::StateContext& state, entt::entity entity)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
-
-        if (Registry::Valid(event.entity))
+        if (Registry::Valid(entity))
         {
-            m_pendingActiveRemove.insert(event.entity);
-            // 取消可能的添加操作
-            m_pendingActiveAdd.erase(event.entity);
+            m_pendingActiveRemove.insert(entity);
+            m_pendingActiveAdd.erase(entity);
         }
 
-        // 清空全局激活状态
-        if (state.activeEntity == event.entity)
+        if (state.activeEntity == entity)
         {
             state.activeEntity = entt::null;
         }
@@ -191,7 +241,47 @@ public:
     }
 
     // ===================================================================
-    // 命中测试后的输入事件处理 - 打包抽象交互事件
+    // PointerState: Hover / Active 标签延迟状态机
+    // ===================================================================
+
+    /**
+     * @brief 处理悬停事件 - 更新悬停状态（延迟应用）
+     */
+    void onHoverEvent(const events::HoverEvent& event)
+    {
+        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        queueHoveredEntity(state, event.entity);
+    }
+
+    /**
+     * @brief 处理取消悬停事件（延迟应用）
+     */
+    void onUnhoverEvent(const events::UnhoverEvent& event)
+    {
+        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        queueHoverClear(state, event.entity);
+    }
+
+    /**
+     * @brief 处理鼠标按下事件 - 设置激活状态（延迟应用）
+     */
+    void onMousePressEvent(const events::MousePressEvent& event)
+    {
+        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        queueActiveEntity(state, event.entity);
+    }
+
+    /**
+     * @brief 处理鼠标释放事件 - 清除激活状态（延迟应用）
+     */
+    void onMouseReleaseEvent(const events::MouseReleaseEvent& event)
+    {
+        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        queueActiveClear(state, event.entity);
+    }
+
+    // ===================================================================
+    // PointerState: 命中后的指针输入状态机
     // ===================================================================
 
     void onHitPointerMove(const events::HitPointerMove& event)
@@ -256,62 +346,16 @@ public:
         auto& state = Registry::ctx().get<globalcontext::StateContext>();
         state.latestScrollDelta = event.raw.delta;
 
-        entt::entity target = entt::null;
-        entt::entity current = event.hitEntity;
-        while (current != entt::null && Registry::Valid(current))
-        {
-            if (Registry::AnyOf<components::ScrollArea>(current))
-            {
-                target = current;
-                break;
-            }
-            if (const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current))
-            {
-                current = hierarchy->parent;
-            }
-            else
-            {
-                current = entt::null;
-            }
-        }
+        entt::entity target = findScrollTargetFromHit(event.hitEntity);
 
         if (target == entt::null)
         {
-            auto view = Registry::
-                View<components::ScrollArea, components::Size, components::VisibleTag, components::Position>();
-            for (auto entity : view)
-            {
-                const auto& size = view.get<components::Size>(entity);
-                Vec2 absPos = HitTestSystem::getAbsolutePosition(entity);
-                if (HitTestSystem::isPointInRect(event.raw.position, absPos, size.size))
-                {
-                    target = entity;
-                    break;
-                }
-            }
+            target = findScrollTargetAtPosition(event.raw.position);
         }
 
         if (target != entt::null)
         {
-            auto& scroll = Registry::Get<components::ScrollArea>(target);
-            const auto& size = Registry::Get<components::Size>(target);
-
-            float step = 30.0F;
-            float delta = -event.raw.delta.y() * step;
-            scroll.scrollOffset.y() += delta;
-
-            float viewportHeight = size.size.y();
-            if (const auto* padding = Registry::TryGet<components::Padding>(target))
-            {
-                viewportHeight -= (padding->values.x() + padding->values.z());
-            }
-            viewportHeight = std::max(0.0F, viewportHeight);
-
-            float maxScroll = std::max(0.0F, scroll.contentSize.y() - viewportHeight);
-            scroll.scrollOffset.y() = std::clamp(scroll.scrollOffset.y(), 0.0F, maxScroll);
-
-            Registry::EmplaceOrReplace<components::LayoutDirtyTag>(target);
-            ui::utils::MarkRenderDirty(target);
+            applyScrollWheelDelta(target, event.raw.delta);
         }
     }
 
@@ -326,7 +370,7 @@ public:
         // 移除旧焦点实体的标签（Focus 需要立即应用）
         if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
         {
-            ui::utils::MarkRenderDirty(state.focusedEntity);
+            ui::utils::MarkVisualChanged(state.focusedEntity);
             Registry::Remove<components::FocusedTag>(state.focusedEntity);
         }
 
@@ -335,7 +379,7 @@ public:
         if (entity != entt::null && Registry::Valid(entity))
         {
             Registry::EmplaceOrReplace<components::FocusedTag>(entity);
-            ui::utils::MarkRenderDirty(entity);
+            ui::utils::MarkVisualChanged(entity);
 
             // 如果是输入框，启动文本输入并重置光标闪烁状态（立即可见）
             if (Registry::AnyOf<components::TextEditTag>(entity))
@@ -362,7 +406,7 @@ public:
 
         if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
         {
-            ui::utils::MarkRenderDirty(state.focusedEntity);
+            ui::utils::MarkVisualChanged(state.focusedEntity);
             Registry::Remove<components::FocusedTag>(state.focusedEntity);
             state.focusedEntity = entt::null;
         }
@@ -374,7 +418,7 @@ public:
     }
 
     // ===================================================================
-    // 窗口事件处理
+    // WindowSyncState: 窗口生命周期与 SDL 同步
     // ===================================================================
 
     void onCloseWindow(const events::CloseWindow& event)
@@ -397,7 +441,6 @@ public:
      */
     void onWindowPixelSizeChanged(const events::WindowPixelSizeChanged& event)
     {
-        auto& registry = Registry::getInstance();
         auto view = Registry::View<components::Window, components::Size>();
 
         for (auto entity : view)
@@ -407,7 +450,7 @@ public:
                 auto& size = view.get<components::Size>(entity);
                 size.size.x() = static_cast<float>(event.width);
                 size.size.y() = static_cast<float>(event.height);
-                Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
+                ui::utils::MarkLayoutAndVisualChanged(entity);
                 break;
             }
         }
@@ -418,7 +461,6 @@ public:
      */
     void onWindowMoved(const events::WindowMoved& event)
     {
-        auto& registry = Registry::getInstance();
         auto view = Registry::View<components::Window, components::Position>();
 
         for (auto entity : view)
@@ -433,262 +475,10 @@ public:
         }
     }
 
-    /**
-     * @brief 根据实体组件同步调整 SDL 窗口属性
-     *
-     * 支持同步的属性：
-     * - 窗口标题 (Title 组件或 Window::title)
-     * - 窗口位置 (Position 组件，支持自动居中)
-     * - 窗口大小 (Size 组件)
-     * - 窗口大小约束 (Window::minSize/maxSize)
-     * - 窗口可调整大小 (WindowFlag::NoResize)
-     * - 窗口透明度 (Alpha 组件)
-     * - 窗口可见性 (VisibleTag)
-     * - 模态属性 (WindowFlag::Modal) - 用于 Dialog
-     */
-    static void syncSDLWindowProperties(entt::entity entity, components::Window& windowComp, SDL_Window* sdlWindow)
-    {
-        if (sdlWindow == nullptr) return;
+    // ===================================================================
+    // ScrollInteractionState: ScrollArea / Slider 交互
+    // ===================================================================
 
-        // 1. 同步窗口标题
-        syncWindowTitle(entity, windowComp, sdlWindow);
-
-        // 2. 同步窗口位置
-        syncWindowPosition(entity, sdlWindow);
-
-        // 3. 同步窗口大小约束
-        syncWindowSizeConstraints(windowComp, sdlWindow);
-
-        // 4. 同步窗口可调整大小属性
-        syncWindowResizable(windowComp, sdlWindow);
-
-        // 4.1 同步窗口无边框属性
-        syncWindowFrameless(windowComp, sdlWindow);
-
-        // 5. 同步窗口透明度
-        syncWindowOpacity(entity, sdlWindow);
-
-        // 6. 同步窗口可见性
-        syncWindowVisibility(entity, sdlWindow);
-
-        // 7. 同步模态属性 (Dialog)
-        syncWindowModal(entity, windowComp, sdlWindow);
-    }
-
-    /**
-     * @brief 同步窗口大小（保留但不再自动调用，供外部需要时使用）
-     */
-    static void syncWindowSize(entt::entity entity, SDL_Window* sdlWindow)
-    {
-        const auto* sizeComp = Registry::TryGet<components::Size>(entity);
-        if (sizeComp == nullptr) return;
-
-        // 只在非自动大小模式下同步
-        if (policies::HasFlag(sizeComp->sizePolicy, policies::Size::HAuto) ||
-            policies::HasFlag(sizeComp->sizePolicy, policies::Size::VAuto))
-        {
-            return;
-        }
-        int currentW = 0;
-        int currentH = 0;
-        SDL_GetWindowSize(sdlWindow, &currentW, &currentH);
-
-        int targetW = static_cast<int>(sizeComp->size.x());
-        int targetH = static_cast<int>(sizeComp->size.y());
-
-        // 只在大小不同时才设置，避免不必要的窗口操作
-        if (currentW != targetW || currentH != targetH)
-        {
-            SDL_SetWindowSize(sdlWindow, targetW, targetH);
-        }
-    }
-
-    /**
-     * @brief 同步窗口位置
-     *
-     * 逻辑：
-     * - 首次渲染时，从 SDL 窗口读取实际位置并更新 Position 组件
-     * - 之后只在 Position 组件被代码修改时才更新窗口位置
-     */
-    static void syncWindowPosition(entt::entity entity, SDL_Window* sdlWindow)
-    {
-        auto* posComp = Registry::TryGet<components::Position>(entity);
-        if (posComp == nullptr) return;
-
-        // 获取当前窗口实际位置
-        int currentX = 0;
-        int currentY = 0;
-        SDL_GetWindowPosition(sdlWindow, &currentX, &currentY);
-
-        // 如果 Position 组件是默认值 (0, 0)，说明是首次渲染，从窗口同步位置
-        constexpr float EPSILON = 0.01F;
-        if (std::abs(posComp->value.x()) < EPSILON && std::abs(posComp->value.y()) < EPSILON)
-        {
-            // 更新 Position 组件为窗口实际位置
-            posComp->value = Eigen::Vector2f{static_cast<float>(currentX), static_cast<float>(currentY)};
-            return;
-        }
-
-        // 后续帧：只在 Position 组件与实际窗口位置不同时才设置
-        int targetX = static_cast<int>(posComp->value.x());
-        int targetY = static_cast<int>(posComp->value.y());
-
-        // 只在位置明显不同时才设置（避免浮点误差导致的抖动）
-        if (std::abs(currentX - targetX) > 1 || std::abs(currentY - targetY) > 1)
-        {
-            SDL_SetWindowPosition(sdlWindow, targetX, targetY);
-        }
-    }
-
-    /**
-     * @brief 同步窗口标题
-     */
-    static void syncWindowTitle(entt::entity entity, const components::Window& windowComp, SDL_Window* sdlWindow)
-    {
-        std::string newTitle;
-
-        // 优先使用 Title 组件
-        const auto* titleComp = Registry::TryGet<components::Title>(entity);
-        if (titleComp != nullptr && !titleComp->text.empty())
-        {
-            newTitle = titleComp->text;
-        }
-        else if (!windowComp.title.empty())
-        {
-            newTitle = windowComp.title;
-        }
-
-        if (!newTitle.empty())
-        {
-            const char* currentTitle = SDL_GetWindowTitle(sdlWindow);
-            if (currentTitle == nullptr || newTitle != currentTitle)
-            {
-                SDL_SetWindowTitle(sdlWindow, newTitle.c_str());
-            }
-        }
-    }
-
-    /**
-     * @brief 同步窗口大小约束
-     */
-    static void syncWindowSizeConstraints(const components::Window& windowComp, SDL_Window* sdlWindow)
-    {
-        int currentMinW = 0;
-        int currentMinH = 0;
-        int currentMaxW = 0;
-        int currentMaxH = 0;
-        SDL_GetWindowMinimumSize(sdlWindow, &currentMinW, &currentMinH);
-        SDL_GetWindowMaximumSize(sdlWindow, &currentMaxW, &currentMaxH);
-
-        int newMinW = static_cast<int>(windowComp.minSize.x());
-        int newMinH = static_cast<int>(windowComp.minSize.y());
-        int newMaxW = (windowComp.maxSize.x() < FLT_MAX) ? static_cast<int>(windowComp.maxSize.x()) : 0;
-        int newMaxH = (windowComp.maxSize.y() < FLT_MAX) ? static_cast<int>(windowComp.maxSize.y()) : 0;
-
-        if (newMinW != currentMinW || newMinH != currentMinH)
-        {
-            SDL_SetWindowMinimumSize(sdlWindow, newMinW, newMinH);
-        }
-
-        if (newMaxW != currentMaxW || newMaxH != currentMaxH)
-        {
-            SDL_SetWindowMaximumSize(sdlWindow, newMaxW, newMaxH);
-        }
-    }
-
-    /**
-     * @brief 同步窗口无边框属性 (NoTitleBar)
-     */
-    static void syncWindowFrameless(const components::Window& windowComp, SDL_Window* sdlWindow)
-    {
-        SDL_WindowFlags flags = SDL_GetWindowFlags(sdlWindow);
-        bool currentlyBordered = (flags & SDL_WINDOW_BORDERLESS) == 0;
-        bool shouldBeBordered = !policies::HasFlag(windowComp.flags, policies::WindowFlag::NoTitleBar);
-
-        if (currentlyBordered != shouldBeBordered)
-        {
-            SDL_SetWindowBordered(sdlWindow, shouldBeBordered);
-        }
-    }
-
-    /**
-     * @brief 同步窗口可调整大小属性
-     */
-    static void syncWindowResizable(const components::Window& windowComp, SDL_Window* sdlWindow)
-    {
-        SDL_WindowFlags flags = SDL_GetWindowFlags(sdlWindow);
-        bool currentlyResizable = (flags & SDL_WINDOW_RESIZABLE) != 0;
-        bool shouldBeResizable = !policies::HasFlag(windowComp.flags, policies::WindowFlag::NoResize);
-
-        if (currentlyResizable != shouldBeResizable)
-        {
-            SDL_SetWindowResizable(sdlWindow, shouldBeResizable);
-        }
-    }
-
-    /**
-     * @brief 同步窗口透明度
-     */
-    static void syncWindowOpacity(entt::entity entity, SDL_Window* sdlWindow)
-    {
-        const auto* alphaComp = Registry::TryGet<components::Alpha>(entity);
-        if (alphaComp != nullptr)
-        {
-            float currentOpacity = SDL_GetWindowOpacity(sdlWindow);
-            // 只在透明度差异超过阈值时更新，避免频繁调用
-            constexpr float OPACITY_THRESHOLD = 0.01F;
-            if (std::abs(currentOpacity - alphaComp->value) > OPACITY_THRESHOLD)
-            {
-                SDL_SetWindowOpacity(sdlWindow, alphaComp->value);
-            }
-        }
-    }
-
-    /**
-     * @brief 同步窗口可见性
-     */
-    static void syncWindowVisibility(entt::entity entity, SDL_Window* sdlWindow)
-    {
-        bool shouldBeVisible = Registry::AnyOf<components::VisibleTag>(entity);
-        SDL_WindowFlags flags = SDL_GetWindowFlags(sdlWindow);
-        bool currentlyVisible = (flags & SDL_WINDOW_HIDDEN) == 0;
-
-        if (shouldBeVisible && !currentlyVisible)
-        {
-            SDL_ShowWindow(sdlWindow);
-        }
-        else if (!shouldBeVisible && currentlyVisible)
-        {
-            SDL_HideWindow(sdlWindow);
-        }
-    }
-
-    /**
-     * @brief 同步模态属性 (用于 Dialog)
-     */
-    static void syncWindowModal(entt::entity entity, const components::Window& windowComp, SDL_Window* sdlWindow)
-    {
-        // 检查是否是 Dialog 实体
-        bool isDialog = Registry::AnyOf<components::DialogTag>(entity);
-        if (!isDialog) return;
-
-        SDL_WindowFlags flags = SDL_GetWindowFlags(sdlWindow);
-        bool currentlyModal = (flags & SDL_WINDOW_MODAL) != 0;
-
-        bool isModal = policies::HasFlag(windowComp.flags, policies::WindowFlag::Modal);
-
-        if (isModal && !currentlyModal)
-        {
-            // 设置为模态窗口
-            SDL_SetWindowModal(sdlWindow, true);
-        }
-        else if (!isModal && currentlyModal)
-        {
-            SDL_SetWindowModal(sdlWindow, false);
-        }
-    }
-
-private:
     /**
      * @brief 更新所有可见 ScrollArea 的滚动条悬停状态
      */
@@ -775,7 +565,7 @@ private:
             // 如果状态改变，标记需要重绘
             if (wasHovered != (scrollArea.scrollbarHovered || scrollArea.trackHovered))
             {
-                ui::utils::MarkRenderDirty(entity);
+                ui::utils::MarkVisualChanged(entity);
             }
         }
     }
@@ -810,8 +600,7 @@ private:
 
             currentOffset = std::clamp(startOffset + offsetDelta, 0.0F, maxScroll);
 
-            Registry::EmplaceOrReplace<components::LayoutDirtyTag>(state.dragScrollEntity);
-            ui::utils::MarkRenderDirty(state.dragScrollEntity);
+            ui::utils::MarkLayoutAndVisualChanged(state.dragScrollEntity);
         }
     }
 
@@ -883,7 +672,7 @@ private:
                 handleTrackClick(scrollEntity, event.raw.position, isVertical);
             }
 
-            ui::utils::MarkRenderDirty(scrollEntity);
+            ui::utils::MarkVisualChanged(scrollEntity);
             return true;
         }
         return false;
@@ -893,21 +682,15 @@ private:
     {
         if (event.hitEntity != entt::null)
         {
-            if (Registry::AnyOf<components::TextEditTag>(event.hitEntity))
+            if (isWritableTextEdit(event.hitEntity))
             {
-                const auto* edit = Registry::TryGet<components::TextEdit>(event.hitEntity);
-                if (edit == nullptr || !policies::HasFlag(edit->inputMode, policies::TextFlag::ReadOnly))
+                if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
                 {
-                    if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
-                    {
-                        setFocus(event.hitEntity, sdlWindow);
-                    }
+                    setFocus(event.hitEntity, sdlWindow);
                 }
             }
 
-            if (Registry::AnyOf<components::Pressable>(event.hitEntity) ||
-                Registry::AnyOf<components::Clickable>(event.hitEntity) ||
-                Registry::AnyOf<components::TextEditTag>(event.hitEntity))
+            if (shouldEmitPressForEntity(event.hitEntity))
             {
                 Dispatcher::Trigger<events::MousePressEvent>(events::MousePressEvent{event.hitEntity});
             }
@@ -936,7 +719,7 @@ private:
             {
                 auto& scrollArea = Registry::Get<components::ScrollArea>(state.dragScrollEntity);
                 scrollArea.scrollbarPressed = false;
-                ui::utils::MarkRenderDirty(state.dragScrollEntity);
+                ui::utils::MarkVisualChanged(state.dragScrollEntity);
             }
 
             state.isDraggingScrollbar = false;
@@ -948,20 +731,15 @@ private:
         {
             if (Registry::TryGet<components::Clickable>(releasedEntity) != nullptr)
             {
-                auto& baseInfo = Registry::Get<components::BaseInfo>(releasedEntity); // 确保实体有效
                 Dispatcher::Trigger<events::ClickEvent>(events::ClickEvent{releasedEntity});
             }
 
             if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
             {
-                if (Registry::AnyOf<components::TextEditTag>(releasedEntity))
+                if (isWritableTextEdit(releasedEntity))
                 {
-                    const auto* edit = Registry::TryGet<components::TextEdit>(releasedEntity);
-                    if (edit == nullptr || !policies::HasFlag(edit->inputMode, policies::TextFlag::ReadOnly))
-                    {
-                        setFocus(releasedEntity, sdlWindow);
-                        return;
-                    }
+                    setFocus(releasedEntity, sdlWindow);
+                    return;
                 }
                 clearFocus(sdlWindow);
             }
@@ -1072,7 +850,7 @@ private:
             slider->onValueChanged(slider->currentValue);
         }
 
-        ui::utils::MarkRenderDirty(entity);
+        ui::utils::MarkVisualChanged(entity);
     }
 
     /**
@@ -1218,12 +996,11 @@ private:
         scrollOffset = targetRatio * maxScroll;
         scrollOffset = std::clamp(scrollOffset, 0.0F, maxScroll);
 
-        Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
-        ui::utils::MarkRenderDirty(entity);
+        ui::utils::MarkLayoutAndVisualChanged(entity);
     }
 
     // ===================================================================
-    // 状态更新合并机制
+    // PointerState: 帧尾标签合并
     // ===================================================================
 
     /**
@@ -1288,7 +1065,6 @@ private:
 
     static void destroyWidget(entt::entity entity)
     {
-        auto& registry = Registry::getInstance();
         if (!Registry::Valid(entity)) return;
 
         // 使用迭代代替递归，避免深层嵌套导致栈溢出

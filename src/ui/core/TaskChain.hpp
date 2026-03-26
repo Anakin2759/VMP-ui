@@ -5,11 +5,16 @@
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2025-12-25
  * @version 0.1
- * @brief  ui每帧执行的任务链封装
-
-  - 定义渲染任务和输入处理任务
-
-   -基本上是固定流程，所以暂时就直接写仿函数
+ * @brief ui 每帧执行的任务链封装
+ *
+ * 当前采用固定顺序的轻量帧管线：
+ * 1. QueuedTask：推进帧上下文、Timer 和事件队列派发
+ * 2. InputTask：轮询 SDL 输入并将原始输入事件送入事件系统
+ * 3. RenderTask：触发常规帧的 UpdateLayout / UpdateRendering / EndFrame
+ *
+ * 这里定义的是“常规帧路径”。
+ * 少数平台阻塞场景下，InteractionSystem 仍可能直接触发即时布局或渲染补救，
+ * 但那不是主帧循环的默认行为。
 
  *
  * ************************************************************************
@@ -22,8 +27,8 @@
 
 #include <entt/entt.hpp>
 #include "../common/Events.hpp"
+#include "../common/GlobalContext.hpp"
 #include "../singleton/Dispatcher.hpp"
-#include "../singleton/Logger.hpp"
 #include "../systems/InteractionSystem.hpp"
 namespace ui::tasks
 {
@@ -65,37 +70,34 @@ struct BoundContext
     auto operator|(this Self&& self, Task&& next)
     {
         // 返回一个闭包，它捕获了参数，并且它的 operator() 不需要再传参
-        return [s = std::forward<Self>(self).args, t = std::forward<Task>(next)](auto&&... extra_args) mutable
-        {
-            // 如果执行时还传了新参数，合并它们，否则只传 Bound 的参数
-            return std::apply(t, s);
-        };
+        return [storedArgs = std::forward<Self>(self).args, nextTask = std::forward<Task>(next)]() mutable
+        { return std::apply(nextTask, storedArgs); };
     }
 };
 
 // --- 4. CPO 实现 ---
 
-namespace _pipe_cpo
+namespace pipe_cpo
 {
-struct _fn
+struct PipeFn
 {
     // 处理任务之间的拼接 (Task | Task)
     template <IsTask F, IsTask G>
-    constexpr auto operator()(F&& f, G&& g) const
+    constexpr auto operator()(F&& firstTask, G&& secondTask) const
     {
-        return Combined<std::decay_t<F>, std::decay_t<G>>{std::forward<F>(f), std::forward<G>(g)};
+        return Combined<std::decay_t<F>, std::decay_t<G>>{std::forward<F>(firstTask), std::forward<G>(secondTask)};
     }
 };
-} // namespace _pipe_cpo
-inline constexpr _pipe_cpo::_fn pipe{};
+} // namespace pipe_cpo
+inline constexpr pipe_cpo::PipeFn PIPE_COMPOSER{};
 
 // --- 5. 运算符重载 ---
 
 // 情况 A: 任务 | 任务
 template <IsTask F, IsTask G>
-auto operator|(F&& f, G&& g)
+auto operator|(F&& firstTask, G&& secondTask)
 {
-    return pipe(std::forward<F>(f), std::forward<G>(g));
+    return PIPE_COMPOSER(std::forward<F>(firstTask), std::forward<G>(secondTask));
 }
 
 // 情况 B: Context | 任务 (由 BoundContext 内部实现，此处仅为语义辅助)
@@ -110,17 +112,18 @@ auto WrapArgs(T&&... args)
 struct RenderTask
 {
     using is_task_tag = void;
-    uint32_t m_remainingTime = 0;
-    uint32_t m_delayTime = 16;
+    uint32_t remainingTime = 0;
+    uint32_t delayTime = 16;
 
     void operator()(uint32_t delta)
     {
-        if (m_remainingTime > delta)
+        if (remainingTime > delta)
         {
-            m_remainingTime -= delta;
+            remainingTime -= delta;
             return;
         }
-        m_remainingTime = m_delayTime;
+        remainingTime = delayTime;
+        // 常规帧刷新顺序：先布局，再渲染，最后提交帧尾状态。
         Dispatcher::Trigger<ui::events::UpdateLayout>();
         Dispatcher::Trigger<ui::events::UpdateRendering>();
         Dispatcher::Trigger<ui::events::EndFrame>(); // 帧结束时批量应用状态更新
@@ -130,18 +133,18 @@ struct RenderTask
 struct InputTask
 {
     using is_task_tag = void;
-    uint32_t m_remainingTime = 0;
-    uint32_t m_delayTime = 32;
+    uint32_t remainingTime = 0;
+    uint32_t delayTime = 32;
 
     void operator()(uint32_t delta)
     {
-        if (m_remainingTime > delta)
+        if (remainingTime > delta)
         {
-            m_remainingTime -= delta;
+            remainingTime -= delta;
             return;
         }
-        m_remainingTime = m_delayTime;
-        ui::systems::InteractionSystem::SDLEvent();
+        remainingTime = delayTime;
+        ui::systems::InteractionSystem::pollSdlEvents();
     }
 };
 
@@ -151,6 +154,7 @@ struct QueuedTask
 
     void operator()(uint32_t delta)
     {
+        // 队列阶段先推进帧上下文，再驱动定时器与缓冲事件派发。
         auto& frameContext = Registry::ctx().get<globalcontext::FrameContext>();
         frameContext.intervalMs = delta;
         frameContext.frameSlot = (frameContext.frameSlot + 1) % 2;

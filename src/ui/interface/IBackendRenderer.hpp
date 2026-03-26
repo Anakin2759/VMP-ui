@@ -30,6 +30,11 @@ enum class BackendType : std::uint8_t
     FALLBACK
 };
 
+enum class BackendCapability : std::uint8_t
+{
+    CACHED_BITMAP
+};
+
 class IBackendRenderer
 {
 public:
@@ -95,6 +100,12 @@ public:
      * @return BackendType 渲染器类型
      */
     [[nodiscard]] virtual BackendType getType() const = 0;
+
+    [[nodiscard]] virtual bool supports(BackendCapability capability) const
+    {
+        static_cast<void>(capability);
+        return false;
+    }
 };
 
 } // namespace ui::interface

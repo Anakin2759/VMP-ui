@@ -13,22 +13,30 @@ void SetPosition(::entt::entity entity, float positionX, float positionY);
 
 } // namespace ui::size
 
+namespace ui::actions::size
+{
+inline constexpr EntityAction<&ui::size::SetFixedSize> SET_FIXED_SIZE_ACTION{};
+inline constexpr EntityAction<&ui::size::SetSizePolicy> SET_SIZE_POLICY_ACTION{};
+inline constexpr EntityAction<&ui::size::SetSize> SET_SIZE_ACTION{};
+inline constexpr EntityAction<&ui::size::SetPosition> SET_POSITION_ACTION{};
+} // namespace ui::actions::size
+
 namespace ui::chains
 {
 inline auto FixedSize(float width, float height)
 {
-    return Call<ui::size::SetFixedSize>(width, height);
+    return ui::actions::size::SET_FIXED_SIZE_ACTION.bind(width, height);
 }
 inline auto SizePolicy(ui::policies::Size policy)
 {
-    return Call<ui::size::SetSizePolicy>(policy);
+    return ui::actions::size::SET_SIZE_POLICY_ACTION.bind(policy);
 }
 inline auto Size(float width, float height)
 {
-    return Call<ui::size::SetSize>(width, height);
+    return ui::actions::size::SET_SIZE_ACTION.bind(width, height);
 }
 inline auto Position(float positionX, float positionY)
 {
-    return Call<ui::size::SetPosition>(positionX, positionY);
+    return ui::actions::size::SET_POSITION_ACTION.bind(positionX, positionY);
 }
 } // namespace ui::chains

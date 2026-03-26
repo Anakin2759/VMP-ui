@@ -6,11 +6,17 @@ add_executable(ui_tests
     test_BatchManager.cpp
     test_TextUtils.cpp
     test_ResourceProviderCoverage.cpp
+    test_TaskChain.cpp
+    test_UiRuntime.cpp
+    test_UtilsCoverage.cpp
+    test_VisibilityCoverage.cpp
+    test_HierarchyCoverage.cpp
 )
 target_compile_features(ui_tests PRIVATE cxx_std_23)
 
 target_include_directories(ui_tests PRIVATE
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src/ui
 )
 target_compile_definitions(ui_tests PRIVATE
     ASIO_STANDALONE         # 告诉 Asio 不使用 Boost

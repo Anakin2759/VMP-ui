@@ -12,8 +12,9 @@
  * 2. 缓冲区事件 (enqueue) - 加入队列，在事件循环的 update() 中批量处理
  *
  * 使用指南：
- * - trigger: 用于需要立即响应的事件，如 QuitRequested, UpdateRendering
- * - enqueue: 用于可以延迟处理的事件，如 SDLEvent, WindowGraphicsContextSetEvent
+ * - trigger: 用于需要立即响应的事件，如 QuitRequested, UpdateRendering,
+ *   WindowGraphicsContextSetEvent
+ * - enqueue: 用于可以延迟处理的原始输入或状态事件
  * - update: 在事件循环每帧调用，处理所有缓冲区事件
  *
  * ************************************************************************

@@ -28,7 +28,7 @@ class UniquePropertiesID
 {
 public:
     UniquePropertiesID() : m_id(0) {}
-    explicit UniquePropertiesID(SDL_PropertiesID id) : m_id(id) {}
+    explicit UniquePropertiesID(SDL_PropertiesID propertiesId) : m_id(propertiesId) {}
     ~UniquePropertiesID() { reset(); }
 
     UniquePropertiesID(const UniquePropertiesID&) = delete;
@@ -118,7 +118,7 @@ using UniqueGPUGraphicsPipeline =
     std::unique_ptr<SDL_GPUGraphicsPipeline, GPUResourceDeleter<SDL_ReleaseGPUGraphicsPipeline>>;
 
 /**
- * @brief Helper to create a GPU resource unique_ptr
+ * @brief 创建gpu资源
  */
 template <typename UniqueType, typename CreatorFunc, typename... Args>
 UniqueType MakeGpuResource(SDL_GPUDevice* device, CreatorFunc creator, Args&&... args)

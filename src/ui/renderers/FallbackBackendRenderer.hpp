@@ -217,6 +217,11 @@ public:
 
     [[nodiscard]] interface::BackendType getType() const override { return interface::BackendType::FALLBACK; }
 
+    [[nodiscard]] bool supports(interface::BackendCapability capability) const override
+    {
+        return capability == interface::BackendCapability::CACHED_BITMAP;
+    }
+
 private:
     CachedBitmapTexture* getOrCreateBitmapTexture(std::string_view cacheKey,
                                                   std::span<const std::uint8_t> rgbaPixels,

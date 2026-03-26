@@ -72,10 +72,12 @@ set(UI_SOURCES
 set(UI_HEADERS
     # Components
     common/Components.hpp
+    common/CustomizationPoints.hpp
     common/Policies.hpp
     common/Tags.hpp
     common/Events.hpp
     common/Types.hpp
+    common/WindowSync.hpp
     common/RenderTypes.hpp
     common/UiErrors.hpp
     
@@ -104,6 +106,7 @@ set(UI_HEADERS
     core/Application.hpp
     core/SystemManager.hpp
     core/EventLoop.hpp
+    core/UiRuntime.hpp
     core/TaskChain.hpp
     core/TextUtils.hpp
     interface/IRenderer.hpp

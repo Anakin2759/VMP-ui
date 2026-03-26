@@ -34,6 +34,7 @@
 
 #include "SystemManager.hpp"
 #include "EventLoop.hpp"
+#include "UiRuntime.hpp"
 
 #include "../common/Events.hpp"
 #include "../common/Components.hpp"
@@ -50,7 +51,7 @@ public:
      * @param width 窗口宽度
      * @param height 窗口高度
      */
-    explicit Application( std::span<char*> arg);
+    explicit Application(std::span<char*> arg);
     // 阻止拷贝和移动（通常 Application 是独占资源）
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
@@ -67,6 +68,8 @@ public:
     void exec();
 
 private:
+    UiRuntime m_runtime;
+    UiRuntimeScope m_runtimeScope;
     EventLoop m_eventLoop;
 
     // 核心 ECS 系统封装

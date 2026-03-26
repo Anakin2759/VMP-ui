@@ -19,6 +19,8 @@ void SetVisible(::entt::entity entity, bool visible)
     {
         Registry::Remove<components::VisibleTag>(entity);
     }
+
+    ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 
 void Show(::entt::entity entity)
@@ -58,8 +60,7 @@ void Show(::entt::entity entity)
             }
         }
     }
-    ui::utils::MarkLayoutDirty(entity);
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 
 void Hide(::entt::entity entity)
@@ -75,6 +76,8 @@ void Hide(::entt::entity entity)
             SDL_HideWindow(sdlWindow);
         }
     }
+
+    ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 
 void SetAlpha(::entt::entity entity, float alpha)
@@ -82,6 +85,7 @@ void SetAlpha(::entt::entity entity, float alpha)
     if (!Registry::Valid(entity)) return;
     auto& alphaComp = Registry::GetOrEmplace<components::Alpha>(entity);
     alphaComp.value = std::clamp(alpha, 0.0F, 1.0F);
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetBackgroundColor(::entt::entity entity, const Color& color)
@@ -90,6 +94,7 @@ void SetBackgroundColor(::entt::entity entity, const Color& color)
     auto& background = Registry::GetOrEmplace<components::Background>(entity);
     background.color = color;
     background.enabled = policies::Feature::Enabled;
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetBorderRadius(::entt::entity entity, float radius)
@@ -103,6 +108,7 @@ void SetBorderRadius(::entt::entity entity, float radius)
     {
         border->borderRadius = {radiusClamped, radiusClamped, radiusClamped, radiusClamped};
     }
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetBorderColor(::entt::entity entity, const Color& color)
@@ -111,6 +117,7 @@ void SetBorderColor(::entt::entity entity, const Color& color)
     auto& border = Registry::GetOrEmplace<components::Border>(entity);
     border.color = color;
     border.enabled = policies::Feature::Enabled;
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetBorderThickness(::entt::entity entity, float thickness)
@@ -119,6 +126,7 @@ void SetBorderThickness(::entt::entity entity, float thickness)
     auto& border = Registry::GetOrEmplace<components::Border>(entity);
     border.thickness = thickness;
     border.enabled = policies::Feature::Enabled;
+    ui::utils::MarkVisualChanged(entity);
 }
 
 } // namespace ui::visibility

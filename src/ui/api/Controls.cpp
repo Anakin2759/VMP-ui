@@ -16,8 +16,7 @@ void SetSliderRange(::entt::entity entity, float minValue, float maxValue)
     slider.maxValue = std::max(minValue, maxValue);
     slider.currentValue = std::clamp(slider.currentValue, slider.minValue, slider.maxValue);
 
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 
 void SetSliderValue(::entt::entity entity, float value)
@@ -34,7 +33,7 @@ void SetSliderValue(::entt::entity entity, float value)
         slider.onValueChanged(slider.currentValue);
     }
 
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetSliderStep(::entt::entity entity, float step)
@@ -43,7 +42,7 @@ void SetSliderStep(::entt::entity entity, float step)
 
     auto& slider = Registry::GetOrEmplace<components::SliderInfo>(entity);
     slider.step = std::max(0.0F, step);
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetSliderOrientation(::entt::entity entity, policies::Orientation orientation)
@@ -64,8 +63,7 @@ void SetSliderOrientation(::entt::entity entity, policies::Orientation orientati
     }
     size.sizePolicy = ui::policies::Size::Fixed;
 
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 
 void SetSliderOnValueChanged(::entt::entity entity, components::on_event<float> callback)
@@ -82,7 +80,7 @@ void SetProgressValue(::entt::entity entity, float progress)
 
     auto& bar = Registry::GetOrEmplace<components::ProgressBar>(entity);
     bar.progress = std::clamp(progress, 0.0F, 1.0F);
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetProgressFillColor(::entt::entity entity, const Color& color)
@@ -91,7 +89,7 @@ void SetProgressFillColor(::entt::entity entity, const Color& color)
 
     auto& bar = Registry::GetOrEmplace<components::ProgressBar>(entity);
     bar.fillColor = color;
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetProgressBackgroundColor(::entt::entity entity, const Color& color)
@@ -100,7 +98,7 @@ void SetProgressBackgroundColor(::entt::entity entity, const Color& color)
 
     auto& bar = Registry::GetOrEmplace<components::ProgressBar>(entity);
     bar.backgroundColor = color;
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetProgressLabelVisibility(::entt::entity entity, policies::LabelVisibility visibility)
@@ -109,7 +107,7 @@ void SetProgressLabelVisibility(::entt::entity entity, policies::LabelVisibility
 
     auto& bar = Registry::GetOrEmplace<components::ProgressBar>(entity);
     bar.showLabel = visibility;
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetProgressAnimated(::entt::entity entity, policies::AnimationState animated)
@@ -118,7 +116,7 @@ void SetProgressAnimated(::entt::entity entity, policies::AnimationState animate
 
     auto& bar = Registry::GetOrEmplace<components::ProgressBar>(entity);
     bar.animated = animated;
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkVisualChanged(entity);
 }
 
 void SetScrollMode(::entt::entity entity, policies::Scroll mode)
@@ -127,8 +125,7 @@ void SetScrollMode(::entt::entity entity, policies::Scroll mode)
 
     auto& scrollArea = Registry::GetOrEmplace<components::ScrollArea>(entity);
     scrollArea.scroll = mode;
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 
 void SetScrollBarPolicy(::entt::entity entity, policies::ScrollBar policy)
@@ -137,7 +134,7 @@ void SetScrollBarPolicy(::entt::entity entity, policies::ScrollBar policy)
 
     auto& scrollArea = Registry::GetOrEmplace<components::ScrollArea>(entity);
     scrollArea.scrollBar = policy;
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 
 void SetScrollAnchor(::entt::entity entity, policies::ScrollAnchor anchor)
@@ -146,7 +143,7 @@ void SetScrollAnchor(::entt::entity entity, policies::ScrollAnchor anchor)
 
     auto& scrollArea = Registry::GetOrEmplace<components::ScrollArea>(entity);
     scrollArea.anchor = anchor;
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 
 void SetScrollSpeed(::entt::entity entity, float speed)
@@ -155,6 +152,6 @@ void SetScrollSpeed(::entt::entity entity, float speed)
 
     auto& scrollArea = Registry::GetOrEmplace<components::ScrollArea>(entity);
     scrollArea.scrollSpeed = std::max(1.0F, speed);
-    ui::utils::MarkRenderDirty(entity);
+    ui::utils::MarkVisualChanged(entity);
 }
 } // namespace ui::controls

@@ -19,8 +19,6 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include <functional>
-#include "Utils.hpp"
 #include "../singleton/Registry.hpp"
 #include "../common/Components.hpp"
 #include "Chains.hpp" // Changed: Include Chains.hpp for DSL
@@ -64,14 +62,23 @@ void TraverseChildren(::entt::entity parent, Func visitor)
 
 } // namespace ui::hierarchy
 
+namespace ui::actions
+{
+namespace hierarchy
+{
+inline constexpr EntityAction<&ui::hierarchy::AddChild> ADD_CHILD_ACTION{};
+inline constexpr EntityAction<&ui::hierarchy::RemoveChild> REMOVE_CHILD_ACTION{};
+} // namespace hierarchy
+} // namespace ui::actions
+
 namespace ui::chains
 {
 inline auto AddChild(::entt::entity child)
 {
-    return Call<ui::hierarchy::AddChild>(child);
+    return ui::actions::hierarchy::ADD_CHILD_ACTION.bind(child);
 }
 inline auto RemoveChild(::entt::entity child)
 {
-    return Call<ui::hierarchy::RemoveChild>(child);
+    return ui::actions::hierarchy::REMOVE_CHILD_ACTION.bind(child);
 }
 } // namespace ui::chains

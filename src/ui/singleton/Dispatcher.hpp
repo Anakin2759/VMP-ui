@@ -12,8 +12,9 @@
  * 2. 缓冲区事件 (enqueue) - 加入队列，在事件循环的 update() 中批量处理
  *
  * 使用指南：
- * - trigger: 用于需要立即响应的事件，如 QuitRequested, UpdateRendering
- * - enqueue: 用于可以延迟处理的事件，如  WindowGraphicsContextSetEvent
+ * - trigger: 用于需要立即响应的事件，如 QuitRequested, UpdateRendering,
+ *   WindowGraphicsContextSetEvent
+ * - enqueue: 用于可以延迟处理的原始输入或状态事件
  * - update: 在事件循环每帧调用，处理所有缓冲区事件
  *
  * ************************************************************************
@@ -30,37 +31,69 @@
 #include "../traits/EventTraits.hpp"
 namespace ui
 {
+class UiRuntime;
+class UiRuntimeScope;
+
 class Dispatcher : public SingletonBase<Dispatcher>
 {
     friend class SingletonBase<Dispatcher>;
+    friend class UiRuntime;
+    friend class UiRuntimeScope;
 
 public:
+    static Dispatcher& defaultInstance() { return SingletonBase<Dispatcher>::getInstance(); }
+
+    static Dispatcher& current()
+    {
+        if (auto* instance = activeInstance())
+        {
+            return *instance;
+        }
+
+        return defaultInstance();
+    }
+
+    static Dispatcher& getInstance() { return current(); }
+
     template <traits::Events Event>
     static void Trigger(Event&& event = {})
     {
-        getInstance().m_dispatcher.trigger(std::forward<decltype(event)>(event));
+        current().m_dispatcher.trigger(std::forward<decltype(event)>(event));
     }
     template <traits::Events Event>
     static void Enqueue(Event&& event = {})
     {
-        getInstance().m_dispatcher.enqueue(std::forward<decltype(event)>(event));
+        current().m_dispatcher.enqueue(std::forward<decltype(event)>(event));
     }
 
-    static void Update() { getInstance().m_dispatcher.update(); }
+    static void Update() { current().m_dispatcher.update(); }
 
     template <traits::Events Event>
     static void Update()
     {
-        getInstance().m_dispatcher.update<Event>();
+        current().m_dispatcher.update<Event>();
     }
 
     template <traits::Events Type>
     static auto Sink()
     {
-        return getInstance().m_dispatcher.sink<Type>();
+        return current().m_dispatcher.sink<Type>();
     }
 
 private:
+    static Dispatcher*& activeInstance()
+    {
+        static thread_local Dispatcher* instance = nullptr;
+        return instance;
+    }
+
+    static Dispatcher* swapActiveInstance(Dispatcher* instance)
+    {
+        Dispatcher* previous = activeInstance();
+        activeInstance() = instance;
+        return previous;
+    }
+
     Dispatcher() = default;
 
     entt::dispatcher m_dispatcher;

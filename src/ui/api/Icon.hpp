@@ -55,6 +55,17 @@ void SetIcon(entt::entity entity,
 void RemoveIcon(entt::entity entity);
 } // namespace ui::icon
 
+namespace ui::actions::icon
+{
+inline constexpr EntityAction<static_cast<void (*)(
+    entt::entity, const std::string&, uint32_t, policies::IconFlag, float, float)>(&ui::icon::SetIcon)>
+    SET_FONT_ICON_ACTION{};
+inline constexpr EntityAction<static_cast<void (*)(entt::entity, const std::string&, policies::IconFlag, float, float)>(
+    &ui::icon::SetIcon)>
+    SET_TEXTURE_ICON_ACTION{};
+inline constexpr EntityAction<&ui::icon::RemoveIcon> REMOVE_ICON_ACTION{};
+} // namespace ui::actions::icon
+
 namespace ui::chains
 {
 inline auto Icon(const std::string& fontName,
@@ -63,18 +74,19 @@ inline auto Icon(const std::string& fontName,
                  float iconSize = 16.0F,
                  float spacing = 4.0F)
 {
-    constexpr void (*FNC)(entt::entity, const std::string&, uint32_t, policies::IconFlag, float, float) =
-        &icon::SetIcon;
-    return Call<FNC>(fontName, codepoint, iconflag, iconSize, spacing);
+    return ui::actions::icon::SET_FONT_ICON_ACTION.bind(fontName, codepoint, iconflag, iconSize, spacing);
 }
 inline auto Icon(const std::string& textureId,
                  policies::IconFlag iconflag = policies::IconFlag::Default,
                  float iconSize = 16.0F,
                  float spacing = 4.0F)
 {
-    constexpr void (*FNC)(entt::entity, const std::string&, policies::IconFlag, float iconSize, float spacing) =
-        &icon::SetIcon;
-    return Call<FNC>(textureId, iconflag, iconSize, spacing);
+    return ui::actions::icon::SET_TEXTURE_ICON_ACTION.bind(textureId, iconflag, iconSize, spacing);
+}
+
+inline auto RemoveIcon()
+{
+    return ui::actions::icon::REMOVE_ICON_ACTION.bind();
 }
 
 } // namespace ui::chains

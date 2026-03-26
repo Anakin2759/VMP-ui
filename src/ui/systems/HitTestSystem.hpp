@@ -59,6 +59,26 @@ public:
 
         Registry::OnConstruct<components::VisibleTag>().connect<&HitTestSystem::onVisibilityChanged>(*this);
         Registry::OnDestroy<components::VisibleTag>().connect<&HitTestSystem::onVisibilityChanged>(*this);
+
+        // 监听会改变“是否可交互”的组件，避免命中缓存保留过期成员
+        Registry::OnConstruct<components::Clickable>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::Clickable>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::ScrollArea>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::ScrollArea>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::SliderInfo>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::SliderInfo>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::TextEditTag>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::TextEditTag>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::DisabledTag>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::DisabledTag>().connect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::TextEdit>().connect<&HitTestSystem::onTextEditChanged>(*this);
+        Registry::OnUpdate<components::TextEdit>().connect<&HitTestSystem::onTextEditChanged>(*this);
+        Registry::OnDestroy<components::TextEdit>().connect<&HitTestSystem::onTextEditChanged>(*this);
     }
 
     void unregisterHandlersImpl()
@@ -78,6 +98,25 @@ public:
 
         Registry::OnConstruct<components::VisibleTag>().disconnect<&HitTestSystem::onVisibilityChanged>(*this);
         Registry::OnDestroy<components::VisibleTag>().disconnect<&HitTestSystem::onVisibilityChanged>(*this);
+
+        Registry::OnConstruct<components::Clickable>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::Clickable>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::ScrollArea>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::ScrollArea>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::SliderInfo>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::SliderInfo>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::TextEditTag>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::TextEditTag>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::DisabledTag>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+        Registry::OnDestroy<components::DisabledTag>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
+
+        Registry::OnConstruct<components::TextEdit>().disconnect<&HitTestSystem::onTextEditChanged>(*this);
+        Registry::OnUpdate<components::TextEdit>().disconnect<&HitTestSystem::onTextEditChanged>(*this);
+        Registry::OnDestroy<components::TextEdit>().disconnect<&HitTestSystem::onTextEditChanged>(*this);
     }
 
     /**
@@ -155,6 +194,8 @@ public:
      * @param topWindow 当前鼠标所在的顶层窗口（entt::null 表示不在任何窗口内）
      * @return 排序后的可交互实体列表（Z-Order 高的在前）
      * @note 使用缓存机制，只在缓存失效时重新计算
+     * @note 该缓存只保存“窗口内哪些实体当前可交互以及它们的排序”，
+     *       不缓存绝对位置和尺寸；几何命中仍在每次事件解析时实时读取 Position / Size。
      */
     std::vector<entt::entity> getZOrderedInteractables(entt::entity topWindow)
     {
@@ -337,6 +378,32 @@ private:
         entt::entity window = findRootWindow(entity);
         invalidateWindowCache(window);
     }
+
+    /**
+     * @brief 交互资格变化回调
+     *
+     * 命中缓存保存的是“当前窗口内哪些实体需要参与命中测试”。
+     * Clickable / ScrollArea / SliderInfo / TextEditTag / DisabledTag 的变化
+     * 都会改变这个集合，因此必须使对应窗口缓存失效。
+     */
+    void onInteractivityChanged(entt::entity entity)
+    {
+        entt::entity window = findRootWindow(entity);
+        invalidateWindowCache(window);
+    }
+
+    /**
+     * @brief TextEdit 组件变化回调
+     *
+     * 当前命中系统会根据 TextEdit 的 ReadOnly 标志决定输入框是否参与交互。
+     * 因此 TextEdit 更新也必须使窗口缓存失效。
+     */
+    void onTextEditChanged(entt::entity entity)
+    {
+        entt::entity window = findRootWindow(entity);
+        invalidateWindowCache(window);
+    }
+
     /**
      * @brief 解析鼠标位置对应的命中实体
      * @param pos 鼠标绝对位置

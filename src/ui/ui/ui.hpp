@@ -34,6 +34,8 @@
 #include "../api/Controls.hpp"
 #include "../api/Chains.hpp"
 
+#include "../core/UiRuntime.hpp"
+
 namespace ui
 {
 

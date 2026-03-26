@@ -23,6 +23,7 @@
 #include "../renderers/SliderRenderer.hpp"
 #include "../renderers/ProgressBarRenderer.hpp"
 #include "../renderers/FallbackBackendRenderer.hpp"
+#include "../common/CustomizationPoints.hpp"
 #include "../managers/IconManager.hpp"
 #include "../managers/ResourceProvider.hpp"
 
@@ -63,7 +64,7 @@ std::expected<ui::managers::BinaryResource, std::string> LoadUiResource(std::str
         return std::unexpected("UI resource provider unavailable");
     }
 
-    return resourceProvider->loadBinary(resourcePath);
+    return ui::cpo::load_binary_resource(*resourceProvider, resourcePath);
 }
 
 } // namespace
@@ -585,12 +586,8 @@ void RenderSystem::ensureInitialized()
 
                 if (fontResource.has_value() && codepointResource.has_value())
                 {
-                    auto loadResult = m_iconManager->loadIconFontFromMemory("MaterialSymbols",
-                                                                            fontResource->data(),
-                                                                            fontResource->size(),
-                                                                            codepointResource->data(),
-                                                                            codepointResource->size(),
-                                                                            24);
+                    auto loadResult = ui::cpo::load_icon_font_from_memory(
+                        *m_iconManager, "MaterialSymbols", fontResource->bytes, codepointResource->bytes, 24);
                     if (loadResult.has_value())
                     {
                         Logger::info("[RenderSystem]默认图标字体加载完成");

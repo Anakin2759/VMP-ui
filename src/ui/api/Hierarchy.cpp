@@ -1,7 +1,7 @@
 #include "Hierarchy.hpp"
 
 #include "../common/Components.hpp"
-
+#include "Utils.hpp"
 namespace ui::hierarchy
 {
 
@@ -21,7 +21,8 @@ void RemoveChild(::entt::entity parent, ::entt::entity child)
         // 子节点脱离父节点，重新成为根节点
         Registry::EmplaceOrReplace<components::RootTag>(child);
 
-        utils::MarkLayoutDirty(parent);
+        utils::MarkLayoutAndVisualChanged(parent);
+        utils::MarkLayoutAndVisualChanged(child);
     }
 }
 
@@ -42,9 +43,9 @@ void AddChild(::entt::entity parent, ::entt::entity child)
     auto& parentHierarchy = Registry::GetOrEmplace<components::Hierarchy>(parent);
     auto& children = parentHierarchy.children;
     bool alreadyChild = false;
-    for (auto c : children)
+    for (auto childEntity : children)
     {
-        if (c == child)
+        if (childEntity == child)
         {
             alreadyChild = true;
             break;
@@ -55,7 +56,7 @@ void AddChild(::entt::entity parent, ::entt::entity child)
         children.push_back(child);
     }
 
-    utils::MarkLayoutDirty(child);
+    utils::MarkLayoutAndVisualChanged(child);
 }
 
 } // namespace ui::hierarchy

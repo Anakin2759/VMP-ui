@@ -44,6 +44,16 @@ namespace ui::actions
 {
 namespace controls
 {
+inline constexpr EntityAction<&ui::controls::SetSliderRange> SET_SLIDER_RANGE_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetSliderValue> SET_SLIDER_VALUE_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetSliderStep> SET_SLIDER_STEP_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetSliderOrientation> SET_SLIDER_ORIENTATION_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetSliderOnValueChanged> SET_SLIDER_ON_VALUE_CHANGED_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetProgressValue> SET_PROGRESS_VALUE_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetProgressFillColor> SET_PROGRESS_FILL_COLOR_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetProgressBackgroundColor> SET_PROGRESS_BACKGROUND_COLOR_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetProgressLabelVisibility> SET_PROGRESS_LABEL_VISIBILITY_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetProgressAnimated> SET_PROGRESS_ANIMATED_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetScrollMode> SET_SCROLL_MODE_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetScrollBarPolicy> SET_SCROLL_BAR_POLICY_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetScrollAnchor> SET_SCROLL_ANCHOR_ACTION{};
@@ -55,52 +65,52 @@ namespace ui::chains
 {
 inline auto SliderRange(float minValue, float maxValue)
 {
-    return Call<ui::controls::SetSliderRange>(minValue, maxValue);
+    return ui::actions::controls::SET_SLIDER_RANGE_ACTION.bind(minValue, maxValue);
 }
 
 inline auto SliderValue(float value)
 {
-    return Call<ui::controls::SetSliderValue>(value);
+    return ui::actions::controls::SET_SLIDER_VALUE_ACTION.bind(value);
 }
 
 inline auto SliderStep(float step)
 {
-    return Call<ui::controls::SetSliderStep>(step);
+    return ui::actions::controls::SET_SLIDER_STEP_ACTION.bind(step);
 }
 
 inline auto SliderOrientation(ui::policies::Orientation orientation)
 {
-    return Call<ui::controls::SetSliderOrientation>(orientation);
+    return ui::actions::controls::SET_SLIDER_ORIENTATION_ACTION.bind(orientation);
 }
 
 inline auto OnSliderValueChanged(ui::components::on_event<float> callback)
 {
-    return Call<ui::controls::SetSliderOnValueChanged>(std::move(callback));
+    return ui::actions::controls::SET_SLIDER_ON_VALUE_CHANGED_ACTION.bind(std::move(callback));
 }
 
 inline auto ProgressValue(float value)
 {
-    return Call<ui::controls::SetProgressValue>(value);
+    return ui::actions::controls::SET_PROGRESS_VALUE_ACTION.bind(value);
 }
 
 inline auto ProgressFillColor(const Color& color)
 {
-    return Call<ui::controls::SetProgressFillColor>(color);
+    return ui::actions::controls::SET_PROGRESS_FILL_COLOR_ACTION.bind(color);
 }
 
 inline auto ProgressBackgroundColor(const Color& color)
 {
-    return Call<ui::controls::SetProgressBackgroundColor>(color);
+    return ui::actions::controls::SET_PROGRESS_BACKGROUND_COLOR_ACTION.bind(color);
 }
 
 inline auto ProgressLabel(ui::policies::LabelVisibility visibility)
 {
-    return Call<ui::controls::SetProgressLabelVisibility>(visibility);
+    return ui::actions::controls::SET_PROGRESS_LABEL_VISIBILITY_ACTION.bind(visibility);
 }
 
 inline auto ProgressAnimated(ui::policies::AnimationState animated)
 {
-    return Call<ui::controls::SetProgressAnimated>(animated);
+    return ui::actions::controls::SET_PROGRESS_ANIMATED_ACTION.bind(animated);
 }
 
 inline auto ScrollMode(ui::policies::Scroll mode)

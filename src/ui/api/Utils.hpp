@@ -16,7 +16,6 @@
 
 #include <cstdint>
 #include <entt/entt.hpp>
-#include "../common/Types.hpp"
 #include "../common/Policies.hpp"
 #include "Chains.hpp"
 namespace ui::utils
@@ -24,6 +23,10 @@ namespace ui::utils
 
 bool HasAlignment(policies::Alignment value, policies::Alignment flag);
 void SetWindowFlag(::entt::entity entity, policies::WindowFlag flag);
+
+void MarkLayoutChanged(::entt::entity entity);
+void MarkVisualChanged(::entt::entity entity);
+void MarkLayoutAndVisualChanged(::entt::entity entity);
 
 void MarkLayoutDirty(::entt::entity entity);
 void MarkRenderDirty(::entt::entity entity);
@@ -50,11 +53,19 @@ bool IsEntityExist(const std::string& alias);
 
 } // namespace ui::utils
 
+namespace ui::actions
+{
+namespace utils
+{
+inline constexpr EntityAction<&ui::utils::SetWindowFlag> SET_WINDOW_FLAG_ACTION{};
+} // namespace utils
+} // namespace ui::actions
+
 namespace ui::chains
 {
 inline auto WindowFlag(policies::WindowFlag flag)
 {
-    return Call<ui::utils::SetWindowFlag>(flag);
+    return ui::actions::utils::SET_WINDOW_FLAG_ACTION.bind(flag);
 }
 
 } // namespace ui::chains

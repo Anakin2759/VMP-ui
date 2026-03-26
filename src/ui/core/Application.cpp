@@ -18,8 +18,11 @@ static constexpr uint32_t MAX_FRAME_TIME_MS = 250; // 防止卡顿时长时间�
 static constexpr uint32_t LOOP_DELAY_MS = 1;       // 主循环延迟，防止100% CPU占用
 namespace ui
 {
-Application::Application( std::span<char*> arg) // NOLINT
+Application::Application(std::span<char*> arg) // NOLINT
+    : m_runtimeScope(m_runtime)
 {
+    (void)arg;
+
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
     {
         throw std::runtime_error(std::string("SDL_Init failed: ") + SDL_GetError());
@@ -58,6 +61,7 @@ Application::Application( std::span<char*> arg) // NOLINT
 
 Application::~Application()
 {
+    Dispatcher::Sink<ui::events::QuitRequested>().disconnect<&Application::onQuitRequested>(*this);
     m_systems.unregisterAllHandlers();
     SDL_Quit();
 }

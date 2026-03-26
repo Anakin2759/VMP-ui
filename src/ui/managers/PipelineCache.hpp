@@ -16,6 +16,7 @@
 #include <memory>
 #include <SDL3/SDL_gpu.h>
 #include "../singleton/Logger.hpp"
+#include "../common/CustomizationPoints.hpp"
 #include "../common/RenderTypes.hpp"
 #include "../common/GPUWrappers.hpp"
 #include "DeviceManager.hpp"
@@ -217,7 +218,7 @@ private:
             return nullptr;
         }
 
-        auto resourceResult = m_resourceProvider->loadBinary(resourcePath);
+        auto resourceResult = ui::cpo::load_binary_resource(*m_resourceProvider, resourcePath);
         if (!resourceResult.has_value())
         {
             Logger::error("着色器资源加载失败: {} ({})", resourcePath, resourceResult.error());

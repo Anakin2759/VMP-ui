@@ -22,6 +22,192 @@
 namespace ui::factory
 {
 
+namespace
+{
+struct TitleBarDragState
+{
+    Vec2 dragStartMouseGlobal{0.0F, 0.0F};
+    Vec2 dragStartWindowPos{0.0F, 0.0F};
+    bool dragAnchorValid = false;
+};
+
+SDL_Window* CreateSdlWindowOrRollback(
+    entt::entity entity, const char* title, int width, int height, SDL_WindowFlags flags, std::string_view entityType)
+{
+    SDL_Window* sdlWindow = SDL_CreateWindow(title, width, height, flags);
+    if (sdlWindow == nullptr)
+    {
+        Logger::error("[Factory] Failed to create SDL window for {} entity {}: {}",
+                      entityType,
+                      static_cast<uint32_t>(entity),
+                      SDL_GetError());
+        Registry::Destroy(entity);
+        return nullptr;
+    }
+
+    return sdlWindow;
+}
+
+bool AssignWindowIdOrRollback(entt::entity entity, components::Window& window, SDL_Window* sdlWindow, std::string_view entityType)
+{
+    window.windowID = SDL_GetWindowID(sdlWindow);
+    if (window.windowID == 0)
+    {
+        Logger::error("[Factory] Failed to fetch SDL window ID for {} entity {}: {}",
+                      entityType,
+                      static_cast<uint32_t>(entity),
+                      SDL_GetError());
+        SDL_DestroyWindow(sdlWindow);
+        Registry::Destroy(entity);
+        return false;
+    }
+
+    return true;
+}
+
+entt::entity CreateTitleBarContainer(std::string_view alias, float titleBarHeight)
+{
+    auto titleBar = CreateBaseWidget(alias);
+    Registry::Emplace<components::TitleBarTag>(titleBar);
+
+    auto& layout = Registry::Emplace<components::LayoutInfo>(titleBar);
+    layout.direction = policies::LayoutDirection::HORIZONTAL;
+    layout.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
+
+    auto& titleBarSize = Registry::Get<components::Size>(titleBar);
+    titleBarSize.size = {0.0F, titleBarHeight};
+    titleBarSize.sizePolicy = policies::Size::HFill | policies::Size::VFixed;
+
+    auto& background = Registry::Emplace<components::Background>(titleBar);
+    background.color = {0.0F, 0.0F, 0.0F, 0.0F};
+    background.enabled = policies::Feature::Enabled;
+
+    Registry::Emplace<components::Clickable>(titleBar);
+    auto& draggable = Registry::Emplace<components::Draggable>(titleBar);
+    draggable.lockX = true;
+    draggable.lockY = true;
+
+    return titleBar;
+}
+
+void ConfigureTitleBarDragging(entt::entity titleBar, entt::entity windowEntity, uint32_t windowId)
+{
+    auto& draggable = Registry::Get<components::Draggable>(titleBar);
+    auto dragState = std::make_shared<TitleBarDragState>();
+
+    draggable.onDragStart = [windowEntity, windowId, dragState]()
+    {
+        SDL_Window* sdlWindow = SDL_GetWindowFromID(windowId);
+        auto* position = Registry::TryGet<components::Position>(windowEntity);
+        if (sdlWindow == nullptr || position == nullptr)
+        {
+            dragState->dragAnchorValid = false;
+            return;
+        }
+
+        float globalMouseX = 0.0F;
+        float globalMouseY = 0.0F;
+        SDL_GetGlobalMouseState(&globalMouseX, &globalMouseY);
+
+        int windowX = 0;
+        int windowY = 0;
+        SDL_GetWindowPosition(sdlWindow, &windowX, &windowY);
+
+        dragState->dragStartMouseGlobal = Vec2{globalMouseX, globalMouseY};
+        dragState->dragStartWindowPos = Vec2{static_cast<float>(windowX), static_cast<float>(windowY)};
+        position->value = dragState->dragStartWindowPos;
+        dragState->dragAnchorValid = true;
+    };
+
+    draggable.onDragMove = [windowEntity, windowId, dragState]([[maybe_unused]] Vec2 delta)
+    {
+        SDL_Window* sdlWindow = SDL_GetWindowFromID(windowId);
+        if (sdlWindow == nullptr) return;
+
+        auto* position = Registry::TryGet<components::Position>(windowEntity);
+        if (position == nullptr) return;
+
+        float globalMouseX = 0.0F;
+        float globalMouseY = 0.0F;
+        SDL_GetGlobalMouseState(&globalMouseX, &globalMouseY);
+
+        int currentX = 0;
+        int currentY = 0;
+        SDL_GetWindowPosition(sdlWindow, &currentX, &currentY);
+
+        constexpr float POSITION_EPSILON = 0.01F;
+        if (!dragState->dragAnchorValid)
+        {
+            dragState->dragStartMouseGlobal = Vec2{globalMouseX, globalMouseY};
+            dragState->dragStartWindowPos = Vec2{static_cast<float>(currentX), static_cast<float>(currentY)};
+            dragState->dragAnchorValid = true;
+        }
+        else if (std::abs(position->value.x()) < POSITION_EPSILON && std::abs(position->value.y()) < POSITION_EPSILON)
+        {
+            position->value = Vec2{static_cast<float>(currentX), static_cast<float>(currentY)};
+        }
+
+        const Vec2 globalDelta = Vec2{globalMouseX, globalMouseY} - dragState->dragStartMouseGlobal;
+        position->value = dragState->dragStartWindowPos + globalDelta;
+
+        const int targetX = static_cast<int>(std::lround(position->value.x()));
+        const int targetY = static_cast<int>(std::lround(position->value.y()));
+
+        if (targetX != currentX || targetY != currentY)
+        {
+            SDL_SetWindowPosition(sdlWindow, targetX, targetY);
+        }
+    };
+
+    draggable.onDragEnd = [dragState]() { dragState->dragAnchorValid = false; };
+}
+
+entt::entity CreateWindowControlButton(
+    const std::string& buttonAlias, uint32_t iconCodepoint, float buttonSize, float iconSize, float iconSpacing)
+{
+    auto button = CreateButton("", buttonAlias);
+    auto& buttonSizeComp = Registry::Get<components::Size>(button);
+    buttonSizeComp.size = {buttonSize, buttonSize};
+    buttonSizeComp.sizePolicy = policies::Size::Fixed;
+
+    auto& buttonBackground = Registry::GetOrEmplace<components::Background>(button);
+    buttonBackground.color = {0.0F, 0.0F, 0.0F, 0.0F};
+    buttonBackground.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
+    buttonBackground.enabled = policies::Feature::Enabled;
+
+    auto& iconComp = Registry::Emplace<components::Icon>(button);
+    iconComp.codepoint = iconCodepoint;
+    iconComp.size = {iconSize, iconSize};
+    iconComp.spacing = iconSpacing;
+    iconComp.tintColor = {0.85F, 0.85F, 0.85F, 1.0F};
+
+    return button;
+}
+
+void AppendChild(entt::entity parent, entt::entity child)
+{
+    auto& parentHierarchy = Registry::Get<components::Hierarchy>(parent);
+    auto& childHierarchy = Registry::Get<components::Hierarchy>(child);
+    childHierarchy.parent = parent;
+    Registry::Remove<components::RootTag>(child);
+    parentHierarchy.children.push_back(child);
+}
+
+void AttachTitleBarToWindow(entt::entity titleBar, entt::entity windowEntity)
+{
+    auto& windowHierarchy = Registry::Get<components::Hierarchy>(windowEntity);
+    auto& titleBarHierarchy = Registry::Get<components::Hierarchy>(titleBar);
+    titleBarHierarchy.parent = windowEntity;
+    Registry::Remove<components::RootTag>(titleBar);
+    windowHierarchy.children.insert(windowHierarchy.children.begin(), titleBar);
+}
+
+void MarkAsRoot(entt::entity entity)
+{
+    Registry::EmplaceOrReplace<components::RootTag>(entity);
+}
+} // namespace
+
 std::expected<std::unique_ptr<Application>, std::error_code> CreateApplication(std::span<char*> argv)
 {
     try
@@ -52,9 +238,8 @@ entt::entity CreateBaseWidget(std::string_view alias)
     Registry::Emplace<components::Alpha>(entity);
     Registry::Emplace<components::VisibleTag>(entity);
     Registry::Emplace<components::Hierarchy>(entity);
-    Registry::Emplace<components::RootTag>(entity); // 默认标记为根节点
 
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
+    utils::MarkLayoutAndVisualChanged(entity);
 
     return entity;
 }
@@ -64,12 +249,12 @@ void CreateFadeInAnimation(entt::entity entity, float duration)
     if (!Registry::Valid(entity)) return;
     auto& alpha = Registry::GetOrEmplace<components::Alpha>(entity);
     alpha.value = 0.0F;
-    ui::animation::TweenOptions options;
+    animation::TweenOptions options;
     options.duration = duration;
     options.easing = policies::Easing::EASE_OUT_QUAD;
     options.mode = policies::Play::ONCE;
     options.autoCleanup = true;
-    ui::animation::StartAlphaAnimation(entity, 0.0F, 1.0F, options);
+    animation::StartAlphaAnimation(entity, 0.0F, 1.0F, options);
 }
 
 entt::entity CreateButton(const std::string& content, std::string_view alias)
@@ -79,9 +264,9 @@ entt::entity CreateButton(const std::string& content, std::string_view alias)
     Registry::Emplace<components::Clickable>(entity);
     auto& text = Registry::Emplace<components::Text>(entity);
     text.content = content;
-    text.alignment = ui::policies::Alignment::CENTER;
+    text.alignment = policies::Alignment::CENTER;
     text.fontSize = 0.0F;
-    Registry::Get<components::Size>(entity).sizePolicy = ui::policies::Size::Auto;
+    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::Auto;
     return entity;
 }
 
@@ -91,7 +276,7 @@ entt::entity CreateLabel(const std::string& content, std::string_view alias)
     Registry::Emplace<components::LabelTag>(entity);
     auto& text = Registry::Emplace<components::Text>(entity);
     text.content = content;
-    Registry::Get<components::Size>(entity).sizePolicy = ui::policies::Size::Auto;
+    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::Auto;
     return entity;
 }
 
@@ -101,8 +286,8 @@ entt::entity CreateTextEdit(const std::string& placeholder, bool multiline, std:
 
     auto& textEdit = Registry::Emplace<components::TextEdit>(entity);
     textEdit.placeholder = placeholder;
-    textEdit.inputMode = multiline ? (ui::policies::TextFlag::Default | ui::policies::TextFlag::Multiline)
-                                   : ui::policies::TextFlag::Default;
+    textEdit.inputMode =
+        multiline ? (policies::TextFlag::Default | policies::TextFlag::Multiline) : policies::TextFlag::Default;
     textEdit.cursorPosition = 0;
     textEdit.selectionStart = 0;
     textEdit.selectionEnd = 0;
@@ -139,7 +324,7 @@ entt::entity CreateArrow(const Vec2& start, const Vec2& end, std::string_view al
     arrow.startPoint = start;
     arrow.endPoint = end;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = ui::policies::Size::Auto;
+    size.sizePolicy = policies::Size::Auto;
     return entity;
 }
 
@@ -155,13 +340,12 @@ entt::entity CreateSpacer(int stretchFactor, std::string_view alias)
     // 添加 Size 组件，初始值为 0，避免布局不稳定
     auto& size = Registry::Emplace<components::Size>(entity);
     size.size = {0.0F, 0.0F};
-    size.sizePolicy = ui::policies::Size::Auto;
+    size.sizePolicy = policies::Size::Auto;
 
     auto& spacer = Registry::Emplace<components::Spacer>(entity);
     spacer.stretchFactor = static_cast<uint8_t>(std::max(1, stretchFactor));
 
-    Registry::Emplace<components::RootTag>(entity); // 默认标记为根节点
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
+    utils::MarkLayoutAndVisualChanged(entity);
     return entity;
 }
 
@@ -170,32 +354,46 @@ entt::entity CreateSpacer(float width, float height, std::string_view alias)
     auto entity = CreateBaseWidget(alias);
     auto& size = Registry::Get<components::Size>(entity);
     size.size = {width, height};
-    size.sizePolicy = ui::policies::Size::Fixed;
+    size.sizePolicy = policies::Size::Fixed;
     return entity;
 }
 
 entt::entity CreateDialog(std::string_view title, std::string_view alias)
 {
     auto entity = CreateBaseWidget(alias);
+    MarkAsRoot(entity);
     Registry::Emplace<components::DialogTag>(entity);
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = ui::policies::Size::Fixed;
+    size.sizePolicy = policies::Size::Fixed;
     auto& dialog = Registry::Emplace<components::Window>(entity);
     dialog.title = std::string(title);
     dialog.flags |= policies::WindowFlag::NoTitleBar;
     constexpr int DEFAULT_DIALOG_WIDTH = 400;
     constexpr int DEFAULT_DIALOG_HEIGHT = 300;
-    SDL_Window* sdlWindow = SDL_CreateWindow(
-        dialog.title.c_str(), DEFAULT_DIALOG_WIDTH, DEFAULT_DIALOG_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
-    dialog.windowID = SDL_GetWindowID(sdlWindow);
+    SDL_Window* sdlWindow = CreateSdlWindowOrRollback(entity,
+                                                      dialog.title.c_str(),
+                                                      DEFAULT_DIALOG_WIDTH,
+                                                      DEFAULT_DIALOG_HEIGHT,
+                                                      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN,
+                                                      "dialog");
+    if (sdlWindow == nullptr)
+    {
+        return entt::null;
+    }
+
+    if (!AssignWindowIdOrRollback(entity, dialog, sdlWindow, "dialog"))
+    {
+        return entt::null;
+    }
+
     platform::InitCustomWindow(sdlWindow);
     Registry::Remove<components::VisibleTag>(entity);
     auto& dialogLayout = Registry::Emplace<components::LayoutInfo>(entity);
     dialogLayout.direction = policies::LayoutDirection::VERTICAL;
     dialogLayout.alignment = policies::Alignment::CENTER;
     Registry::Emplace<components::Padding>(entity);
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
-    Logger::info("[Factory] Enqueuing WindowGraphicsContextSetEvent for dialog entity {}",
+    utils::MarkLayoutAndVisualChanged(entity);
+    Logger::info("[Factory] Triggering WindowGraphicsContextSetEvent for dialog entity {}",
                  static_cast<uint32_t>(entity));
     Dispatcher::Trigger<events::WindowGraphicsContextSetEvent>({entity});
 
@@ -219,23 +417,37 @@ entt::entity CreateScrollArea(std::string_view alias)
 entt::entity CreateWindow(std::string_view title, std::string_view alias)
 {
     auto entity = CreateBaseWidget(alias);
+    MarkAsRoot(entity);
     Registry::Emplace<components::WindowTag>(entity);
     auto& window = Registry::Emplace<components::Window>(entity);
     window.title = std::string(title);
     window.flags &= ~policies::WindowFlag::Modal;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = ui::policies::Size::Fixed;
+    size.sizePolicy = policies::Size::Fixed;
     auto& layoutInfo = Registry::Emplace<components::LayoutInfo>(entity);
     layoutInfo.direction = policies::LayoutDirection::VERTICAL;
     layoutInfo.alignment = policies::Alignment::CENTER;
     Registry::Emplace<components::Padding>(entity);
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
+    ui::utils::MarkLayoutAndVisualChanged(entity);
     constexpr int DEFAULT_WINDOW_WIDTH = 800;
     constexpr int DEFAULT_WINDOW_HEIGHT = 600;
-    SDL_Window* sdlWindow = SDL_CreateWindow(
-        window.title.c_str(), DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
-    window.windowID = SDL_GetWindowID(sdlWindow);
-    Logger::info("[Factory] Enqueuing WindowGraphicsContextSetEvent for window entity {}",
+    SDL_Window* sdlWindow = CreateSdlWindowOrRollback(entity,
+                                                      window.title.c_str(),
+                                                      DEFAULT_WINDOW_WIDTH,
+                                                      DEFAULT_WINDOW_HEIGHT,
+                                                      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN,
+                                                      "window");
+    if (sdlWindow == nullptr)
+    {
+        return entt::null;
+    }
+
+    if (!AssignWindowIdOrRollback(entity, window, sdlWindow, "window"))
+    {
+        return entt::null;
+    }
+
+    Logger::info("[Factory] Triggering WindowGraphicsContextSetEvent for window entity {}",
                  static_cast<uint32_t>(entity));
     Dispatcher::Trigger<events::WindowGraphicsContextSetEvent>({entity});
     Registry::Remove<components::VisibleTag>(entity);
@@ -245,7 +457,6 @@ entt::entity CreateWindow(std::string_view title, std::string_view alias)
 
 entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
 {
-    // 获取窗口组件
     auto* windowComp = Registry::TryGet<components::Window>(windowEntity);
     if (windowComp == nullptr)
     {
@@ -263,142 +474,27 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
     constexpr uint32_t ICON_MINIMIZE = 0xE931;
     constexpr uint32_t ICON_MAXIMIZE = 0xE930;
 
-    // ---- 标题栏容器 (HBox) ----
-    auto titleBar = CreateBaseWidget(alias);
-    Registry::Emplace<components::TitleBarTag>(titleBar);
-    auto& layout = Registry::Emplace<components::LayoutInfo>(titleBar);
-    layout.direction = policies::LayoutDirection::HORIZONTAL;
-    layout.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
-    auto& titleBarSize = Registry::Get<components::Size>(titleBar);
-    titleBarSize.size = {0.0F, TITLE_BAR_HEIGHT};
-    titleBarSize.sizePolicy = policies::Size::HFill | policies::Size::VFixed;
-
-    // 背景透明（与窗口背景融合）
-    auto& background = Registry::Emplace<components::Background>(titleBar);
-    background.color = {0.0F, 0.0F, 0.0F, 0.0F};
-    background.enabled = policies::Feature::Enabled;
-
-    // 可点击（使 HitTest 能命中该区域）+ 可拖拽（拖拽移动窗口）
-    Registry::Emplace<components::Clickable>(titleBar);
-    auto& draggable = Registry::Emplace<components::Draggable>(titleBar);
-    draggable.lockX = true; // 不修改实体自身 Position
-    draggable.lockY = true;
-
-    // 通过 SDL API 移动窗口
+    auto titleBar = CreateTitleBarContainer(alias, TITLE_BAR_HEIGHT);
     uint32_t windowID = windowComp->windowID;
-    struct TitleBarDragState
-    {
-        Vec2 dragStartMouseGlobal{0.0F, 0.0F};
-        Vec2 dragStartWindowPos{0.0F, 0.0F};
-        bool dragAnchorValid = false;
-    };
-    auto dragState = std::make_shared<TitleBarDragState>();
+    ConfigureTitleBarDragging(titleBar, windowEntity, windowID);
 
-    draggable.onDragStart = [windowEntity, windowID, dragState]()
-    {
-        SDL_Window* sdlWin = SDL_GetWindowFromID(windowID);
-        auto* position = Registry::TryGet<components::Position>(windowEntity);
-        if (sdlWin == nullptr || position == nullptr)
-        {
-            dragState->dragAnchorValid = false;
-            return;
-        }
-
-        float globalMouseX = 0.0F;
-        float globalMouseY = 0.0F;
-        SDL_GetGlobalMouseState(&globalMouseX, &globalMouseY);
-
-        int windowX = 0;
-        int windowY = 0;
-        SDL_GetWindowPosition(sdlWin, &windowX, &windowY);
-
-        dragState->dragStartMouseGlobal = Vec2{globalMouseX, globalMouseY};
-        dragState->dragStartWindowPos = Vec2{static_cast<float>(windowX), static_cast<float>(windowY)};
-        position->value = dragState->dragStartWindowPos;
-        dragState->dragAnchorValid = true;
-    };
-
-    draggable.onDragMove = [windowEntity, windowID, dragState]([[maybe_unused]] Vec2 delta)
-    {
-        SDL_Window* sdlWin = SDL_GetWindowFromID(windowID);
-        if (sdlWin == nullptr) return;
-
-        auto* position = Registry::TryGet<components::Position>(windowEntity);
-        if (position == nullptr) return;
-
-        float globalMouseX = 0.0F;
-        float globalMouseY = 0.0F;
-        SDL_GetGlobalMouseState(&globalMouseX, &globalMouseY);
-
-        int currentX = 0;
-        int currentY = 0;
-        SDL_GetWindowPosition(sdlWin, &currentX, &currentY);
-
-        constexpr float POSITION_EPSILON = 0.01F;
-        if (!dragState->dragAnchorValid)
-        {
-            dragState->dragStartMouseGlobal = Vec2{globalMouseX, globalMouseY};
-            dragState->dragStartWindowPos = Vec2{static_cast<float>(currentX), static_cast<float>(currentY)};
-            dragState->dragAnchorValid = true;
-        }
-        else if (std::abs(position->value.x()) < POSITION_EPSILON && std::abs(position->value.y()) < POSITION_EPSILON)
-        {
-            position->value = Vec2{static_cast<float>(currentX), static_cast<float>(currentY)};
-        }
-
-        const Vec2 globalDelta = Vec2{globalMouseX, globalMouseY} - dragState->dragStartMouseGlobal;
-        position->value = dragState->dragStartWindowPos + globalDelta;
-
-        const int targetX = static_cast<int>(std::lround(position->value.x()));
-        const int targetY = static_cast<int>(std::lround(position->value.y()));
-
-        if (targetX != currentX || targetY != currentY)
-        {
-            SDL_SetWindowPosition(sdlWin, targetX, targetY);
-        }
-    };
-    draggable.onDragEnd = [dragState]() { dragState->dragAnchorValid = false; };
-
-    // ---- 标题文本 ----
     auto titleLabel = CreateLabel(windowComp->title, std::string(alias) + "_title");
     auto& titleText = Registry::Get<components::Text>(titleLabel);
     titleText.fontSize = 13.0F;
     titleText.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
 
-    // ---- 弹性间隔 ----
     auto spacer = CreateSpacer(1, std::string(alias) + "_spacer");
 
-    // ---- 窗口控制按钮 ----
-    auto createWinBtn = [&](const std::string& btnAlias, uint32_t iconCodepoint) -> entt::entity
-    {
-        auto btn = CreateButton("", btnAlias);
-        auto& btnSize = Registry::Get<components::Size>(btn);
-        btnSize.size = {BTN_SIZE, BTN_SIZE};
-        btnSize.sizePolicy = policies::Size::Fixed;
-
-        auto& btnBg = Registry::GetOrEmplace<components::Background>(btn);
-        btnBg.color = {0.0F, 0.0F, 0.0F, 0.0F};
-        btnBg.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
-        btnBg.enabled = policies::Feature::Enabled;
-
-        // 字体图标
-        auto& iconComp = Registry::Emplace<components::Icon>(btn);
-        iconComp.codepoint = iconCodepoint;
-        iconComp.size = {ICON_SIZE, ICON_SIZE};
-        iconComp.spacing = ICON_SPACING;
-        iconComp.tintColor = {0.85F, 0.85F, 0.85F, 1.0F};
-
-        return btn;
-    };
-
-    auto minimizeBtn = createWinBtn(std::string(alias) + "_minimize", ICON_MINIMIZE);
+    auto minimizeBtn =
+        CreateWindowControlButton(std::string(alias) + "_minimize", ICON_MINIMIZE, BTN_SIZE, ICON_SIZE, ICON_SPACING);
     Registry::Get<components::Clickable>(minimizeBtn).onClick = [windowID]()
     {
         SDL_Window* sdlWin = SDL_GetWindowFromID(windowID);
         if (sdlWin != nullptr) SDL_MinimizeWindow(sdlWin);
     };
 
-    auto maximizeBtn = createWinBtn(std::string(alias) + "_maximize", ICON_MAXIMIZE);
+    auto maximizeBtn =
+        CreateWindowControlButton(std::string(alias) + "_maximize", ICON_MAXIMIZE, BTN_SIZE, ICON_SIZE, ICON_SPACING);
     Registry::Get<components::Clickable>(maximizeBtn).onClick = [windowID]()
     {
         SDL_Window* sdlWin = SDL_GetWindowFromID(windowID);
@@ -413,8 +509,8 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
         }
     };
 
-    auto closeBtn = createWinBtn(std::string(alias) + "_close", ICON_CLOSE);
-    // 关闭按钮悬停时红色背景
+    auto closeBtn =
+        CreateWindowControlButton(std::string(alias) + "_close", ICON_CLOSE, BTN_SIZE, ICON_SIZE, ICON_SPACING);
     auto& closeBtnHover = Registry::Emplace<components::Hoverable>(closeBtn);
     closeBtnHover.onHover = [closeBtn]()
     {
@@ -426,35 +522,18 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
         auto* closeBg = Registry::TryGet<components::Background>(closeBtn);
         if (closeBg != nullptr) closeBg->color = {0.0F, 0.0F, 0.0F, 0.0F};
     };
-    Registry::Get<components::Clickable>(closeBtn).onClick = [windowEntity]() { ui::utils::CloseWindow(windowEntity); };
+    Registry::Get<components::Clickable>(closeBtn).onClick = [windowEntity]() { utils::CloseWindow(windowEntity); };
 
-    // ---- 组装层级 ----
-    auto& titleBarHierarchy = Registry::Get<components::Hierarchy>(titleBar);
-    auto addChild = [&](entt::entity child)
-    {
-        auto& childHierarchy = Registry::Get<components::Hierarchy>(child);
-        childHierarchy.parent = titleBar;
-        Registry::Remove<components::RootTag>(child);
-        titleBarHierarchy.children.push_back(child);
-    };
+    AppendChild(titleBar, titleLabel);
+    AppendChild(titleBar, spacer);
+    AppendChild(titleBar, minimizeBtn);
+    AppendChild(titleBar, maximizeBtn);
+    AppendChild(titleBar, closeBtn);
+    AttachTitleBarToWindow(titleBar, windowEntity);
 
-    addChild(titleLabel);
-    addChild(spacer);
-    addChild(minimizeBtn);
-    addChild(maximizeBtn);
-    addChild(closeBtn);
+    utils::MarkLayoutAndVisualChanged(titleBar);
+    utils::MarkLayoutAndVisualChanged(windowEntity);
 
-    // 将标题栏加入窗口（插入为第一个子节点）
-    auto& windowHierarchy = Registry::Get<components::Hierarchy>(windowEntity);
-    auto& titleBarH = Registry::Get<components::Hierarchy>(titleBar);
-    titleBarH.parent = windowEntity;
-    Registry::Remove<components::RootTag>(titleBar);
-    windowHierarchy.children.insert(windowHierarchy.children.begin(), titleBar);
-
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(titleBar);
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(windowEntity);
-
-    // 标题栏间距 (Top, Right, Bottom, Left)
     auto& padding = Registry::Emplace<components::Padding>(titleBar);
     padding.values = {0.0F, BTN_SPACING, 0.0F, 8.0F};
 
@@ -468,10 +547,10 @@ entt::entity CreateVBoxLayout(std::string_view alias)
 {
     auto entity = CreateBaseWidget(alias);
     auto& layout = Registry::Emplace<components::LayoutInfo>(entity);
-    layout.direction = ui::policies::LayoutDirection::VERTICAL;
-    layout.alignment = ui::policies::Alignment::CENTER;
+    layout.direction = policies::LayoutDirection::VERTICAL;
+    layout.alignment = policies::Alignment::CENTER;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = ui::policies::Size::Auto;
+    size.sizePolicy = policies::Size::Auto;
     Registry::Emplace<components::Padding>(entity);
     return entity;
 }
@@ -480,10 +559,10 @@ entt::entity CreateHBoxLayout(std::string_view alias)
 {
     auto entity = CreateBaseWidget(alias);
     auto& layout = Registry::Emplace<components::LayoutInfo>(entity);
-    layout.direction = ui::policies::LayoutDirection::HORIZONTAL;
-    layout.alignment = ui::policies::Alignment::CENTER;
+    layout.direction = policies::LayoutDirection::HORIZONTAL;
+    layout.alignment = policies::Alignment::CENTER;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = ui::policies::Size::Auto;
+    size.sizePolicy = policies::Size::Auto;
     Registry::Emplace<components::Padding>(entity);
     return entity;
 }
@@ -527,6 +606,7 @@ entt::entity CreateTextBrowser(std::string_view initialText, std::string_view pl
 
 entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_view alias)
 {
+    (void)checked;
     auto entity = CreateBaseWidget(alias);
     // TODO: 实现 CheckBoxTag 和 CheckBox 组件
     // Registry::Emplace<components::CheckBoxTag>(entity);
@@ -534,8 +614,8 @@ entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_
     // checkBox.checked = checked;
     auto& text = Registry::Emplace<components::Text>(entity);
     text.content = label;
-    text.alignment = ui::policies::Alignment::LEFT | ui::policies::Alignment::VCENTER;
-    Registry::Get<components::Size>(entity).sizePolicy = ui::policies::Size::Auto;
+    text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
+    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::Auto;
     return entity;
 }
 
@@ -546,9 +626,9 @@ entt::entity CreateSlider(std::string_view alias)
     // 默认尺寸：横向滑块高度 28
     auto& size = Registry::Get<components::Size>(entity);
     size.size = {200.0F, 28.0F};
-    size.sizePolicy = ui::policies::Size::Fixed;
+    size.sizePolicy = policies::Size::Fixed;
     Registry::Emplace<components::LayoutInfo>(entity);
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
+    utils::MarkLayoutAndVisualChanged(entity);
     Registry::Emplace<components::SliderTag>(entity);
     return entity;
 }
@@ -559,9 +639,9 @@ entt::entity CreateProgressBar(std::string_view alias)
     Registry::Emplace<components::ProgressBar>(entity);
     auto& size = Registry::Get<components::Size>(entity);
     size.size = {200.0F, 14.0F};
-    size.sizePolicy = ui::policies::Size::Fixed;
+    size.sizePolicy = policies::Size::Fixed;
     Registry::Emplace<components::LayoutInfo>(entity);
-    Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
+    utils::MarkLayoutAndVisualChanged(entity);
     Registry::Emplace<components::ProgressBarTag>(entity);
     return entity;
 }
