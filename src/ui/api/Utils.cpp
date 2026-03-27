@@ -111,7 +111,12 @@ void CancelQueuedTask(TaskHandle handle)
 {
     systems::TimerSystem::cancelTask(handle);
 }
-
+/**
+ * @brief 判断实体别名是否存在
+ * @param alias 实体别名
+ * @return true 实体存在
+ * @return false 实体不存在
+ */
 bool IsEntityExist(const std::string& alias)
 {
     auto view = Registry::View<components::BaseInfo>();
@@ -122,8 +127,9 @@ bool IsEntityExist(const std::string& alias)
             return true;
         }
     }
-    std::ranges::any_of(
-        view, [&view, &alias](entt::entity entity) { return view.get<components::BaseInfo>(entity).alias == alias; });
+    std::ranges::any_of(view,
+                        [&view, &alias](entt::entity entity) -> bool
+                        { return view.get<components::BaseInfo>(entity).alias == alias; });
     return false;
 }
 

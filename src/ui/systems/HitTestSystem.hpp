@@ -30,6 +30,7 @@
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "../common/Events.hpp"
+#include "../core/RuntimeFacade.hpp"
 #include "../interface/Isystem.hpp"
 
 namespace ui::systems
@@ -412,17 +413,7 @@ private:
      */
     entt::entity resolveHitEntity(const Vec2& pos, uint32_t windowID)
     {
-        entt::entity topWindow = entt::null;
-        auto viewWin = Registry::View<components::Window>();
-        for (auto entity : viewWin)
-        {
-            if (viewWin.get<components::Window>(entity).windowID == windowID)
-            {
-                topWindow = entity;
-                break;
-            }
-        }
-
+        entt::entity topWindow = RuntimeFacade::current().windowLookup().findById(windowID);
         if (topWindow == entt::null) return entt::null;
         return findHitEntity(pos, topWindow);
     }

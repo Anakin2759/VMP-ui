@@ -14,6 +14,7 @@
  */
 
 #include "TimerSystem.hpp"
+#include "../core/RuntimeFacade.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "../singleton/Logger.hpp"
 #include "../singleton/Registry.hpp"
@@ -41,7 +42,7 @@ void TimerSystem::unregisterHandlersImpl()
 
 uint32_t TimerSystem::addTask(uint32_t interval, std::move_only_function<void()> func, bool singleShot)
 {
-    auto& frameCtx = Registry::ctx().get<globalcontext::FrameContext>();
+    auto& frameCtx = RuntimeFacade::current().frame();
 
     uint32_t taskId = nextTaskId++;
 
@@ -75,7 +76,7 @@ void TimerSystem::cancelTask(uint32_t handle)
 
 void TimerSystem::update(uint32_t deltaMs)
 {
-    auto& frameCtx = Registry::ctx().get<globalcontext::FrameContext>();
+    auto& frameCtx = RuntimeFacade::current().frame();
 
     // 处理所有任务
     for (auto& task : tasks)
@@ -142,7 +143,7 @@ void TimerSystem::onUpdateTimer([[maybe_unused]] const events::UpdateTimer& even
 {
     // UpdateTimer 事件会在每帧触发，我们在这里更新定时器
     // 但实际的 deltaMs 需要从 FrameContext 获取
-    auto* frameCtx = Registry::ctx().find<globalcontext::FrameContext>();
+    auto* frameCtx = RuntimeFacade::current().tryFrame();
     if (frameCtx != nullptr)
     {
         update(frameCtx->intervalMs);

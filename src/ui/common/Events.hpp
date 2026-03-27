@@ -303,6 +303,25 @@ struct RawPointerWheel
     uint32_t windowID; // Added windowID to match definition in InteractionSystem usage
 };
 
+// 原始文本输入事件
+// [IMMEDIATE] 由 InteractionSystem 在输入泵阶段直接触发，保证文本编辑仍保持当前帧可见反馈
+struct RawTextInput
+{
+    using is_event_tag = void;
+    std::string text;
+};
+
+// 原始键盘事件
+// [IMMEDIATE] 由 InteractionSystem 在输入泵阶段直接触发，供 TextInputSystem 独立处理编辑命令与重复按键策略
+struct RawKeyInput
+{
+    using is_event_tag = void;
+    int32_t key;
+    bool pressed;
+    bool repeat;
+    uint16_t modifiers;
+};
+
 // =====================================================================
 // D. 命中测试后的中间事件 (由 HitTestSystem 触发)
 //    包含原始数据 + 命中的实体信息，供StateSystem消费

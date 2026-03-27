@@ -649,8 +649,12 @@ private:
 
         renderPlainMultilineTextEdit(args, lines);
     }
-
-    float getAncestorScrollAreaTextWidth(entt::entity entity) const
+    /**
+     * @brief 获取
+     * @param entity {comment}
+     * @return float {comment}
+     */
+    [[nodiscard]] float getAncestorScrollAreaTextWidth(entt::entity entity) const
     {
         entt::entity current = entity;
         while (current != entt::null)

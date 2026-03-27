@@ -40,8 +40,16 @@ class IconRenderer : public core::IRenderer
 {
 public:
     explicit IconRenderer(managers::IconManager* iconManager) : m_iconManager(iconManager) {}
-
-    bool canHandle(entt::entity entity) const override { return Registry::AnyOf<components::Icon>(entity); }
+    /**
+     * @brief 判断能否处理
+     * @param entity 控件
+     * @return true 控件可处理
+     * @return false 控件不可处理
+     */
+    [[nodiscard]] bool canHandle(entt::entity entity) const override
+    {
+        return Registry::AnyOf<components::Icon>(entity);
+    }
 
     void collect(entt::entity entity, core::RenderContext& context) override
     {

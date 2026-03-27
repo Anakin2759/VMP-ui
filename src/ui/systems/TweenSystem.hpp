@@ -25,6 +25,7 @@
 #pragma once
 #include <entt/entt.hpp>
 #include <cmath>
+#include "../core/RuntimeFacade.hpp"
 #include "../common/Policies.hpp"
 #include "../common/Components.hpp"
 #include "../common/GlobalContext.hpp"
@@ -52,7 +53,7 @@ private:
     void update()
     {
         float deltaTime = 16.0F; // 默认 16ms
-        if (const auto* ctx = ui::Registry::ctx().find<globalcontext::FrameContext>())
+        if (const auto* ctx = RuntimeFacade::current().tryFrame())
         {
             if (ctx->intervalMs > 0)
             {

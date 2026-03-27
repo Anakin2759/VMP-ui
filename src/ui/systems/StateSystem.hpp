@@ -35,6 +35,7 @@
 #include "../common/Policies.hpp"
 #include "../interface/Isystem.hpp"
 #include "../common/Events.hpp"
+#include "../core/RuntimeFacade.hpp"
 #include "HitTestSystem.hpp"
 #include "../common/GlobalContext.hpp"
 #include "../singleton/Logger.hpp"
@@ -249,7 +250,7 @@ private:
      */
     void onHoverEvent(const events::HoverEvent& event)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
         queueHoveredEntity(state, event.entity);
     }
 
@@ -258,7 +259,7 @@ private:
      */
     void onUnhoverEvent(const events::UnhoverEvent& event)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
         queueHoverClear(state, event.entity);
     }
 
@@ -267,7 +268,7 @@ private:
      */
     void onMousePressEvent(const events::MousePressEvent& event)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
         queueActiveEntity(state, event.entity);
     }
 
@@ -276,7 +277,7 @@ private:
      */
     void onMouseReleaseEvent(const events::MouseReleaseEvent& event)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
         queueActiveClear(state, event.entity);
     }
 
@@ -286,7 +287,7 @@ private:
 
     void onHitPointerMove(const events::HitPointerMove& event)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
         state.latestMousePosition = event.raw.position;
         state.latestMouseDelta = event.raw.delta;
 
@@ -320,7 +321,7 @@ private:
     {
         if (event.raw.button != SDL_BUTTON_LEFT) return;
 
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
         state.latestMousePosition = event.raw.position;
 
         if (event.raw.pressed)
@@ -343,7 +344,7 @@ private:
 
     void onHitPointerWheel(const events::HitPointerWheel& event)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
         state.latestScrollDelta = event.raw.delta;
 
         entt::entity target = findScrollTargetFromHit(event.hitEntity);
@@ -365,7 +366,7 @@ private:
      */
     static void setFocus(entt::entity entity, SDL_Window* sdlWindow = nullptr)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
 
         // 移除旧焦点实体的标签（Focus 需要立即应用）
         if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
@@ -402,7 +403,7 @@ private:
      */
     static void clearFocus(SDL_Window* sdlWindow = nullptr)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
 
         if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
         {
@@ -441,19 +442,13 @@ private:
      */
     void onWindowPixelSizeChanged(const events::WindowPixelSizeChanged& event)
     {
-        auto view = Registry::View<components::Window, components::Size>();
+        const auto entity = RuntimeFacade::current().windowLookup().findById(event.windowID);
+        if (!Registry::Valid(entity) || !Registry::AllOf<components::Size>(entity)) return;
 
-        for (auto entity : view)
-        {
-            if (view.get<components::Window>(entity).windowID == event.windowID)
-            {
-                auto& size = view.get<components::Size>(entity);
-                size.size.x() = static_cast<float>(event.width);
-                size.size.y() = static_cast<float>(event.height);
-                ui::utils::MarkLayoutAndVisualChanged(entity);
-                break;
-            }
-        }
+        auto& size = Registry::Get<components::Size>(entity);
+        size.size.x() = static_cast<float>(event.width);
+        size.size.y() = static_cast<float>(event.height);
+        ui::utils::MarkLayoutAndVisualChanged(entity);
     }
 
     /**
@@ -461,18 +456,12 @@ private:
      */
     void onWindowMoved(const events::WindowMoved& event)
     {
-        auto view = Registry::View<components::Window, components::Position>();
+        const auto entity = RuntimeFacade::current().windowLookup().findById(event.windowID);
+        if (!Registry::Valid(entity) || !Registry::AllOf<components::Position>(entity)) return;
 
-        for (auto entity : view)
-        {
-            if (view.get<components::Window>(entity).windowID == event.windowID)
-            {
-                auto& pos = view.get<components::Position>(entity);
-                pos.value.x() = static_cast<float>(event.x);
-                pos.value.y() = static_cast<float>(event.y);
-                break;
-            }
-        }
+        auto& pos = Registry::Get<components::Position>(entity);
+        pos.value.x() = static_cast<float>(event.x);
+        pos.value.y() = static_cast<float>(event.y);
     }
 
     // ===================================================================
@@ -484,7 +473,7 @@ private:
      */
     void updateScrollbarHoverStates(const events::HitPointerMove& event)
     {
-        auto& state = Registry::ctx().get<globalcontext::StateContext>();
+        auto& state = RuntimeFacade::current().state();
         auto view = Registry::View<components::ScrollArea, components::Size, components::VisibleTag>();
 
         for (auto entity : view)
@@ -1104,6 +1093,8 @@ private:
             // 如果是窗口，查找并销毁关联的 SDL_Window 资源
             if (auto* windowComp = Registry::TryGet<components::Window>(entity))
             {
+                RuntimeFacade::current().windowLookup().invalidateId(windowComp->windowID);
+
                 // 通过 WindowID 找回 SDL_Window 指针
                 if (SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID))
                 {

@@ -2,7 +2,6 @@
  * SystemManager implementation
  */
 
-#include "pch.hpp"
 #include "SystemManager.hpp"
 #include "singleton/Registry.hpp"
 
@@ -10,6 +9,8 @@
 #include "../systems/RenderSystem.hpp"
 #include "../systems/TweenSystem.hpp"
 #include "../systems/InteractionSystem.hpp"
+#include "../systems/PlatformWindowSystem.hpp"
+#include "../systems/TextInputSystem.hpp"
 #include "../systems/HitTestSystem.hpp"
 #include "../systems/LayoutSystem.hpp"
 #include "../systems/StateSystem.hpp" // 保持与 Application.h 中的一致
@@ -19,8 +20,14 @@ namespace ui
 {
 SystemManager::SystemManager()
 {
+    Logger::info("[SystemManager] 正在注册 PlatformWindowSystem...");
+    m_systems.emplace_back(systems::PlatformWindowSystem{});
+
     Logger::info("[SystemManager] 正在注册 InteractionSystem...");
     m_systems.emplace_back(systems::InteractionSystem{});
+
+    Logger::info("[SystemManager] 正在注册 TextInputSystem...");
+    m_systems.emplace_back(systems::TextInputSystem{});
 
     Logger::info("[SystemManager] 正在注册 HitTestSystem...");
     m_systems.emplace_back(systems::HitTestSystem{});

@@ -28,8 +28,10 @@
 #include <entt/entt.hpp>
 #include "../common/Events.hpp"
 #include "../common/GlobalContext.hpp"
+#include "RuntimeFacade.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "../systems/InteractionSystem.hpp"
+#include "../systems/TextInputSystem.hpp"
 namespace ui::tasks
 {
 
@@ -145,6 +147,7 @@ struct InputTask
         }
         remainingTime = delayTime;
         ui::systems::InteractionSystem::pollSdlEvents();
+        ui::systems::TextInputSystem::processKeyRepeat();
     }
 };
 
@@ -155,7 +158,7 @@ struct QueuedTask
     void operator()(uint32_t delta)
     {
         // 队列阶段先推进帧上下文，再驱动定时器与缓冲事件派发。
-        auto& frameContext = Registry::ctx().get<globalcontext::FrameContext>();
+        auto& frameContext = RuntimeFacade::current().frame();
         frameContext.intervalMs = delta;
         frameContext.frameSlot = (frameContext.frameSlot + 1) % 2;
         Dispatcher::Trigger<ui::events::UpdateTimer>();

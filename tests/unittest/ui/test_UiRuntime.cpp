@@ -2,8 +2,10 @@
 
 #include <entt/entt.hpp>
 
+#include "src/ui/common/Components.hpp"
 #include "src/ui/common/Events.hpp"
 #include "src/ui/common/GlobalContext.hpp"
+#include "src/ui/core/RuntimeFacade.hpp"
 #include "src/ui/core/UiRuntime.hpp"
 #include "src/ui/singleton/Dispatcher.hpp"
 #include "src/ui/singleton/Registry.hpp"
@@ -72,6 +74,94 @@ TEST(UiRuntimeTest, NestedRuntimeScopesSwitchRegistryAndDispatcherIndependently)
 
     Registry::Clear();
     Dispatcher::Update();
+}
+
+TEST(UiRuntimeTest, RuntimeFacadeFollowsActiveRuntimeScope)
+{
+    Registry::Clear();
+
+    UiRuntime firstRuntime;
+    UiRuntime secondRuntime;
+
+    {
+        UiRuntimeScope firstScope(firstRuntime);
+        RuntimeFacade::current().ensureContext<globalcontext::FrameContext>().intervalMs = 33;
+
+        EXPECT_EQ(RuntimeFacade::current().frame().intervalMs, 33U);
+        EXPECT_NE(RuntimeFacade::current().tryFrame(), nullptr);
+
+        {
+            UiRuntimeScope secondScope(secondRuntime);
+
+            EXPECT_EQ(RuntimeFacade::current().tryFrame(), nullptr);
+
+            RuntimeFacade::current().ensureContext<globalcontext::FrameContext>().intervalMs = 44;
+            EXPECT_EQ(RuntimeFacade::current().frame().intervalMs, 44U);
+        }
+
+        EXPECT_EQ(RuntimeFacade::current().frame().intervalMs, 33U);
+    }
+
+    Registry::Clear();
+}
+
+TEST(UiRuntimeTest, WindowLookupCacheIsolatedPerRuntime)
+{
+    Registry::Clear();
+
+    UiRuntime firstRuntime;
+    UiRuntime secondRuntime;
+    entt::entity firstWindow = entt::null;
+
+    {
+        UiRuntimeScope firstScope(firstRuntime);
+        firstWindow = Registry::Create();
+        Registry::Emplace<components::Window>(firstWindow).windowID = 101;
+        RuntimeFacade::current().windowLookup().remember(firstWindow);
+
+        EXPECT_EQ(RuntimeFacade::current().windowLookup().findById(101), firstWindow);
+
+        {
+            UiRuntimeScope secondScope(secondRuntime);
+
+            EXPECT_FALSE(Registry::Valid(RuntimeFacade::current().windowLookup().findById(101)));
+
+            const auto secondWindow = Registry::Create();
+            Registry::Emplace<components::Window>(secondWindow).windowID = 101;
+            RuntimeFacade::current().windowLookup().remember(secondWindow);
+
+            EXPECT_EQ(RuntimeFacade::current().windowLookup().findById(101), secondWindow);
+        }
+
+        EXPECT_EQ(RuntimeFacade::current().windowLookup().findById(101), firstWindow);
+    }
+
+    Registry::Clear();
+}
+
+TEST(UiRuntimeTest, WindowLookupCacheRecoversFromDestroyedEntity)
+{
+    Registry::Clear();
+
+    UiRuntime runtime;
+    {
+        UiRuntimeScope scope(runtime);
+
+        const auto firstWindow = Registry::Create();
+        Registry::Emplace<components::Window>(firstWindow).windowID = 202;
+        RuntimeFacade::current().windowLookup().remember(firstWindow);
+
+        EXPECT_EQ(RuntimeFacade::current().windowLookup().findById(202), firstWindow);
+
+        Registry::Destroy(firstWindow);
+
+        const auto secondWindow = Registry::Create();
+        Registry::Emplace<components::Window>(secondWindow).windowID = 202;
+
+        EXPECT_EQ(RuntimeFacade::current().windowLookup().findById(202), secondWindow);
+    }
+
+    Registry::Clear();
 }
 
 } // namespace

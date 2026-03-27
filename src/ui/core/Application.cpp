@@ -6,6 +6,7 @@
 #include "singleton/Dispatcher.hpp"
 #include "singleton/Logger.hpp"
 #include <SDL3/SDL.h>
+#include "RuntimeFacade.hpp"
 #include "TaskChain.hpp"
 #include "../common/GlobalContext.hpp"
 #include <algorithm>
@@ -29,8 +30,8 @@ Application::Application(std::span<char*> arg) // NOLINT
     }
 
     Logger::info("SDL 初始化成功");
-    Registry::ctx().emplace<globalcontext::FrameContext>();
-    Registry::ctx().emplace<globalcontext::StateContext>();
+    (void)RuntimeFacade::current().ensureContext<globalcontext::FrameContext>();
+    (void)RuntimeFacade::current().ensureContext<globalcontext::StateContext>();
 
     m_systems.registerAllHandlers();
     auto taskChain = tasks::QueuedTask{} | tasks::InputTask{} | tasks::RenderTask{};

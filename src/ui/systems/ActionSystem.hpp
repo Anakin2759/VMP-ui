@@ -30,6 +30,7 @@
 #include "../singleton/Logger.hpp"
 #include "../interface/Isystem.hpp"
 #include "../api/Animation.hpp"
+#include "../core/RuntimeFacade.hpp"
 #include "../common/Components.hpp"
 #include "../common/GlobalContext.hpp"
 namespace ui::systems
@@ -83,7 +84,7 @@ private:
      */
     void onHitPointerMove(const ui::events::HitPointerMove& event)
     {
-        auto& ctx = Registry::ctx().get<globalcontext::StateContext>();
+        auto& ctx = RuntimeFacade::current().state();
         entt::entity entity = ctx.activeEntity;
 
         if (!Registry::Valid(entity)) return;
@@ -154,7 +155,7 @@ private:
 
     void onMouseRelease(const ui::events::MouseReleaseEvent& event)
     {
-        auto& ctx = Registry::ctx().get<globalcontext::StateContext>();
+        auto& ctx = RuntimeFacade::current().state();
         entt::entity entity = event.entity;
 
         if (!Registry::Valid(entity)) return;

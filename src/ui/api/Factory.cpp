@@ -7,6 +7,7 @@
 #include "../common/Policies.hpp"
 #include "../common/Types.hpp"
 #include "../common/Events.hpp"
+#include "../core/RuntimeFacade.hpp"
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "Utils.hpp"
@@ -17,7 +18,6 @@
 
 #include <cmath>
 #include <memory>
-#include <system_error>
 
 namespace ui::factory
 {
@@ -48,7 +48,10 @@ SDL_Window* CreateSdlWindowOrRollback(
     return sdlWindow;
 }
 
-bool AssignWindowIdOrRollback(entt::entity entity, components::Window& window, SDL_Window* sdlWindow, std::string_view entityType)
+bool AssignWindowIdOrRollback(entt::entity entity,
+                              components::Window& window,
+                              SDL_Window* sdlWindow,
+                              std::string_view entityType)
 {
     window.windowID = SDL_GetWindowID(sdlWindow);
     if (window.windowID == 0)
@@ -61,6 +64,8 @@ bool AssignWindowIdOrRollback(entt::entity entity, components::Window& window, S
         Registry::Destroy(entity);
         return false;
     }
+
+    RuntimeFacade::current().windowLookup().remember(entity);
 
     return true;
 }

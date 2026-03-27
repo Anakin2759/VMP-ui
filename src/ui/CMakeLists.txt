@@ -50,6 +50,7 @@ find_package(DXC REQUIRED)
 set(UI_SOURCES 
     core/Application.cpp
     core/EventLoop.cpp
+    core/RuntimeFacade.cpp
     core/SystemManager.cpp
     systems/RenderSystem.cpp
     systems/TimerSystem.cpp
@@ -107,6 +108,7 @@ set(UI_HEADERS
     core/SystemManager.hpp
     core/EventLoop.hpp
     core/UiRuntime.hpp
+    core/RuntimeFacade.hpp
     core/TaskChain.hpp
     core/TextUtils.hpp
     interface/IRenderer.hpp

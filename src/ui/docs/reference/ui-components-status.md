@@ -69,4 +69,4 @@
 - ✅ 光标位置插入文本
 - ⏳ 待实现: 鼠标选择、撤销/重做
 
-详见: `src/ui/docs/textedit-implementation-2026-02-07.md`
+详见: [textedit-implementation-2026-02-07.md](textedit-implementation-2026-02-07.md)
