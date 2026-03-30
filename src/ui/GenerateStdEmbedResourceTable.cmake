@@ -1,3 +1,5 @@
+#这个文件是用来生成一个C++源文件的，该源文件包含一个资源表，资源表中的每个条目都包含一个逻辑路径和一个指向资源数据的字节跨度。资源数据以十六进制字符串的形式存储在输入文件中，并被转换为C++数组。
+
 cmake_minimum_required(VERSION 3.20)
 
 if(NOT DEFINED OUTPUT_FILE OR OUTPUT_FILE STREQUAL "")
