@@ -15,7 +15,7 @@ option(UI_ENABLE_SHADER_COMPILATION "Compile UI shaders with DXC during the buil
 
 
 # 资源后端选项（CMRC 或 STD_EMBED）
-set(UI_RESOURCE_BACKEND "STD_EMBED" CACHE STRING "UI resource backend (CMRC or STD_EMBED)")
+set(UI_RESOURCE_BACKEND "CMRC" CACHE STRING "UI resource backend (CMRC or STD_EMBED)")
 # 资源后端选项字符串列表（用于 CMake GUI 和命令行提示）
 set_property(CACHE UI_RESOURCE_BACKEND PROPERTY STRINGS CMRC STD_EMBED)
 

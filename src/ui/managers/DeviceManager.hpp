@@ -27,7 +27,6 @@
 #include <functional>
 #include <filesystem>
 #include <fstream>
-#include <cmrc/cmrc.hpp>
 #include <SDL3/SDL.h>
 
 // CMRC_DECLARE(ui_swiftshader);
