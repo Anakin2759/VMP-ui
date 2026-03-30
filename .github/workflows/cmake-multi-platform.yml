@@ -13,6 +13,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
     # ================= CMake 配置 =================
     - name: Configure CMake
       shell: pwsh
