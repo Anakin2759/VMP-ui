@@ -16,7 +16,7 @@ jobs:
     # ================= CMake 配置 =================
     - name: Configure CMake
       shell: pwsh
-      run: cmake -B build -S . -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=Release
+      run: cmake -G Ninja -B build -S . -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=Release
 
     # ================= Build =================
     - name: Build
