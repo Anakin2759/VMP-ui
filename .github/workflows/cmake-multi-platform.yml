@@ -13,13 +13,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-
     # ================= CMake 配置 =================
     - name: Configure CMake
       shell: pwsh
-      run: cmake -G Ninja -B build -S . -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=Release
+      run: cmake -B build -S . -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=Release
 
     # ================= Build =================
     - name: Build
