@@ -30,8 +30,6 @@
 #include "../common/Components.hpp"
 #include "../common/GlobalContext.hpp"
 #include "../common/Events.hpp"
-#include "../singleton/Registry.hpp"
-#include "../singleton/Dispatcher.hpp"
 #include "../api/Utils.hpp"
 #include "../interface/Isystem.hpp"
 #include <sys/stat.h>
@@ -42,9 +40,15 @@ namespace ui::systems
 class TweenSystem : public ui::interface::EnableRegister<TweenSystem>
 {
 public:
-    void registerHandlersImpl() { Dispatcher::Sink<events::UpdateEvent>().connect<&TweenSystem::update>(*this); }
+    void registerHandlersImpl()
+    {
+        RuntimeFacade::current().enttDispatcher().sink<events::UpdateEvent>().connect<&TweenSystem::update>(*this);
+    }
 
-    void unregisterHandlersImpl() { Dispatcher::Sink<events::UpdateEvent>().disconnect<&TweenSystem::update>(*this); }
+    void unregisterHandlersImpl()
+    {
+        RuntimeFacade::current().enttDispatcher().sink<events::UpdateEvent>().disconnect<&TweenSystem::update>(*this);
+    }
 
 private:
     /**
@@ -52,8 +56,11 @@ private:
      */
     void update()
     {
+        auto& runtime = RuntimeFacade::current();
+        auto& reg = runtime.enttRegistry();
+
         float deltaTime = 16.0F; // 默认 16ms
-        if (const auto* ctx = RuntimeFacade::current().tryFrame())
+        if (const auto* ctx = runtime.tryFrame())
         {
             if (ctx->intervalMs > 0)
             {
@@ -61,7 +68,7 @@ private:
             }
         }
 
-        auto view = ui::Registry::View<components::AnimationTime, components::AnimatingTag>();
+        auto view = reg.view<components::AnimationTime, components::AnimatingTag>();
         std::vector<entt::entity> completedEntities;
 
         view.each(
@@ -155,9 +162,10 @@ private:
      */
     bool updatePosition(entt::entity entity, float val)
     {
-        if (auto* animPos = ui::Registry::TryGet<components::AnimationPosition>(entity))
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (auto* animPos = reg.try_get<components::AnimationPosition>(entity))
         {
-            if (auto* pos = ui::Registry::TryGet<components::Position>(entity))
+            if (auto* pos = reg.try_get<components::Position>(entity))
             {
                 pos->value = animPos->from + ((animPos->to - animPos->from) * val);
                 ui::utils::MarkLayoutDirty(entity);
@@ -170,7 +178,8 @@ private:
 
     bool updateAlpha(entt::entity entity, float val)
     {
-        if (auto* animAlpha = ui::Registry::TryGet<components::AnimationAlpha>(entity))
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (auto* animAlpha = reg.try_get<components::AnimationAlpha>(entity))
         {
             float currentAlpha = animAlpha->from + ((animAlpha->to - animAlpha->from) * val);
 
@@ -181,20 +190,20 @@ private:
             };
 
             // 应用到常见组件
-            applyAlpha(ui::Registry::TryGet<components::Background>(entity));
-            applyAlpha(ui::Registry::TryGet<components::Text>(entity));
-            applyAlpha(ui::Registry::TryGet<components::Border>(entity));
-            applyAlpha(ui::Registry::TryGet<components::Shadow>(entity));
-            applyAlpha(ui::Registry::TryGet<components::Arrow>(entity));
+            applyAlpha(reg.try_get<components::Background>(entity));
+            applyAlpha(reg.try_get<components::Text>(entity));
+            applyAlpha(reg.try_get<components::Border>(entity));
+            applyAlpha(reg.try_get<components::Shadow>(entity));
+            applyAlpha(reg.try_get<components::Arrow>(entity));
 
             // Image 组件使用 tintColor
-            if (auto* img = ui::Registry::TryGet<components::Image>(entity))
+            if (auto* img = reg.try_get<components::Image>(entity))
             {
                 img->tintColor.alpha = currentAlpha;
             }
 
             // Alpha 组件
-            if (auto* alpha = ui::Registry::TryGet<components::Alpha>(entity))
+            if (auto* alpha = reg.try_get<components::Alpha>(entity))
             {
                 alpha->value = currentAlpha;
             }
@@ -209,9 +218,10 @@ private:
      */
     bool updateScale(entt::entity entity, float val)
     {
-        if (auto* animScale = ui::Registry::TryGet<components::AnimationScale>(entity))
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (auto* animScale = reg.try_get<components::AnimationScale>(entity))
         {
-            auto& scale = ui::Registry::GetOrEmplace<components::Scale>(entity);
+            auto& scale = reg.get_or_emplace<components::Scale>(entity);
             scale.value = animScale->from + ((animScale->to - animScale->from) * val);
             return true;
         }
@@ -221,9 +231,10 @@ private:
 
     bool updateRenderOffset(entt::entity entity, float val)
     {
-        if (auto* animOffset = ui::Registry::TryGet<components::AnimationRenderOffset>(entity))
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (auto* animOffset = reg.try_get<components::AnimationRenderOffset>(entity))
         {
-            auto& offset = ui::Registry::GetOrEmplace<components::RenderOffset>(entity);
+            auto& offset = reg.get_or_emplace<components::RenderOffset>(entity);
             offset.value = animOffset->from + ((animOffset->to - animOffset->from) * val);
             return true;
         }
@@ -233,7 +244,8 @@ private:
 
     bool updateColor(entt::entity entity, float val)
     {
-        if (auto* animColor = ui::Registry::TryGet<components::AnimationColor>(entity))
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (auto* animColor = reg.try_get<components::AnimationColor>(entity))
         {
             ui::Color currentColor;
             currentColor.red = animColor->from.red + ((animColor->to.red - animColor->from.red) * val);
@@ -243,49 +255,49 @@ private:
 
             bool updated = false;
 
-            if (auto* background = ui::Registry::TryGet<components::Background>(entity))
+            if (auto* background = reg.try_get<components::Background>(entity))
             {
                 background->color = currentColor;
                 updated = true;
             }
 
-            if (auto* text = ui::Registry::TryGet<components::Text>(entity))
+            if (auto* text = reg.try_get<components::Text>(entity))
             {
                 text->color = currentColor;
                 updated = true;
             }
 
-            if (auto* textEdit = ui::Registry::TryGet<components::TextEdit>(entity))
+            if (auto* textEdit = reg.try_get<components::TextEdit>(entity))
             {
                 textEdit->textColor = currentColor;
                 updated = true;
             }
 
-            if (auto* border = ui::Registry::TryGet<components::Border>(entity))
+            if (auto* border = reg.try_get<components::Border>(entity))
             {
                 border->color = currentColor;
                 updated = true;
             }
 
-            if (auto* shadow = ui::Registry::TryGet<components::Shadow>(entity))
+            if (auto* shadow = reg.try_get<components::Shadow>(entity))
             {
                 shadow->color = currentColor;
                 updated = true;
             }
 
-            if (auto* arrow = ui::Registry::TryGet<components::Arrow>(entity))
+            if (auto* arrow = reg.try_get<components::Arrow>(entity))
             {
                 arrow->color = currentColor;
                 updated = true;
             }
 
-            if (auto* image = ui::Registry::TryGet<components::Image>(entity))
+            if (auto* image = reg.try_get<components::Image>(entity))
             {
                 image->tintColor = currentColor;
                 updated = true;
             }
 
-            if (auto* icon = ui::Registry::TryGet<components::Icon>(entity))
+            if (auto* icon = reg.try_get<components::Icon>(entity))
             {
                 icon->tintColor = currentColor;
                 updated = true;
@@ -299,24 +311,25 @@ private:
 
     static void finishAnimation(entt::entity entity)
     {
-        if (!ui::Registry::Valid(entity)) return;
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (!reg.valid(entity)) return;
 
-        auto* animTime = ui::Registry::TryGet<components::AnimationTime>(entity);
+        auto* animTime = reg.try_get<components::AnimationTime>(entity);
         if (animTime == nullptr) return;
 
-        ui::Registry::Remove<components::AnimatingTag>(entity);
+        reg.remove<components::AnimatingTag>(entity);
 
         if (!animTime->autoCleanup)
         {
             return;
         }
 
-        ui::Registry::Remove<components::AnimationPosition>(entity);
-        ui::Registry::Remove<components::AnimationAlpha>(entity);
-        ui::Registry::Remove<components::AnimationScale>(entity);
-        ui::Registry::Remove<components::AnimationRenderOffset>(entity);
-        ui::Registry::Remove<components::AnimationColor>(entity);
-        ui::Registry::Remove<components::AnimationTime>(entity);
+        reg.remove<components::AnimationPosition>(entity);
+        reg.remove<components::AnimationAlpha>(entity);
+        reg.remove<components::AnimationScale>(entity);
+        reg.remove<components::AnimationRenderOffset>(entity);
+        reg.remove<components::AnimationColor>(entity);
+        reg.remove<components::AnimationTime>(entity);
     }
 
     /**

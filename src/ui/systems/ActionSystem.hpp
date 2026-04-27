@@ -25,8 +25,6 @@
 
 #include <entt/entt.hpp>
 #include "../common/Events.hpp"
-#include "../singleton/Dispatcher.hpp"
-#include "../singleton/Registry.hpp"
 #include "../singleton/Logger.hpp"
 #include "../interface/Isystem.hpp"
 #include "../api/Animation.hpp"
@@ -40,26 +38,28 @@ class ActionSystem : public ui::interface::EnableRegister<ActionSystem>
 public:
     void registerHandlersImpl()
     {
+        auto& dispatcher = RuntimeFacade::current().enttDispatcher();
         // 只监听抽象事件
-        Dispatcher::Sink<ui::events::ClickEvent>().connect<&ActionSystem::onClickEvent>(*this);
-        Dispatcher::Sink<ui::events::HoverEvent>().connect<&ActionSystem::onHoverEvent>(*this);
-        Dispatcher::Sink<ui::events::UnhoverEvent>().connect<&ActionSystem::onUnhoverEvent>(*this);
+        dispatcher.sink<ui::events::ClickEvent>().connect<&ActionSystem::onClickEvent>(*this);
+        dispatcher.sink<ui::events::HoverEvent>().connect<&ActionSystem::onHoverEvent>(*this);
+        dispatcher.sink<ui::events::UnhoverEvent>().connect<&ActionSystem::onUnhoverEvent>(*this);
 
         // 监听底层事件以驱动交互动效
-        Dispatcher::Sink<ui::events::MousePressEvent>().connect<&ActionSystem::onMousePress>(*this);
-        Dispatcher::Sink<ui::events::MouseReleaseEvent>().connect<&ActionSystem::onMouseRelease>(*this);
-        Dispatcher::Sink<ui::events::HitPointerMove>().connect<&ActionSystem::onHitPointerMove>(*this);
+        dispatcher.sink<ui::events::MousePressEvent>().connect<&ActionSystem::onMousePress>(*this);
+        dispatcher.sink<ui::events::MouseReleaseEvent>().connect<&ActionSystem::onMouseRelease>(*this);
+        dispatcher.sink<ui::events::HitPointerMove>().connect<&ActionSystem::onHitPointerMove>(*this);
     }
 
     void unregisterHandlersImpl()
     {
-        Dispatcher::Sink<ui::events::ClickEvent>().disconnect<&ActionSystem::onClickEvent>(*this);
-        Dispatcher::Sink<ui::events::HoverEvent>().disconnect<&ActionSystem::onHoverEvent>(*this);
-        Dispatcher::Sink<ui::events::UnhoverEvent>().disconnect<&ActionSystem::onUnhoverEvent>(*this);
+        auto& dispatcher = RuntimeFacade::current().enttDispatcher();
+        dispatcher.sink<ui::events::ClickEvent>().disconnect<&ActionSystem::onClickEvent>(*this);
+        dispatcher.sink<ui::events::HoverEvent>().disconnect<&ActionSystem::onHoverEvent>(*this);
+        dispatcher.sink<ui::events::UnhoverEvent>().disconnect<&ActionSystem::onUnhoverEvent>(*this);
 
-        Dispatcher::Sink<ui::events::MousePressEvent>().disconnect<&ActionSystem::onMousePress>(*this);
-        Dispatcher::Sink<ui::events::MouseReleaseEvent>().disconnect<&ActionSystem::onMouseRelease>(*this);
-        Dispatcher::Sink<ui::events::HitPointerMove>().disconnect<&ActionSystem::onHitPointerMove>(*this);
+        dispatcher.sink<ui::events::MousePressEvent>().disconnect<&ActionSystem::onMousePress>(*this);
+        dispatcher.sink<ui::events::MouseReleaseEvent>().disconnect<&ActionSystem::onMouseRelease>(*this);
+        dispatcher.sink<ui::events::HitPointerMove>().disconnect<&ActionSystem::onHitPointerMove>(*this);
     }
 
 private:
@@ -84,13 +84,15 @@ private:
      */
     void onHitPointerMove(const ui::events::HitPointerMove& event)
     {
-        auto& ctx = RuntimeFacade::current().state();
+        auto& runtime = RuntimeFacade::current();
+        auto& reg = runtime.enttRegistry();
+        auto& ctx = runtime.state();
         entt::entity entity = ctx.activeEntity;
 
-        if (!Registry::Valid(entity)) return;
+        if (!reg.valid(entity)) return;
 
         // 检查是否可拖拽
-        if (auto* draggable = Registry::TryGet<components::Draggable>(entity);
+        if (auto* draggable = reg.try_get<components::Draggable>(entity);
             draggable != nullptr && draggable->enabled == policies::Feature::Enabled)
         {
             // 只有当鼠标移动且按下时
@@ -103,7 +105,7 @@ private:
             }
 
             // 应用移动
-            if (auto* pos = Registry::TryGet<components::Position>(entity))
+            if (auto* pos = reg.try_get<components::Position>(entity))
             {
                 if (!draggable->lockX) pos->value.x() += event.raw.delta.x();
                 if (!draggable->lockY) pos->value.y() += event.raw.delta.y();
@@ -113,7 +115,7 @@ private:
             if (draggable->onDragMove) draggable->onDragMove(event.raw.delta);
 
             // 应用拖拽动效 (如果配置了 InteractiveAnimation)
-            if (auto* interact = Registry::TryGet<components::InteractiveAnimation>(entity))
+            if (auto* interact = reg.try_get<components::InteractiveAnimation>(entity))
             {
                 // 切换到 Drag 状态 (优先使用 drag 配置，否则回退到 press 配置)
                 std::optional<Vec2> targetScale =
@@ -133,16 +135,17 @@ private:
 
     void onMousePress(const ui::events::MousePressEvent& event)
     {
+        auto& reg = RuntimeFacade::current().enttRegistry();
         entt::entity entity = event.entity;
 
-        if (!Registry::Valid(entity)) return;
+        if (!reg.valid(entity)) return;
 
-        if (auto* draggable = Registry::TryGet<components::Draggable>(entity))
+        if (auto* draggable = reg.try_get<components::Draggable>(entity))
         {
             draggable->dragging = false;
         }
 
-        if (auto* interact = Registry::TryGet<components::InteractiveAnimation>(entity))
+        if (auto* interact = reg.try_get<components::InteractiveAnimation>(entity))
         {
             applyAnimation(entity,
                            interact->pressScale,
@@ -155,18 +158,20 @@ private:
 
     void onMouseRelease(const ui::events::MouseReleaseEvent& event)
     {
-        auto& ctx = RuntimeFacade::current().state();
+        auto& runtime = RuntimeFacade::current();
+        auto& reg = runtime.enttRegistry();
+        auto& ctx = runtime.state();
         entt::entity entity = event.entity;
 
-        if (!Registry::Valid(entity)) return;
+        if (!reg.valid(entity)) return;
 
-        if (auto* draggable = Registry::TryGet<components::Draggable>(entity); draggable != nullptr)
+        if (auto* draggable = reg.try_get<components::Draggable>(entity); draggable != nullptr)
         {
             if (draggable->dragging && draggable->onDragEnd) draggable->onDragEnd();
             draggable->dragging = false;
         }
 
-        if (auto* interact = Registry::TryGet<components::InteractiveAnimation>(entity))
+        if (auto* interact = reg.try_get<components::InteractiveAnimation>(entity))
         {
             // 恢复到 Hover 状态 (如果 Hover 存在且仍在悬浮)，否则恢复 Normal
             bool isHovered = (ctx.hoveredEntity == entity);
@@ -190,10 +195,11 @@ private:
      */
     void onClickEvent(const ui::events::ClickEvent& event)
     {
-        if (!Registry::Valid(event.entity)) return;
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (!reg.valid(event.entity)) return;
 
         // 处理点击回调
-        auto* clickable = Registry::TryGet<ui::components::Clickable>(event.entity);
+        auto* clickable = reg.try_get<ui::components::Clickable>(event.entity);
         if (clickable != nullptr && clickable->enabled == policies::Feature::Enabled && clickable->onClick)
         {
             Logger::info("Entity {} clicked", static_cast<uint32_t>(event.entity));
@@ -207,17 +213,18 @@ private:
      */
     void onHoverEvent(const ui::events::HoverEvent& event)
     {
-        if (!Registry::Valid(event.entity)) return;
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (!reg.valid(event.entity)) return;
 
         // 处理 Hover 回调
-        auto* hoverable = Registry::TryGet<ui::components::Hoverable>(event.entity);
+        auto* hoverable = reg.try_get<ui::components::Hoverable>(event.entity);
         if (hoverable != nullptr && hoverable->enabled == policies::Feature::Enabled && hoverable->onHover)
         {
             hoverable->onHover();
         }
 
         // 处理悬停动效
-        if (auto* interact = Registry::TryGet<components::InteractiveAnimation>(event.entity))
+        if (auto* interact = reg.try_get<components::InteractiveAnimation>(event.entity))
         {
             applyAnimation(event.entity,
                            interact->hoverScale,
@@ -234,17 +241,18 @@ private:
      */
     void onUnhoverEvent(const ui::events::UnhoverEvent& event)
     {
-        if (!Registry::Valid(event.entity)) return;
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (!reg.valid(event.entity)) return;
 
         // 处理 Unhover 回调
-        auto* hoverable = Registry::TryGet<ui::components::Hoverable>(event.entity);
+        auto* hoverable = reg.try_get<ui::components::Hoverable>(event.entity);
         if (hoverable != nullptr && hoverable->enabled == policies::Feature::Enabled && hoverable->onUnhover)
         {
             hoverable->onUnhover();
         }
 
         // 恢复正常状态
-        if (auto* interact = Registry::TryGet<components::InteractiveAnimation>(event.entity))
+        if (auto* interact = reg.try_get<components::InteractiveAnimation>(event.entity))
         {
             // 恢复到 Normal Scale/Offset
             applyAnimation(event.entity,

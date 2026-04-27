@@ -39,6 +39,7 @@ class Dispatcher : public SingletonBase<Dispatcher>
     friend class SingletonBase<Dispatcher>;
     friend class UiRuntime;
     friend class UiRuntimeScope;
+    friend class RuntimeFacade;
 
 public:
     static Dispatcher& defaultInstance() { return SingletonBase<Dispatcher>::getInstance(); }

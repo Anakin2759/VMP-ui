@@ -45,6 +45,12 @@ public:
 
     [[nodiscard]] Dispatcher& dispatcher() const { return Dispatcher::current(); }
 
+    // Phase 2: raw entt access for explicit ECS / event-bus calls.
+    // Use these in new and migrated code instead of static Registry::/Dispatcher:: APIs.
+    [[nodiscard]] entt::registry& enttRegistry() const { return Registry::current().m_registry; }
+
+    [[nodiscard]] entt::dispatcher& enttDispatcher() const { return Dispatcher::current().m_dispatcher; }
+
     [[nodiscard]] globalcontext::FrameContext& frame() const { return context<globalcontext::FrameContext>(); }
 
     [[nodiscard]] globalcontext::StateContext& state() const { return context<globalcontext::StateContext>(); }

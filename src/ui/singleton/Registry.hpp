@@ -32,6 +32,7 @@ class Registry : public SingletonBase<Registry>
     friend class SingletonBase<Registry>;
     friend class UiRuntime;
     friend class UiRuntimeScope;
+    friend class RuntimeFacade;
 
 public:
     static Registry& defaultInstance() { return SingletonBase<Registry>::getInstance(); }

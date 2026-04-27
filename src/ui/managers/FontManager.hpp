@@ -92,17 +92,17 @@ public:
 
     ~FontManager()
     {
-        if (m_hbFont)
+        if (m_hbFont != nullptr)
         {
             hb_font_destroy(m_hbFont);
             m_hbFont = nullptr;
         }
-        if (m_ftFace)
+        if (m_ftFace != nullptr)
         {
             FT_Done_Face(m_ftFace);
             m_ftFace = nullptr;
         }
-        if (m_ftLibrary)
+        if (m_ftLibrary != nullptr)
         {
             FT_Done_FreeType(m_ftLibrary);
             m_ftLibrary = nullptr;
@@ -124,7 +124,7 @@ public:
      */
     std::expected<void, std::error_code> loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
     {
-        if (!m_ftLibrary)
+        if (m_ftLibrary == nullptr)
         {
             Logger::error("[FontManager] FreeType not initialized");
             return std::unexpected(errors::make_error_code(errors::FontErrc::FreeTypeNotInitialized));

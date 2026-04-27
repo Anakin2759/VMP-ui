@@ -414,6 +414,7 @@ entt::entity CreateScrollArea(std::string_view alias)
     Registry::Emplace<components::ScrollArea>(entity);
     auto& layout = Registry::Emplace<components::LayoutInfo>(entity);
     layout.direction = policies::LayoutDirection::VERTICAL;
+    layout.alignment = policies::Alignment::TOP_LEFT;
     auto& size = Registry::Get<components::Size>(entity);
     size.sizePolicy = policies::Size::FillParent;
     return entity;
@@ -553,7 +554,7 @@ entt::entity CreateVBoxLayout(std::string_view alias)
     auto entity = CreateBaseWidget(alias);
     auto& layout = Registry::Emplace<components::LayoutInfo>(entity);
     layout.direction = policies::LayoutDirection::VERTICAL;
-    layout.alignment = policies::Alignment::CENTER;
+    layout.alignment = policies::Alignment::TOP_LEFT;
     auto& size = Registry::Get<components::Size>(entity);
     size.sizePolicy = policies::Size::Auto;
     Registry::Emplace<components::Padding>(entity);
@@ -565,7 +566,7 @@ entt::entity CreateHBoxLayout(std::string_view alias)
     auto entity = CreateBaseWidget(alias);
     auto& layout = Registry::Emplace<components::LayoutInfo>(entity);
     layout.direction = policies::LayoutDirection::HORIZONTAL;
-    layout.alignment = policies::Alignment::CENTER;
+    layout.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
     auto& size = Registry::Get<components::Size>(entity);
     size.sizePolicy = policies::Size::Auto;
     Registry::Emplace<components::Padding>(entity);
