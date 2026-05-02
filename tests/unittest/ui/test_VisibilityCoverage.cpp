@@ -6,7 +6,10 @@
 #include "src/ui/common/Components.hpp"
 #include "src/ui/common/Policies.hpp"
 #include "src/ui/common/Tags.hpp"
+#include "src/ui/common/WindowSync.hpp"
 #include "src/ui/singleton/Registry.hpp"
+
+#include <limits>
 
 namespace ui::tests
 {
@@ -94,6 +97,45 @@ TEST_F(VisibilityTest, HideOnInvalidEntityIsNoOp)
     EXPECT_NO_FATAL_FAILURE(visibility::Hide(entt::null));
 }
 
+TEST_F(VisibilityTest, WindowSizeTargetUsesPositiveEcsSize)
+{
+    components::Size size{};
+    size.size = Eigen::Vector2f{160.0F, 300.0F};
+
+    int width = 0;
+    int height = 0;
+
+    EXPECT_TRUE(window_sync::TryGetWindowSizeTarget(size, width, height));
+    EXPECT_EQ(width, 160);
+    EXPECT_EQ(height, 300);
+}
+
+TEST_F(VisibilityTest, WindowSizeTargetRejectsNonPositiveSize)
+{
+    components::Size size{};
+    int width = 0;
+    int height = 0;
+
+    size.size = Eigen::Vector2f{0.0F, 300.0F};
+    EXPECT_FALSE(window_sync::TryGetWindowSizeTarget(size, width, height));
+
+    size.size = Eigen::Vector2f{160.0F, -1.0F};
+    EXPECT_FALSE(window_sync::TryGetWindowSizeTarget(size, width, height));
+}
+
+TEST_F(VisibilityTest, WindowSizeTargetRejectsNonFiniteSize)
+{
+    components::Size size{};
+    int width = 0;
+    int height = 0;
+
+    size.size = Eigen::Vector2f{std::numeric_limits<float>::infinity(), 300.0F};
+    EXPECT_FALSE(window_sync::TryGetWindowSizeTarget(size, width, height));
+
+    size.size = Eigen::Vector2f{160.0F, std::numeric_limits<float>::quiet_NaN()};
+    EXPECT_FALSE(window_sync::TryGetWindowSizeTarget(size, width, height));
+}
+
 // ===================== SetAlpha =====================
 
 TEST_F(VisibilityTest, SetAlphaStoresValue)
@@ -143,12 +185,12 @@ TEST_F(VisibilityTest, SetBackgroundColorStoresColorAndEnablesBackground)
 
     visibility::SetBackgroundColor(entity, red);
 
-    const auto* bg = Registry::TryGet<components::Background>(entity);
-    ASSERT_NE(bg, nullptr);
-    EXPECT_EQ(bg->color.red, 1.0F);
-    EXPECT_EQ(bg->color.green, 0.0F);
-    EXPECT_EQ(bg->color.blue, 0.0F);
-    EXPECT_EQ(bg->enabled, policies::Feature::Enabled);
+    const auto* background = Registry::TryGet<components::Background>(entity);
+    ASSERT_NE(background, nullptr);
+    EXPECT_EQ(background->color.red, 1.0F);
+    EXPECT_EQ(background->color.green, 0.0F);
+    EXPECT_EQ(background->color.blue, 0.0F);
+    EXPECT_EQ(background->enabled, policies::Feature::Enabled);
 }
 
 TEST_F(VisibilityTest, SetBackgroundColorTriggersRenderDirty)
@@ -169,12 +211,12 @@ TEST_F(VisibilityTest, SetBorderRadiusAppliesUniformRadiusToBackground)
 
     visibility::SetBorderRadius(entity, 8.0F);
 
-    const auto* bg = Registry::TryGet<components::Background>(entity);
-    ASSERT_NE(bg, nullptr);
-    EXPECT_FLOAT_EQ(bg->borderRadius.x(), 8.0F);
-    EXPECT_FLOAT_EQ(bg->borderRadius.y(), 8.0F);
-    EXPECT_FLOAT_EQ(bg->borderRadius.z(), 8.0F);
-    EXPECT_FLOAT_EQ(bg->borderRadius.w(), 8.0F);
+    const auto* background = Registry::TryGet<components::Background>(entity);
+    ASSERT_NE(background, nullptr);
+    EXPECT_FLOAT_EQ(background->borderRadius.x(), 8.0F);
+    EXPECT_FLOAT_EQ(background->borderRadius.y(), 8.0F);
+    EXPECT_FLOAT_EQ(background->borderRadius.z(), 8.0F);
+    EXPECT_FLOAT_EQ(background->borderRadius.w(), 8.0F);
 }
 
 TEST_F(VisibilityTest, SetBorderRadiusNegativeValueClampsToZero)
@@ -183,9 +225,9 @@ TEST_F(VisibilityTest, SetBorderRadiusNegativeValueClampsToZero)
 
     visibility::SetBorderRadius(entity, -5.0F);
 
-    const auto* bg = Registry::TryGet<components::Background>(entity);
-    ASSERT_NE(bg, nullptr);
-    EXPECT_FLOAT_EQ(bg->borderRadius.x(), 0.0F);
+    const auto* background = Registry::TryGet<components::Background>(entity);
+    ASSERT_NE(background, nullptr);
+    EXPECT_FLOAT_EQ(background->borderRadius.x(), 0.0F);
 }
 
 // ===================== SetBorderColor =====================

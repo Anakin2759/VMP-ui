@@ -63,6 +63,46 @@ inline void SyncWindowPosition(entt::entity entity, SDL_Window* sdlWindow)
     }
 }
 
+inline bool TryGetWindowSizeTarget(const components::Size& sizeComp, int& width, int& height)
+{
+    const float widthValue = sizeComp.size.x();
+    const float heightValue = sizeComp.size.y();
+    if (!std::isfinite(widthValue) || !std::isfinite(heightValue) || widthValue <= 0.0F || heightValue <= 0.0F)
+    {
+        return false;
+    }
+
+    width = static_cast<int>(std::round(widthValue));
+    height = static_cast<int>(std::round(heightValue));
+    return width > 0 && height > 0;
+}
+
+inline void SyncWindowSize(entt::entity entity, SDL_Window* sdlWindow)
+{
+    auto* sizeComp = Registry::TryGet<components::Size>(entity);
+    if (sizeComp == nullptr) return;
+
+    int currentWidth = 0;
+    int currentHeight = 0;
+    SDL_GetWindowSize(sdlWindow, &currentWidth, &currentHeight);
+
+    int targetWidth = 0;
+    int targetHeight = 0;
+    if (!TryGetWindowSizeTarget(*sizeComp, targetWidth, targetHeight))
+    {
+        if (currentWidth > 0 && currentHeight > 0)
+        {
+            sizeComp->size = Eigen::Vector2f{static_cast<float>(currentWidth), static_cast<float>(currentHeight)};
+        }
+        return;
+    }
+
+    if (currentWidth != targetWidth || currentHeight != targetHeight)
+    {
+        SDL_SetWindowSize(sdlWindow, targetWidth, targetHeight);
+    }
+}
+
 inline void SyncWindowSizeConstraints(const components::Window& windowComp, SDL_Window* sdlWindow)
 {
     int currentMinW = 0;
@@ -166,6 +206,7 @@ inline void SyncWindowProperties(entt::entity entity, components::Window& window
     SyncWindowTitle(entity, windowComp, sdlWindow);
     SyncWindowPosition(entity, sdlWindow);
     SyncWindowSizeConstraints(windowComp, sdlWindow);
+    SyncWindowSize(entity, sdlWindow);
     SyncWindowResizable(windowComp, sdlWindow);
     SyncWindowFrameless(windowComp, sdlWindow);
     SyncWindowOpacity(entity, sdlWindow);
