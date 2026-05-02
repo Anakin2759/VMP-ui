@@ -40,7 +40,7 @@ class BatchManager
 public:
     BatchManager()
         : m_bufferResource(MAX_BATCH_COUNT), // 预分配 256KB
-          m_batches(&m_bufferResource)
+          m_batches(std::in_place, &m_bufferResource)
     {
     }
 
@@ -50,9 +50,9 @@ public:
     void clear()
     {
         m_currentBatch.reset();
-        // 否则 m_batches 会保留指向已释放内存的指针（capacity），导致内存重叠
-        m_batches = std::pmr::vector<render::RenderBatch>(&m_bufferResource);
+        m_batches.reset();
         m_bufferResource.release();
+        m_batches.emplace(&m_bufferResource);
     }
 
     /**
@@ -75,9 +75,10 @@ public:
             {
                 if (scissor.has_value() && m_currentBatch->scissorRect.has_value())
                 {
-                    const SDL_Rect& a = scissor.value();
-                    const SDL_Rect& b = m_currentBatch->scissorRect.value();
-                    canMerge = (a.x == b.x && a.y == b.y && a.w == b.w && a.h == b.h);
+                    const SDL_Rect& nextScissor = scissor.value();
+                    const SDL_Rect& currentScissor = m_currentBatch->scissorRect.value();
+                    canMerge = (nextScissor.x == currentScissor.x && nextScissor.y == currentScissor.y &&
+                                nextScissor.w == currentScissor.w && nextScissor.h == currentScissor.h);
                 }
                 else if (scissor.has_value() != m_currentBatch->scissorRect.has_value())
                 {
@@ -249,7 +250,7 @@ public:
     {
         if (m_currentBatch.has_value() && !m_currentBatch->vertices.empty() && !m_currentBatch->indices.empty())
         {
-            m_batches.push_back(std::move(m_currentBatch.value()));
+            m_batches->push_back(std::move(m_currentBatch.value()));
         }
         m_currentBatch.reset();
     }
@@ -270,12 +271,12 @@ public:
     /**
      * @brief 获取所有批次
      */
-    [[nodiscard]] const std::pmr::vector<render::RenderBatch>& getBatches() const { return m_batches; }
+    [[nodiscard]] const std::pmr::vector<render::RenderBatch>& getBatches() const { return *m_batches; }
 
     /**
      * @brief 获取批次数量
      */
-    [[nodiscard]] size_t getBatchCount() const { return m_batches.size(); }
+    [[nodiscard]] size_t getBatchCount() const { return m_batches->size(); }
 
     /**
      * @brief 获取总顶点数
@@ -283,7 +284,7 @@ public:
     [[nodiscard]] size_t getTotalVertexCount() const
     {
         size_t count = 0;
-        for (const auto& batch : m_batches)
+        for (const auto& batch : *m_batches)
         {
             count += batch.vertices.size();
         }
@@ -291,9 +292,9 @@ public:
     }
 
 private:
-    std::pmr::monotonic_buffer_resource m_bufferResource; // 帧内内存池资源
-    std::pmr::vector<render::RenderBatch> m_batches;      // 存储所有渲染批次
-    std::optional<render::RenderBatch> m_currentBatch;    // 当前正在构建的批次
+    std::pmr::monotonic_buffer_resource m_bufferResource;                       // 帧内内存池资源
+    std::optional<std::pmr::vector<render::RenderBatch>> m_batches;             // 存储所有渲染批次
+    std::optional<render::RenderBatch> m_currentBatch;                          // 当前正在构建的批次
 };
 
 } // namespace ui::managers

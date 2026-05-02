@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(PestMan LANGUAGES CXX)
+project(PmkUi LANGUAGES CXX)
 
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,6 +13,7 @@ if(MSVC)
 endif()
 
 option(ENABLE_BUILD_TESTS "Enable building of unit tests" OFF)
+option(BUILD_EXAMPLES "Enable building examples" ON)
 option(ENABLE_LTO "Enable IPO/LTO for Release and RelWithDebInfo builds" ON)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 
@@ -99,23 +100,11 @@ endif()
 # ==================== 第三方库 ====================
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/asio)
-
 add_subdirectory(third_party/cmrc)
-add_subdirectory(third_party/mimalloc)
 add_subdirectory(third_party/entt)
-add_subdirectory(third_party/json)
 add_subdirectory(third_party/spdlog)
-
-
-
 add_subdirectory(third_party/SDL)
-
 add_subdirectory(third_party/stb)
-
-add_subdirectory(third_party/abseil-cpp)
-add_subdirectory(third_party/kcp)
-add_subdirectory(third_party/googletest)
-
 add_subdirectory(third_party/yoga)
 if(ENABLE_LTO AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND TARGET yogacore)
     set_property(TARGET yogacore PROPERTY INTERPROCEDURAL_OPTIMIZATION FALSE)
@@ -123,6 +112,10 @@ endif()
 add_subdirectory(third_party/eigen-5.0.0)
 add_subdirectory(third_party/freetype)
 add_subdirectory(third_party/harfbuzz)
+
+if(ENABLE_BUILD_TESTS)
+    add_subdirectory(third_party/googletest)
+endif()
 
 
 
@@ -157,13 +150,14 @@ else()
     message(STATUS "clang-tidy integration disabled (ENABLE_CLANG_TIDY=OFF)")
 endif()
 
-# ===================== 项目主程序 ====================
-add_subdirectory(src/utils)
-add_subdirectory(src/shared)
+# ===================== UI 库 ====================
 add_subdirectory(src/ui)
-add_subdirectory(src/net)
- add_subdirectory(src/client)
- add_subdirectory(src/server)
+
+# ===================== 示例程序 ====================
+if(BUILD_EXAMPLES)
+    add_subdirectory(example)
+endif()
+
 # ===================== 单元测试 =====================
 if(ENABLE_BUILD_TESTS)
     enable_testing()

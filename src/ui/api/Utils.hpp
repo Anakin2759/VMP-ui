@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <entt/entt.hpp>
+#include "../common/Components.hpp"
 #include "../common/Policies.hpp"
 #include "Chains.hpp"
 namespace ui::utils
@@ -32,6 +33,14 @@ void MarkLayoutDirty(::entt::entity entity);
 void MarkRenderDirty(::entt::entity entity);
 void CloseWindow(::entt::entity entity);
 void QuitUiEventLoop();
+
+[[nodiscard]] Vec2 GetAbsolutePosition(::entt::entity entity);
+[[nodiscard]] Rect GetEntityRect(::entt::entity entity);
+[[nodiscard]] Rect GetScrollViewportRect(::entt::entity entity);
+[[nodiscard]] float GetScrollViewportLength(::entt::entity entity, bool isVertical);
+[[nodiscard]] float GetScrollContentLength(::entt::entity entity, bool isVertical);
+[[nodiscard]] float GetScrollMaxOffset(::entt::entity entity, bool isVertical);
+[[nodiscard]] components::VerticalScrollbarGeometry GetVerticalScrollbarGeometry(::entt::entity entity);
 
 void InvokeTask(std::move_only_function<void()> func);
 using TaskHandle = uint32_t;

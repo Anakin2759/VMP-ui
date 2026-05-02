@@ -8,6 +8,7 @@
 #include "../common/Types.hpp"
 #include "../common/Events.hpp"
 #include "../core/RuntimeFacade.hpp"
+#include "../singleton/Logger.hpp"
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "Utils.hpp"

@@ -23,6 +23,8 @@
  */
 #pragma once
 
+#include "RuntimeFacade.hpp"
+
 #include "../singleton/Dispatcher.hpp"
 #include "../singleton/Registry.hpp"
 
@@ -40,8 +42,17 @@ public:
     UiRuntime(UiRuntime&&) = delete;
     UiRuntime& operator=(UiRuntime&&) = delete;
 
+    [[nodiscard]] Registry& registry() noexcept { return m_registry; }
+
+    [[nodiscard]] const Registry& registry() const noexcept { return m_registry; }
+
+    [[nodiscard]] Dispatcher& dispatcher() noexcept { return m_dispatcher; }
+
+    [[nodiscard]] const Dispatcher& dispatcher() const noexcept { return m_dispatcher; }
+
 private:
     friend class UiRuntimeScope;
+    friend class RuntimeFacade;
 
     Registry m_registry;
     Dispatcher m_dispatcher;
@@ -51,8 +62,7 @@ class UiRuntimeScope
 {
 public:
     explicit UiRuntimeScope(UiRuntime& runtime)
-        : m_previousRegistry(Registry::swapActiveInstance(&runtime.m_registry)),
-          m_previousDispatcher(Dispatcher::swapActiveInstance(&runtime.m_dispatcher))
+    : m_previousRuntime(RuntimeFacade::current().activateRuntime(runtime))
     {
     }
 
@@ -63,14 +73,12 @@ public:
     ~UiRuntimeScope();
 
 private:
-    Registry* m_previousRegistry;
-    Dispatcher* m_previousDispatcher;
+    RuntimeFacade::ActiveRuntimeState m_previousRuntime;
 };
 
 inline UiRuntimeScope::~UiRuntimeScope()
 {
-    Dispatcher::swapActiveInstance(m_previousDispatcher);
-    Registry::swapActiveInstance(m_previousRegistry);
+    RuntimeFacade::current().restoreRuntime(m_previousRuntime);
 }
 
 } // namespace ui

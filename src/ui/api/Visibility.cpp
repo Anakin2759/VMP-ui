@@ -3,6 +3,7 @@
 #include "../common/Components.hpp"
 #include "../common/Tags.hpp"
 #include "../common/Policies.hpp"
+#include "../common/WindowSync.hpp"
 #include "Utils.hpp"
 #include <SDL3/SDL.h>
 
@@ -31,23 +32,10 @@ void Show(::entt::entity entity)
     auto* windowComp = Registry::TryGet<components::Window>(entity);
     if (windowComp != nullptr && windowComp->windowID != 0)
     {
-        auto* sizeComp = Registry::TryGet<components::Size>(entity);
-        if (sizeComp != nullptr)
-        {
-            int targetW = static_cast<int>(sizeComp->size.x());
-            int targetH = static_cast<int>(sizeComp->size.y());
-            if (targetW > 0 && targetH > 0)
-            {
-                SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID);
-                if (sdlWindow != nullptr)
-                {
-                    SDL_SetWindowSize(sdlWindow, targetW, targetH);
-                }
-            }
-        }
         SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID);
         if (sdlWindow != nullptr)
         {
+            window_sync::SyncWindowProperties(entity, *windowComp, sdlWindow);
             SDL_SetWindowPosition(sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
             SDL_ShowWindow(sdlWindow);
             int posX = 0;

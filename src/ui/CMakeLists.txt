@@ -78,6 +78,7 @@ set(UI_SOURCES
     core/EventLoop.cpp
     core/RuntimeFacade.cpp
     core/SystemManager.cpp
+    systems/LayoutSystem.cpp
     systems/RenderSystem.cpp
     systems/TimerSystem.cpp
     managers/FontManager.cpp
@@ -287,10 +288,7 @@ endif()
 # 依赖项
 target_link_libraries(ui PRIVATE
     SDL3::SDL3
-    EnTT::EnTT
-    asio::asio
     yogacore
-    spdlog::spdlog_header_only
     freetype
     harfbuzz
 )
@@ -300,7 +298,10 @@ if(UI_RESOURCE_BACKEND STREQUAL "CMRC")
 endif()
 
 target_link_libraries(ui PUBLIC
+    EnTT::EnTT
+    asio::asio
     Eigen3::Eigen
+    spdlog::spdlog_header_only
 )
 
 target_compile_definitions(ui PRIVATE UI_ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")

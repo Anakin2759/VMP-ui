@@ -24,6 +24,7 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
+#include "../api/Utils.hpp"
 #include "../common/Types.hpp"
 #include "../common/Components.hpp"
 #include "../common/Tags.hpp"
@@ -140,32 +141,7 @@ public:
      */
     static Vec2 getAbsolutePosition(entt::entity entity)
     {
-        // 构建从当前实体到根的路径
-        std::vector<entt::entity> path;
-        entt::entity current = entity;
-        while (current != entt::null && Registry::Valid(current))
-        {
-            path.push_back(current);
-            const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current);
-            current = hierarchy == nullptr ? entt::null : hierarchy->parent;
-        }
-
-        // 从根到当前实体正向遍历，累加位置偏移
-        Vec2 pos(0.0F, 0.0F);
-        for (auto it = path.rbegin(); it != path.rend(); ++it)
-        {
-            entt::entity entity = *it;
-            // 窗口本身的 Position 是屏幕坐标，在窗口内交互时应视为原点(0,0)，忽略其屏幕位置偏移
-            if (Registry::AnyOf<components::WindowTag, components::DialogTag>(entity)) continue;
-
-            const auto* posComp = Registry::TryGet<components::Position>(entity);
-            if (posComp != nullptr)
-            {
-                pos.x() += posComp->value.x();
-                pos.y() += posComp->value.y();
-            }
-        }
-        return pos;
+        return ui::utils::GetAbsolutePosition(entity);
     }
 
     /**

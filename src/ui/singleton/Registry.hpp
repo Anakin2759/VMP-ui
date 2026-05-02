@@ -16,10 +16,13 @@
  */
 #pragma once
 
+#include <memory>
+
 #include <entt/entt.hpp>
+
 #include "SingletonBase.hpp"
 #include "../traits/ComponentsTraits.hpp"
-#include <memory>
+
 namespace ui
 {
 using traits::ComponentOrUiTag;
@@ -49,6 +52,12 @@ public:
 
     static Registry& getInstance() { return current(); }
 
+    [[nodiscard]] entt::registry& raw() noexcept { return m_registry; }
+
+    [[nodiscard]] const entt::registry& raw() const noexcept { return m_registry; }
+
+    // Legacy PascalCase entrypoints stay for compatibility with existing UI call sites.
+    // NOLINTBEGIN(readability-identifier-naming)
     static std::shared_ptr<Registry> GetRegistryPtr()
     {
         return std::shared_ptr<Registry>(&current(),
@@ -155,6 +164,7 @@ public:
     {
         return current().m_registry.on_construct<Type>();
     }
+    // NOLINTEND(readability-identifier-naming)
 
     /**
      * @brief 获取全局上下文存储

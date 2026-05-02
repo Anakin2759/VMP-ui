@@ -29,17 +29,14 @@
 
 #pragma once
 
-#include <stdexcept>
 #include <chrono>
+#include <span>
 
 #include "SystemManager.hpp"
 #include "EventLoop.hpp"
 #include "UiRuntime.hpp"
 
 #include "../common/Events.hpp"
-#include "../common/Components.hpp"
-#include "../common/Tags.hpp"
-#include "../singleton/Logger.hpp"
 namespace ui
 {
 class Application

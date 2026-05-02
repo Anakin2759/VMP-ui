@@ -14,8 +14,10 @@
  */
 
 #include "RenderSystem.hpp"
+#include <bit>
 #include <algorithm>
 #include <cctype>
+#include "../api/Utils.hpp"
 #include "../renderers/ShapeRenderer.hpp"
 #include "../renderers/TextRenderer.hpp"
 #include "../renderers/IconRenderer.hpp"
@@ -304,6 +306,7 @@ void RenderSystem::createWhiteTexture()
     SDL_SubmitGPUCommandBuffer(cmd);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size)
 void RenderSystem::update() noexcept
 {
     static bool firstUpdate = true;
@@ -487,6 +490,7 @@ void RenderSystem::update() noexcept
 /**
  * @brief 确保渲染系统已初始化
  */
+// NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size)
 void RenderSystem::ensureInitialized()
 {
     if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) == 0)
@@ -529,8 +533,9 @@ void RenderSystem::ensureInitialized()
         if (auto fontResource = LoadUiResource(DEFAULT_FONT_RESOURCE); fontResource.has_value())
         {
             const auto& fontBytes = fontResource.value();
+            const auto* fontData = std::bit_cast<const uint8_t*>(fontBytes.data());
             if (auto loadResult = m_fontManager->loadFromMemory(
-                    reinterpret_cast<const uint8_t*>(fontBytes.data()), fontBytes.size(), 14.0F);
+                    fontData, fontBytes.size(), 14.0F);
                 !loadResult.has_value())
             {
                 Logger::error("[RenderSystem] 默认字体加载失败: {}", loadResult.error().message());
@@ -657,12 +662,14 @@ void RenderSystem::initializeRenderers()
     // 按优先级排序
     std::sort(m_renderers.begin(),
               m_renderers.end(),
-              [](const std::unique_ptr<core::IRenderer>& a, const std::unique_ptr<core::IRenderer>& b)
-              { return a->getPriority() < b->getPriority(); });
+                  [](const std::unique_ptr<core::IRenderer>& leftRenderer,
+                      const std::unique_ptr<core::IRenderer>& rightRenderer)
+                  { return leftRenderer->getPriority() < rightRenderer->getPriority(); });
 
     Logger::info("[RenderSystem] 初始化了 {} 个渲染器", m_renderers.size());
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& context)
 {
     if (!Registry::AnyOf<components::VisibleTag>(entity)) return;
@@ -706,23 +713,12 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
     bool pushScissor = false;
     if (scrollArea != nullptr)
     {
-        float paddingTop = 0.0F;
-        float paddingRight = 0.0F;
-        float paddingBottom = 0.0F;
-        float paddingLeft = 0.0F;
-        if (const auto* padding = Registry::TryGet<components::Padding>(entity))
-        {
-            paddingTop = padding->values.x();
-            paddingRight = padding->values.y();
-            paddingBottom = padding->values.z();
-            paddingLeft = padding->values.w();
-        }
-
+        const Rect viewportRect = ui::utils::GetScrollViewportRect(entity);
         SDL_Rect currentScissor{};
-        currentScissor.x = static_cast<int>(absolutePos.x() + paddingLeft);
-        currentScissor.y = static_cast<int>(absolutePos.y() + paddingTop);
-        currentScissor.w = static_cast<int>(std::max(0.0F, finalSize.x() - paddingLeft - paddingRight));
-        currentScissor.h = static_cast<int>(std::max(0.0F, finalSize.y() - paddingTop - paddingBottom));
+        currentScissor.x = static_cast<int>(viewportRect.x());
+        currentScissor.y = static_cast<int>(viewportRect.y());
+        currentScissor.w = static_cast<int>(std::max(0.0F, viewportRect.width()));
+        currentScissor.h = static_cast<int>(std::max(0.0F, viewportRect.height()));
 
         childBaseContext.pushScissor(currentScissor);
         pushScissor = true;

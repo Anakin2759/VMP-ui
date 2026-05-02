@@ -277,7 +277,7 @@ struct QueuedTask
 struct RawPointerMove
 {
     using is_event_tag = void;
-    Vec2 position;
+    Vec2 position; // SDL window coordinates; HitTest consumes this same space.
     Vec2 delta; // 相对位移
     uint32_t windowID;
 };
@@ -287,7 +287,7 @@ struct RawPointerMove
 struct RawPointerButton
 {
     using is_event_tag = void;
-    Vec2 position;
+    Vec2 position; // SDL window coordinates
     uint32_t windowID;
     bool pressed;   // true = down, false = up
     uint8_t button; // SDL_BUTTON_LEFT, etc.
@@ -298,7 +298,7 @@ struct RawPointerButton
 struct RawPointerWheel
 {
     using is_event_tag = void;
-    Vec2 position;     // 鼠标位置（采样时）
+    Vec2 position;     // 鼠标位置（SDL window coordinates）
     Vec2 delta;        // 滚轮增量 (x, y)
     uint32_t windowID; // Added windowID to match definition in InteractionSystem usage
 };
@@ -325,6 +325,7 @@ struct RawKeyInput
 // =====================================================================
 // D. 命中测试后的中间事件 (由 HitTestSystem 触发)
 //    包含原始数据 + 命中的实体信息，供StateSystem消费
+//    这里保持为稳定外部事件契约；StateSystem 内部如何拆分 helper 不影响这些结构
 // =====================================================================
 
 // 命中测试后的指针移动
@@ -333,7 +334,7 @@ struct HitPointerMove
 {
     using is_event_tag = void;
     RawPointerMove raw;
-    entt::entity hitEntity; // 鼠标当前悬停的实体 (可能为 null)
+    entt::entity hitEntity = entt::null; // 鼠标当前悬停的实体 (可能为 null)
 };
 
 // 命中测试后的按键事件
@@ -342,7 +343,7 @@ struct HitPointerButton
 {
     using is_event_tag = void;
     RawPointerButton raw;
-    entt::entity hitEntity; // 按键发生位置的实体 (可能为 null)
+    entt::entity hitEntity = entt::null; // 按键发生位置的实体 (可能为 null)
 };
 
 // 命中测试后的滚轮事件
@@ -351,7 +352,7 @@ struct HitPointerWheel
 {
     using is_event_tag = void;
     RawPointerWheel raw;
-    entt::entity hitEntity; // 滚轮发生位置的实体 (可能为 null)
+    entt::entity hitEntity = entt::null; // 滚轮发生位置的实体 (可能为 null)
 };
 
 } // namespace ui::events

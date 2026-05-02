@@ -88,6 +88,154 @@ void QuitUiEventLoop()
     Dispatcher::Trigger<ui::events::QuitRequested>(ui::events::QuitRequested{});
 };
 
+Vec2 GetAbsolutePosition(::entt::entity entity)
+{
+    std::vector<entt::entity> path;
+    entt::entity current = entity;
+    while (current != entt::null && Registry::Valid(current))
+    {
+        path.push_back(current);
+        const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current);
+        current = hierarchy == nullptr ? entt::null : hierarchy->parent;
+    }
+
+    Vec2 position(0.0F, 0.0F);
+    for (auto iterator = path.rbegin(); iterator != path.rend(); ++iterator)
+    {
+        const entt::entity currentEntity = *iterator;
+        if (Registry::AnyOf<components::WindowTag, components::DialogTag>(currentEntity))
+        {
+            continue;
+        }
+
+        const auto* positionComp = Registry::TryGet<components::Position>(currentEntity);
+        if (positionComp != nullptr)
+        {
+            position += positionComp->value;
+        }
+    }
+
+    return position;
+}
+
+Rect GetEntityRect(::entt::entity entity)
+{
+    if (!Registry::Valid(entity))
+    {
+        return {};
+    }
+
+    const auto* sizeComp = Registry::TryGet<components::Size>(entity);
+    if (sizeComp == nullptr)
+    {
+        return {GetAbsolutePosition(entity), Vec2(0.0F, 0.0F)};
+    }
+
+    return {GetAbsolutePosition(entity), sizeComp->size};
+}
+
+Rect GetScrollViewportRect(::entt::entity entity)
+{
+    const Rect entityRect = GetEntityRect(entity);
+    const auto* padding = Registry::TryGet<components::Padding>(entity);
+    if (padding == nullptr)
+    {
+        return entityRect;
+    }
+
+    const float left = padding->values.w();
+    const float top = padding->values.x();
+    const float right = padding->values.y();
+    const float bottom = padding->values.z();
+
+    return {entityRect.x() + left,
+            entityRect.y() + top,
+            std::max(0.0F, entityRect.width() - left - right),
+            std::max(0.0F, entityRect.height() - top - bottom)};
+}
+
+float GetScrollViewportLength(::entt::entity entity, bool isVertical)
+{
+    const Rect viewportRect = GetScrollViewportRect(entity);
+    return isVertical ? viewportRect.height() : viewportRect.width();
+}
+
+float GetScrollContentLength(::entt::entity entity, bool isVertical)
+{
+    const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
+    if (scrollArea == nullptr)
+    {
+        return 0.0F;
+    }
+
+    return isVertical ? scrollArea->contentSize.y() : scrollArea->contentSize.x();
+}
+
+float GetScrollMaxOffset(::entt::entity entity, bool isVertical)
+{
+    const float contentLength = GetScrollContentLength(entity, isVertical);
+    const float viewportLength = GetScrollViewportLength(entity, isVertical);
+    return std::max(0.0F, contentLength - viewportLength);
+}
+
+components::VerticalScrollbarGeometry GetVerticalScrollbarGeometry(::entt::entity entity)
+{
+    components::VerticalScrollbarGeometry geometry;
+    const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
+    if (scrollArea == nullptr)
+    {
+        return geometry;
+    }
+
+    const bool hasVerticalScroll =
+        scrollArea->scroll == policies::Scroll::Vertical || scrollArea->scroll == policies::Scroll::Both;
+    if (!hasVerticalScroll)
+    {
+        return geometry;
+    }
+
+    geometry.containerRect = GetEntityRect(entity);
+    geometry.viewportRect = GetScrollViewportRect(entity);
+    geometry.viewportHeight = geometry.viewportRect.height();
+    geometry.contentHeight = scrollArea->contentSize.y();
+    geometry.trackHeight = geometry.containerRect.height();
+    geometry.maxScroll = std::max(0.0F, geometry.contentHeight - geometry.viewportHeight);
+
+    if (geometry.contentHeight <= geometry.viewportHeight || geometry.trackHeight <= 0.0F)
+    {
+        return geometry;
+    }
+
+    geometry.trackRect = {geometry.containerRect.x() + geometry.containerRect.width() -
+                              components::ScrollArea::SCROLLBAR_TRACK_WIDTH -
+                              components::ScrollArea::SCROLLBAR_TRACK_PADDING,
+                          geometry.containerRect.y(),
+                          components::ScrollArea::SCROLLBAR_TRACK_WIDTH,
+                          geometry.trackHeight};
+
+    const float visibleRatio = geometry.viewportHeight / geometry.contentHeight;
+    geometry.thumbHeight =
+        std::max(components::ScrollArea::SCROLLBAR_THUMB_MIN_SIZE, geometry.trackHeight * visibleRatio);
+
+    const float scrollRatio = geometry.maxScroll > 0.0F
+                                  ? std::clamp(scrollArea->scrollOffset.y() / geometry.maxScroll, 0.0F, 1.0F)
+                                  : 0.0F;
+    const float thumbTravel = std::max(0.0F, geometry.trackHeight - geometry.thumbHeight);
+    const float thumbTop = geometry.trackRect.y() + (thumbTravel * scrollRatio) +
+                           components::ScrollArea::SCROLLBAR_THUMB_INSET;
+
+    geometry.thumbRect = {geometry.containerRect.x() + geometry.containerRect.width() -
+                              components::ScrollArea::SCROLLBAR_THUMB_WIDTH -
+                              components::ScrollArea::SCROLLBAR_TRACK_PADDING - 1.0F,
+                          thumbTop,
+                          components::ScrollArea::SCROLLBAR_THUMB_WIDTH,
+                          std::max(0.0F,
+                                   geometry.thumbHeight -
+                                       (components::ScrollArea::SCROLLBAR_THUMB_INSET * 2.0F))};
+    geometry.visible = true;
+    return geometry;
+}
+
 void InvokeTask(std::move_only_function<void()> func)
 {
     systems::TimerSystem::addTask(0, std::move(func), true);
@@ -120,17 +268,11 @@ void CancelQueuedTask(TaskHandle handle)
 bool IsEntityExist(const std::string& alias)
 {
     auto view = Registry::View<components::BaseInfo>();
-    for (const auto entity : view)
-    {
-        if (view.get<components::BaseInfo>(entity).alias == alias)
-        {
-            return true;
-        }
-    }
-    std::ranges::any_of(view,
+
+     return std::ranges::any_of(view,
                         [&view, &alias](entt::entity entity) -> bool
                         { return view.get<components::BaseInfo>(entity).alias == alias; });
-    return false;
+
 }
 
 } // namespace ui::utils

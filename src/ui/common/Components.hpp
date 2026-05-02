@@ -183,6 +183,11 @@ struct ScrollArea
 {
     using is_component_tag = void;
     static constexpr float DEFAULT_SCROLL_SPEED = 10.0F;
+    static constexpr float SCROLLBAR_TRACK_WIDTH = 12.0F;
+    static constexpr float SCROLLBAR_TRACK_PADDING = 2.0F;
+    static constexpr float SCROLLBAR_THUMB_WIDTH = 10.0F;
+    static constexpr float SCROLLBAR_THUMB_MIN_SIZE = 20.0F;
+    static constexpr float SCROLLBAR_THUMB_INSET = 2.0F;
     Vec2 scrollOffset{0.0F, 0.0F};                        // 当前滚动位置
     Vec2 contentSize{0.0F, 0.0F};                         // 内容区域大小
     float scrollSpeed{DEFAULT_SCROLL_SPEED};              // 滚动速度
@@ -194,6 +199,21 @@ struct ScrollArea
     bool scrollbarHovered{false}; // 滚动条滑块是否悬停
     bool scrollbarPressed{false}; // 滚动条滑块是否按下
     bool trackHovered{false};     // 滚动条轨道是否悬停
+};
+
+struct VerticalScrollbarGeometry
+{
+    using is_component_tag = void;
+    bool visible = false;
+    Rect containerRect;
+    Rect viewportRect;
+    Rect trackRect;
+    Rect thumbRect;
+    float viewportHeight = 0.0F;
+    float contentHeight = 0.0F;
+    float trackHeight = 0.0F;
+    float thumbHeight = 0.0F;
+    float maxScroll = 0.0F;
 };
 
 // ===================== 布局组件 =====================

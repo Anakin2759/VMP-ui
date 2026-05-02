@@ -67,6 +67,50 @@ struct StateContext
     float dragTrackLength{0.0F}; // 轨道可活动区域长度
     float dragThumbSize{0.0F};   // 滑块大小
 
+    void syncLatestPointer(const Vec2& position, const Vec2& delta)
+    {
+        latestMousePosition = position;
+        latestMouseDelta = delta;
+    }
+
+    void syncLatestScroll(const Vec2& delta)
+    {
+        latestScrollDelta = delta;
+    }
+
+    [[nodiscard]] bool hasScrollbarDrag() const
+    {
+        return isDraggingScrollbar && dragScrollEntity != entt::null;
+    }
+
+    void beginScrollbarDrag(
+        entt::entity entity,
+        const Vec2& mousePosition,
+        const Vec2& scrollOffset,
+        bool vertical,
+        float trackLength,
+        float thumbSize)
+    {
+        isDraggingScrollbar = true;
+        dragScrollEntity = entity;
+        dragStartMousePos = mousePosition;
+        dragStartScrollOffset = scrollOffset;
+        isVerticalDrag = vertical;
+        dragTrackLength = trackLength;
+        dragThumbSize = thumbSize;
+    }
+
+    void stopScrollbarDrag()
+    {
+        isDraggingScrollbar = false;
+        dragScrollEntity = entt::null;
+        dragStartMousePos = Vec2{0.0F, 0.0F};
+        dragStartScrollOffset = Vec2{0.0F, 0.0F};
+        isVerticalDrag = true;
+        dragTrackLength = 0.0F;
+        dragThumbSize = 0.0F;
+    }
+
     /**
      * @brief 重置所有状态
      */
@@ -80,8 +124,7 @@ struct StateContext
         hoveredEntity = entt::null;
         activeDragMoved = false;
 
-        isDraggingScrollbar = false;
-        dragScrollEntity = entt::null;
+        stopScrollbarDrag();
     }
 };
 

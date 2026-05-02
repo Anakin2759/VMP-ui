@@ -95,150 +95,705 @@ public:
     }
 
 private:
-    // ===================================================================
-    // Pointer / Focus 辅助判定
-    // ===================================================================
-
-    static bool isWritableTextEdit(entt::entity entity)
+    struct SliderStateHelpers
     {
-        if (!Registry::Valid(entity) || !Registry::AnyOf<components::TextEditTag>(entity))
+        static bool tryHandlePress(StateSystem& system, const events::HitPointerButton& event)
         {
-            return false;
+            if (event.hitEntity == entt::null || !Registry::Valid(event.hitEntity))
+            {
+                return false;
+            }
+
+            if (Registry::TryGet<components::SliderInfo>(event.hitEntity) == nullptr)
+            {
+                return false;
+            }
+
+            system.m_isDraggingSlider = true;
+            system.m_dragSliderEntity = event.hitEntity;
+            updateValueFromPointer(event.hitEntity, event.raw.position);
+            return true;
         }
 
-        const auto* edit = Registry::TryGet<components::TextEdit>(entity);
-        return edit == nullptr || !policies::HasFlag(edit->inputMode, policies::TextFlag::ReadOnly);
-    }
+        static void handleDrag(StateSystem& system, const events::HitPointerMove& event)
+        {
+            if (!Registry::Valid(system.m_dragSliderEntity) ||
+                Registry::TryGet<components::SliderInfo>(system.m_dragSliderEntity) == nullptr)
+            {
+                stopDrag(system);
+                return;
+            }
+
+            updateValueFromPointer(system.m_dragSliderEntity, event.raw.position);
+        }
+
+        static void stopDrag(StateSystem& system)
+        {
+            system.m_isDraggingSlider = false;
+            system.m_dragSliderEntity = entt::null;
+        }
+
+        static void updateValueFromPointer(entt::entity entity, const Vec2& mousePos)
+        {
+            auto* slider = Registry::TryGet<components::SliderInfo>(entity);
+            const auto* sizeComp = Registry::TryGet<components::Size>(entity);
+            if (slider == nullptr || sizeComp == nullptr)
+            {
+                return;
+            }
+
+            Vec2 absPos = HitTestSystem::getAbsolutePosition(entity);
+            const Vec2 size = sizeComp->size;
+
+            float ratio = 0.0F;
+            if (slider->vertical == policies::Orientation::Vertical)
+            {
+                if (size.y() <= 0.0F) return;
+                ratio = (absPos.y() + size.y() - mousePos.y()) / size.y();
+            }
+            else
+            {
+                if (size.x() <= 0.0F) return;
+                ratio = (mousePos.x() - absPos.x()) / size.x();
+            }
+
+            ratio = std::clamp(ratio, 0.0F, 1.0F);
+            const float range = slider->maxValue - slider->minValue;
+            float newValue = slider->minValue + (range * ratio);
+
+            if (slider->step > 0.0F)
+            {
+                const float stepIndex = std::round((newValue - slider->minValue) / slider->step);
+                newValue = slider->minValue + (stepIndex * slider->step);
+            }
+
+            newValue = std::clamp(newValue, slider->minValue, slider->maxValue);
+            if (std::abs(slider->currentValue - newValue) < 0.0001F)
+            {
+                return;
+            }
+
+            slider->currentValue = newValue;
+            if (slider->onValueChanged)
+            {
+                slider->onValueChanged(slider->currentValue);
+            }
+
+            ui::utils::MarkVisualChanged(entity);
+        }
+    };
+
+    struct ScrollbarStateHelpers
+    {
+        static entt::entity findScrollTargetFromHit(entt::entity hitEntity)
+        {
+            entt::entity current = hitEntity;
+            while (current != entt::null && Registry::Valid(current))
+            {
+                if (Registry::AnyOf<components::ScrollArea>(current))
+                {
+                    return current;
+                }
+
+                if (const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current))
+                {
+                    current = hierarchy->parent;
+                }
+                else
+                {
+                    current = entt::null;
+                }
+            }
+
+            return entt::null;
+        }
+
+        static entt::entity findScrollTargetAtPosition(const Vec2& pointerPosition)
+        {
+            auto view = Registry::View<components::ScrollArea, components::Size, components::VisibleTag,
+                                       components::Position>();
+            for (auto entity : view)
+            {
+                const auto& size = view.get<components::Size>(entity);
+                Vec2 absPos = HitTestSystem::getAbsolutePosition(entity);
+                if (HitTestSystem::isPointInRect(pointerPosition, absPos, size.size))
+                {
+                    return entity;
+                }
+            }
+
+            return entt::null;
+        }
+
+        static void applyScrollWheelDelta(entt::entity target, const Vec2& scrollDelta)
+        {
+            auto& scroll = Registry::Get<components::ScrollArea>(target);
+            const float delta = -scrollDelta.y() * 30.0F;
+            scroll.scrollOffset.y() = std::clamp(scroll.scrollOffset.y() + delta,
+                                                 0.0F,
+                                                 ui::utils::GetScrollMaxOffset(target, true));
+
+            ui::utils::MarkLayoutAndVisualChanged(target);
+        }
+
+        static void updateHoverStates(
+            const events::HitPointerMove& event,
+            const globalcontext::StateContext& state)
+        {
+            auto view = Registry::View<components::ScrollArea, components::Size, components::VisibleTag>();
+
+            for (auto entity : view)
+            {
+                auto& scrollArea = view.get<components::ScrollArea>(entity);
+                const bool wasHovered = scrollArea.scrollbarHovered || scrollArea.trackHovered;
+
+                if (state.hasScrollbarDrag() && state.dragScrollEntity == entity)
+                {
+                    continue;
+                }
+
+                scrollArea.scrollbarHovered = false;
+                scrollArea.trackHovered = false;
+
+                if (policies::HasFlag(scrollArea.scrollBar, policies::ScrollBar::NoVisibility))
+                {
+                    continue;
+                }
+
+                const components::VerticalScrollbarGeometry geometry = ui::utils::GetVerticalScrollbarGeometry(entity);
+                if (!geometry.visible)
+                {
+                    continue;
+                }
+
+                if (geometry.trackRect.contains(event.raw.position))
+                {
+                    scrollArea.trackHovered = true;
+
+                    if (geometry.thumbRect.contains(event.raw.position))
+                    {
+                        scrollArea.scrollbarHovered = true;
+                    }
+                }
+
+                if (wasHovered != (scrollArea.scrollbarHovered || scrollArea.trackHovered))
+                {
+                    ui::utils::MarkVisualChanged(entity);
+                }
+            }
+        }
+
+        static void handleDrag(const events::HitPointerMove& event, globalcontext::StateContext& state)
+        {
+            const float deltaPix = state.isVerticalDrag ? (event.raw.position.y() - state.dragStartMousePos.y())
+                                                        : (event.raw.position.x() - state.dragStartMousePos.x());
+
+            auto& scroll = Registry::Get<components::ScrollArea>(state.dragScrollEntity);
+            const float maxScroll = ui::utils::GetScrollMaxOffset(state.dragScrollEntity, state.isVerticalDrag);
+            const float trackScrollableArea = state.dragTrackLength - state.dragThumbSize;
+
+            if (trackScrollableArea > 0.0F && maxScroll > 0.0F)
+            {
+                const float ratio = deltaPix / trackScrollableArea;
+                const float offsetDelta = ratio * maxScroll;
+
+                float& currentOffset = state.isVerticalDrag ? scroll.scrollOffset.y() : scroll.scrollOffset.x();
+                const float startOffset =
+                    state.isVerticalDrag ? state.dragStartScrollOffset.y() : state.dragStartScrollOffset.x();
+
+                currentOffset = std::clamp(startOffset + offsetDelta, 0.0F, maxScroll);
+
+                ui::utils::MarkLayoutAndVisualChanged(state.dragScrollEntity);
+            }
+        }
+
+        static bool tryHandlePress(
+            const events::HitPointerButton& event,
+            globalcontext::StateContext& state)
+        {
+            entt::entity scrollEntity = entt::null;
+            bool isVertical = true;
+            bool clickedOnThumb = false;
+            entt::entity current = event.hitEntity;
+
+            while (current != entt::null && Registry::Valid(current))
+            {
+                if (Registry::AnyOf<components::ScrollArea>(current))
+                {
+                    const auto hitType = checkHit(current, event.raw.position, isVertical);
+                    if (hitType != ScrollbarHitType::NONE)
+                    {
+                        scrollEntity = current;
+                        clickedOnThumb = (hitType == ScrollbarHitType::THUMB);
+                        break;
+                    }
+                }
+
+                const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current);
+                current = hierarchy != nullptr ? hierarchy->parent : entt::null;
+            }
+
+            if (scrollEntity == entt::null)
+            {
+                return false;
+            }
+
+            auto& scroll = Registry::Get<components::ScrollArea>(scrollEntity);
+            if (clickedOnThumb)
+            {
+                scroll.scrollbarPressed = true;
+
+                float trackLength = 0.0F;
+                float thumbSize = 0.0F;
+                calculateGeometry(scrollEntity, isVertical, trackLength, thumbSize);
+                state.beginScrollbarDrag(
+                    scrollEntity,
+                    event.raw.position,
+                    scroll.scrollOffset,
+                    isVertical,
+                    trackLength,
+                    thumbSize);
+            }
+            else
+            {
+                handleTrackClick(scrollEntity, event.raw.position, isVertical);
+            }
+
+            ui::utils::MarkVisualChanged(scrollEntity);
+            return true;
+        }
+
+        static ScrollbarHitType checkHit(entt::entity entity, const Vec2& mousePos, bool& outIsVertical)
+        {
+            const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
+            if (scrollArea == nullptr || policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::NoVisibility))
+            {
+                return ScrollbarHitType::NONE;
+            }
+            if (!policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::Draggable))
+            {
+                return ScrollbarHitType::NONE;
+            }
+
+            const components::VerticalScrollbarGeometry geometry = ui::utils::GetVerticalScrollbarGeometry(entity);
+            if (geometry.visible)
+            {
+                if (geometry.trackRect.contains(mousePos))
+                {
+                    outIsVertical = true;
+
+                    if (geometry.thumbRect.contains(mousePos))
+                    {
+                        return ScrollbarHitType::THUMB;
+                    }
+
+                    return ScrollbarHitType::TRACK;
+                }
+            }
+            return ScrollbarHitType::NONE;
+        }
+
+        static void calculateGeometry(entt::entity entity, bool isVertical, float& outTrackLen, float& outThumbSize)
+        {
+            outTrackLen = isVertical ? ui::utils::GetEntityRect(entity).height() : ui::utils::GetEntityRect(entity).width();
+            const float viewportSize = ui::utils::GetScrollViewportLength(entity, isVertical);
+            const float contentSize = std::max(1.0F, ui::utils::GetScrollContentLength(entity, isVertical));
+            const float visibleRatio = std::max(0.001F, viewportSize / contentSize);
+            outThumbSize = std::max(components::ScrollArea::SCROLLBAR_THUMB_MIN_SIZE, outTrackLen * visibleRatio);
+        }
+
+        static void handleTrackClick(entt::entity entity, const Vec2& mousePos, bool isVertical)
+        {
+            auto& scrollArea = Registry::Get<components::ScrollArea>(entity);
+            const Rect entityRect = ui::utils::GetEntityRect(entity);
+            const float viewportSize = ui::utils::GetScrollViewportLength(entity, isVertical);
+            const float contentSize = ui::utils::GetScrollContentLength(entity, isVertical);
+            const float maxScroll = std::max(0.0F, contentSize - viewportSize);
+            if (maxScroll <= 0.0F)
+            {
+                return;
+            }
+
+            const float trackLen = isVertical ? entityRect.height() : entityRect.width();
+            const float clickPos = isVertical ? (mousePos.y() - entityRect.y()) : (mousePos.x() - entityRect.x());
+            float& scrollOffset = isVertical ? scrollArea.scrollOffset.y() : scrollArea.scrollOffset.x();
+
+            const float visibleRatio = viewportSize / contentSize;
+            const float thumbSize =
+                std::max(components::ScrollArea::SCROLLBAR_THUMB_MIN_SIZE, trackLen * visibleRatio);
+            const float scrollableTrack = trackLen - thumbSize;
+            float targetThumbPos = clickPos - (thumbSize * 0.5F);
+            targetThumbPos = std::clamp(targetThumbPos, 0.0F, scrollableTrack);
+
+            const float targetRatio = scrollableTrack > 0.0F ? (targetThumbPos / scrollableTrack) : 0.0F;
+            scrollOffset = std::clamp(targetRatio * maxScroll, 0.0F, maxScroll);
+
+            ui::utils::MarkLayoutAndVisualChanged(entity);
+        }
+    };
+
+    struct PointerStateHelpers
+    {
+        static bool isWritableTextEdit(entt::entity entity)
+        {
+            if (!Registry::Valid(entity) || !Registry::AnyOf<components::TextEditTag>(entity))
+            {
+                return false;
+            }
+
+            const auto* edit = Registry::TryGet<components::TextEdit>(entity);
+            return edit == nullptr || !policies::HasFlag(edit->inputMode, policies::TextFlag::ReadOnly);
+        }
+
+        static bool shouldEmitPressForEntity(entt::entity entity)
+        {
+            return Registry::Valid(entity) &&
+                   (Registry::AnyOf<components::Pressable>(entity) ||
+                    Registry::AnyOf<components::Clickable>(entity) ||
+                    Registry::AnyOf<components::TextEditTag>(entity));
+        }
+
+        static void queueHoveredEntity(
+            StateSystem& system,
+            globalcontext::StateContext& state,
+            entt::entity entity)
+        {
+            if (state.hoveredEntity != entt::null && Registry::Valid(state.hoveredEntity))
+            {
+                system.m_pendingHoverRemove.insert(state.hoveredEntity);
+            }
+
+            state.hoveredEntity = entity;
+            if (Registry::Valid(entity))
+            {
+                system.m_pendingHoverAdd.insert(entity);
+                system.m_pendingHoverRemove.erase(entity);
+            }
+        }
+
+        static void queueHoverClear(StateSystem& system, globalcontext::StateContext& state, entt::entity entity)
+        {
+            if (Registry::Valid(entity))
+            {
+                system.m_pendingHoverRemove.insert(entity);
+                system.m_pendingHoverAdd.erase(entity);
+            }
+
+            if (state.hoveredEntity == entity)
+            {
+                state.hoveredEntity = entt::null;
+            }
+        }
+
+        static void queueActiveEntity(StateSystem& system, globalcontext::StateContext& state, entt::entity entity)
+        {
+            state.activeDragMoved = false;
+
+            if (state.activeEntity != entt::null && Registry::Valid(state.activeEntity))
+            {
+                system.m_pendingActiveRemove.insert(state.activeEntity);
+            }
+
+            state.activeEntity = entity;
+            if (Registry::Valid(entity))
+            {
+                system.m_pendingActiveAdd.insert(entity);
+                system.m_pendingActiveRemove.erase(entity);
+            }
+        }
+
+        static void queueActiveClear(StateSystem& system, globalcontext::StateContext& state, entt::entity entity)
+        {
+            if (Registry::Valid(entity))
+            {
+                system.m_pendingActiveRemove.insert(entity);
+                system.m_pendingActiveAdd.erase(entity);
+            }
+
+            if (state.activeEntity == entity)
+            {
+                state.activeEntity = entt::null;
+            }
+
+            state.activeDragMoved = false;
+        }
+
+        static void handleHoverUpdate(
+            const events::HitPointerMove& event,
+            const globalcontext::StateContext& state)
+        {
+            if (event.hitEntity != state.hoveredEntity)
+            {
+                if (state.hoveredEntity != entt::null && Registry::Valid(state.hoveredEntity))
+                {
+                    Dispatcher::Enqueue<events::UnhoverEvent>(events::UnhoverEvent{state.hoveredEntity});
+                }
+                if (event.hitEntity != entt::null)
+                {
+                    Dispatcher::Enqueue<events::HoverEvent>(events::HoverEvent{event.hitEntity});
+                }
+            }
+        }
+
+        static void setFocus(entt::entity entity, SDL_Window* sdlWindow = nullptr)
+        {
+            auto& state = RuntimeFacade::current().state();
+
+            if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
+            {
+                ui::utils::MarkVisualChanged(state.focusedEntity);
+                Registry::Remove<components::FocusedTag>(state.focusedEntity);
+            }
+
+            state.focusedEntity = entity;
+            if (entity != entt::null && Registry::Valid(entity))
+            {
+                Registry::EmplaceOrReplace<components::FocusedTag>(entity);
+                ui::utils::MarkVisualChanged(entity);
+
+                if (Registry::AnyOf<components::TextEditTag>(entity))
+                {
+                    Registry::EmplaceOrReplace<components::Caret>(entity);
+                    auto& caret = Registry::Get<components::Caret>(entity);
+                    caret.visible = true;
+                    caret.elapsedTime = 0.0F;
+
+                    if (sdlWindow != nullptr)
+                    {
+                        SDL_StartTextInput(sdlWindow);
+                    }
+                }
+            }
+        }
+
+        static void clearFocus(SDL_Window* sdlWindow = nullptr)
+        {
+            auto& state = RuntimeFacade::current().state();
+
+            if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
+            {
+                ui::utils::MarkVisualChanged(state.focusedEntity);
+                Registry::Remove<components::FocusedTag>(state.focusedEntity);
+                state.focusedEntity = entt::null;
+            }
+
+            if (sdlWindow != nullptr)
+            {
+                SDL_StopTextInput(sdlWindow);
+            }
+        }
+
+        static void handleEntityPress(const events::HitPointerButton& event)
+        {
+            if (event.hitEntity == entt::null)
+            {
+                return;
+            }
+
+            if (isWritableTextEdit(event.hitEntity))
+            {
+                if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
+                {
+                    setFocus(event.hitEntity, sdlWindow);
+                }
+            }
+
+            if (shouldEmitPressForEntity(event.hitEntity))
+            {
+                Dispatcher::Trigger<events::MousePressEvent>(events::MousePressEvent{event.hitEntity});
+            }
+        }
+
+        static void handleEntityRelease(
+            StateSystem& system,
+            const events::HitPointerButton& event,
+            globalcontext::StateContext& state)
+        {
+            const entt::entity releasedEntity = state.activeEntity;
+            const bool suppressClick = state.activeDragMoved;
+
+            if (system.m_isDraggingSlider)
+            {
+                SliderStateHelpers::stopDrag(system);
+            }
+
+            if (state.hasScrollbarDrag())
+            {
+                if (Registry::Valid(state.dragScrollEntity))
+                {
+                    auto& scrollArea = Registry::Get<components::ScrollArea>(state.dragScrollEntity);
+                    scrollArea.scrollbarPressed = false;
+                    ui::utils::MarkVisualChanged(state.dragScrollEntity);
+                }
+
+                state.stopScrollbarDrag();
+            }
+
+            if (!suppressClick && releasedEntity != entt::null && releasedEntity == event.hitEntity)
+            {
+                if (Registry::TryGet<components::Clickable>(releasedEntity) != nullptr)
+                {
+                    Dispatcher::Trigger<events::ClickEvent>(events::ClickEvent{releasedEntity});
+                }
+
+                if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
+                {
+                    if (isWritableTextEdit(releasedEntity))
+                    {
+                        setFocus(releasedEntity, sdlWindow);
+                        return;
+                    }
+                    clearFocus(sdlWindow);
+                }
+            }
+            else
+            {
+                if (!suppressClick && event.hitEntity != entt::null &&
+                    Registry::TryGet<components::Clickable>(event.hitEntity) != nullptr)
+                {
+                    Logger::debug(
+                        "StateSystem: Click Event (fallback) on entity {}",
+                        static_cast<uint32_t>(event.hitEntity));
+                    Dispatcher::Trigger<events::ClickEvent>(events::ClickEvent{event.hitEntity});
+                }
+
+                if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
+                {
+                    clearFocus(sdlWindow);
+                }
+            }
+
+            if (releasedEntity != entt::null)
+            {
+                Dispatcher::Trigger<events::MouseReleaseEvent>(events::MouseReleaseEvent{releasedEntity});
+            }
+        }
+    };
+
+    struct WindowStateHelpers
+    {
+        static void handleClose(const events::CloseWindow& event)
+        {
+            if (Registry::Valid(event.entity))
+            {
+                StateSystem::destroyWidget(event.entity);
+            }
+
+            if (Registry::View<components::Window>().empty())
+            {
+                Dispatcher::Trigger<events::QuitRequested>();
+            }
+        }
+
+        static void handlePixelSizeChanged(const events::WindowPixelSizeChanged& event)
+        {
+            const auto entity = RuntimeFacade::current().windowLookup().findById(event.windowID);
+            if (!Registry::Valid(entity) || !Registry::AllOf<components::Size>(entity))
+            {
+                return;
+            }
+
+            auto& size = Registry::Get<components::Size>(entity);
+            size.size.x() = static_cast<float>(event.width);
+            size.size.y() = static_cast<float>(event.height);
+            ui::utils::MarkLayoutAndVisualChanged(entity);
+        }
+
+        static void handleMoved(const events::WindowMoved& event)
+        {
+            const auto entity = RuntimeFacade::current().windowLookup().findById(event.windowID);
+            if (!Registry::Valid(entity) || !Registry::AllOf<components::Position>(entity))
+            {
+                return;
+            }
+
+            auto& pos = Registry::Get<components::Position>(entity);
+            pos.value.x() = static_cast<float>(event.x);
+            pos.value.y() = static_cast<float>(event.y);
+        }
+    };
+
+    struct EndFrameStateHelpers
+    {
+        static void flush(StateSystem& system)
+        {
+            for (entt::entity entity : system.m_pendingHoverRemove)
+            {
+                if (Registry::Valid(entity))
+                {
+                    Registry::Remove<components::HoveredTag>(entity);
+                }
+            }
+            for (entt::entity entity : system.m_pendingHoverAdd)
+            {
+                if (Registry::Valid(entity))
+                {
+                    Registry::EmplaceOrReplace<components::HoveredTag>(entity);
+                }
+            }
+
+            for (entt::entity entity : system.m_pendingActiveRemove)
+            {
+                if (Registry::Valid(entity))
+                {
+                    Registry::Remove<components::ActiveTag>(entity);
+                }
+            }
+            for (entt::entity entity : system.m_pendingActiveAdd)
+            {
+                if (Registry::Valid(entity))
+                {
+                    Registry::EmplaceOrReplace<components::ActiveTag>(entity);
+                }
+            }
+
+            system.m_pendingHoverAdd.clear();
+            system.m_pendingHoverRemove.clear();
+            system.m_pendingActiveAdd.clear();
+            system.m_pendingActiveRemove.clear();
+        }
+    };
+
+    static bool isWritableTextEdit(entt::entity entity) { return PointerStateHelpers::isWritableTextEdit(entity); }
 
     static bool shouldEmitPressForEntity(entt::entity entity)
     {
-        return Registry::Valid(entity) &&
-               (Registry::AnyOf<components::Pressable>(entity) || Registry::AnyOf<components::Clickable>(entity) ||
-                Registry::AnyOf<components::TextEditTag>(entity));
+        return PointerStateHelpers::shouldEmitPressForEntity(entity);
     }
 
     static entt::entity findScrollTargetFromHit(entt::entity hitEntity)
     {
-        entt::entity current = hitEntity;
-        while (current != entt::null && Registry::Valid(current))
-        {
-            if (Registry::AnyOf<components::ScrollArea>(current))
-            {
-                return current;
-            }
-
-            if (const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current))
-            {
-                current = hierarchy->parent;
-            }
-            else
-            {
-                current = entt::null;
-            }
-        }
-
-        return entt::null;
+        return ScrollbarStateHelpers::findScrollTargetFromHit(hitEntity);
     }
 
     static entt::entity findScrollTargetAtPosition(const Vec2& pointerPosition)
     {
-        auto view =
-            Registry::View<components::ScrollArea, components::Size, components::VisibleTag, components::Position>();
-        for (auto entity : view)
-        {
-            const auto& size = view.get<components::Size>(entity);
-            Vec2 absPos = HitTestSystem::getAbsolutePosition(entity);
-            if (HitTestSystem::isPointInRect(pointerPosition, absPos, size.size))
-            {
-                return entity;
-            }
-        }
-
-        return entt::null;
+        return ScrollbarStateHelpers::findScrollTargetAtPosition(pointerPosition);
     }
 
     static void applyScrollWheelDelta(entt::entity target, const Vec2& scrollDelta)
     {
-        auto& scroll = Registry::Get<components::ScrollArea>(target);
-        const auto& size = Registry::Get<components::Size>(target);
-
-        float step = 30.0F;
-        float delta = -scrollDelta.y() * step;
-        scroll.scrollOffset.y() += delta;
-
-        float viewportHeight = size.size.y();
-        if (const auto* padding = Registry::TryGet<components::Padding>(target))
-        {
-            viewportHeight -= (padding->values.x() + padding->values.z());
-        }
-        viewportHeight = std::max(0.0F, viewportHeight);
-
-        float maxScroll = std::max(0.0F, scroll.contentSize.y() - viewportHeight);
-        scroll.scrollOffset.y() = std::clamp(scroll.scrollOffset.y(), 0.0F, maxScroll);
-
-        ui::utils::MarkLayoutAndVisualChanged(target);
+        ScrollbarStateHelpers::applyScrollWheelDelta(target, scrollDelta);
     }
 
     void queueHoveredEntity(globalcontext::StateContext& state, entt::entity entity)
     {
-        if (state.hoveredEntity != entt::null && Registry::Valid(state.hoveredEntity))
-        {
-            m_pendingHoverRemove.insert(state.hoveredEntity);
-        }
-
-        state.hoveredEntity = entity;
-        if (Registry::Valid(entity))
-        {
-            m_pendingHoverAdd.insert(entity);
-            m_pendingHoverRemove.erase(entity);
-        }
+        PointerStateHelpers::queueHoveredEntity(*this, state, entity);
     }
 
     void queueHoverClear(globalcontext::StateContext& state, entt::entity entity)
     {
-        if (Registry::Valid(entity))
-        {
-            m_pendingHoverRemove.insert(entity);
-            m_pendingHoverAdd.erase(entity);
-        }
-
-        if (state.hoveredEntity == entity)
-        {
-            state.hoveredEntity = entt::null;
-        }
+        PointerStateHelpers::queueHoverClear(*this, state, entity);
     }
 
     void queueActiveEntity(globalcontext::StateContext& state, entt::entity entity)
     {
-        state.activeDragMoved = false;
-
-        if (state.activeEntity != entt::null && Registry::Valid(state.activeEntity))
-        {
-            m_pendingActiveRemove.insert(state.activeEntity);
-        }
-
-        state.activeEntity = entity;
-        if (Registry::Valid(entity))
-        {
-            m_pendingActiveAdd.insert(entity);
-            m_pendingActiveRemove.erase(entity);
-        }
+        PointerStateHelpers::queueActiveEntity(*this, state, entity);
     }
 
     void queueActiveClear(globalcontext::StateContext& state, entt::entity entity)
     {
-        if (Registry::Valid(entity))
-        {
-            m_pendingActiveRemove.insert(entity);
-            m_pendingActiveAdd.erase(entity);
-        }
-
-        if (state.activeEntity == entity)
-        {
-            state.activeEntity = entt::null;
-        }
-
-        state.activeDragMoved = false;
+        PointerStateHelpers::queueActiveClear(*this, state, entity);
     }
 
     // ===================================================================
@@ -288,8 +843,7 @@ private:
     void onHitPointerMove(const events::HitPointerMove& event)
     {
         auto& state = RuntimeFacade::current().state();
-        state.latestMousePosition = event.raw.position;
-        state.latestMouseDelta = event.raw.delta;
+        state.syncLatestPointer(event.raw.position, event.raw.delta);
 
         if (!state.activeDragMoved && state.activeEntity != entt::null && Registry::Valid(state.activeEntity) &&
             Registry::TryGet<components::Draggable>(state.activeEntity) != nullptr &&
@@ -300,52 +854,51 @@ private:
 
         if (m_isDraggingSlider)
         {
-            handleSliderDrag(event);
+            SliderStateHelpers::handleDrag(*this, event);
             return;
         }
 
-        // 处理滚动条拖拽
-        if (state.isDraggingScrollbar && Registry::Valid(state.dragScrollEntity))
+        if (state.hasScrollbarDrag() && Registry::Valid(state.dragScrollEntity))
         {
-            handleScrollbarDrag(event, state);
+            ScrollbarStateHelpers::handleDrag(event, state);
             return;
         }
 
-        // 更新滚动条悬停状态
-        updateScrollbarHoverStates(event);
-
-        handleHoverUpdate(event, state);
+        ScrollbarStateHelpers::updateHoverStates(event, state);
+        PointerStateHelpers::handleHoverUpdate(event, state);
     }
 
     void onHitPointerButton(const events::HitPointerButton& event)
     {
-        if (event.raw.button != SDL_BUTTON_LEFT) return;
+        if (event.raw.button != SDL_BUTTON_LEFT)
+        {
+            return;
+        }
 
         auto& state = RuntimeFacade::current().state();
         state.latestMousePosition = event.raw.position;
 
         if (event.raw.pressed)
         {
-            // 检查滚动条点击（优先于内容交互）
-            if (tryHandleScrollbarPress(event, state))
-            {
-                return; // 消费事件，不处理后续点击
-            }
-            if (tryHandleSliderPress(event))
+            if (ScrollbarStateHelpers::tryHandlePress(event, state))
             {
                 return;
             }
-            handleEntityPress(event);
+            if (SliderStateHelpers::tryHandlePress(*this, event))
+            {
+                return;
+            }
+            PointerStateHelpers::handleEntityPress(event);
             return;
         }
 
-        handleEntityRelease(event, state);
+        PointerStateHelpers::handleEntityRelease(*this, event, state);
     }
 
     void onHitPointerWheel(const events::HitPointerWheel& event)
     {
         auto& state = RuntimeFacade::current().state();
-        state.latestScrollDelta = event.raw.delta;
+        state.syncLatestScroll(event.raw.delta);
 
         entt::entity target = findScrollTargetFromHit(event.hitEntity);
 
@@ -366,36 +919,7 @@ private:
      */
     static void setFocus(entt::entity entity, SDL_Window* sdlWindow = nullptr)
     {
-        auto& state = RuntimeFacade::current().state();
-
-        // 移除旧焦点实体的标签（Focus 需要立即应用）
-        if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
-        {
-            ui::utils::MarkVisualChanged(state.focusedEntity);
-            Registry::Remove<components::FocusedTag>(state.focusedEntity);
-        }
-
-        // 设置新焦点实体
-        state.focusedEntity = entity;
-        if (entity != entt::null && Registry::Valid(entity))
-        {
-            Registry::EmplaceOrReplace<components::FocusedTag>(entity);
-            ui::utils::MarkVisualChanged(entity);
-
-            // 如果是输入框，启动文本输入并重置光标闪烁状态（立即可见）
-            if (Registry::AnyOf<components::TextEditTag>(entity))
-            {
-                Registry::EmplaceOrReplace<components::Caret>(entity);
-                auto& caret = Registry::Get<components::Caret>(entity);
-                caret.visible = true;
-                caret.elapsedTime = 0.0F;
-
-                if (sdlWindow != nullptr)
-                {
-                    SDL_StartTextInput(sdlWindow);
-                }
-            }
-        }
+        PointerStateHelpers::setFocus(entity, sdlWindow);
     }
 
     /**
@@ -403,19 +927,7 @@ private:
      */
     static void clearFocus(SDL_Window* sdlWindow = nullptr)
     {
-        auto& state = RuntimeFacade::current().state();
-
-        if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
-        {
-            ui::utils::MarkVisualChanged(state.focusedEntity);
-            Registry::Remove<components::FocusedTag>(state.focusedEntity);
-            state.focusedEntity = entt::null;
-        }
-
-        if (sdlWindow != nullptr)
-        {
-            SDL_StopTextInput(sdlWindow);
-        }
+        PointerStateHelpers::clearFocus(sdlWindow);
     }
 
     // ===================================================================
@@ -424,17 +936,7 @@ private:
 
     void onCloseWindow(const events::CloseWindow& event)
     {
-        // 调用递归销毁
-        if (Registry::Valid(event.entity))
-        {
-            destroyWidget(event.entity);
-        }
-
-        if (Registry::View<components::Window>().empty())
-        {
-            // 没有窗口实体了，发出退出请求
-            Dispatcher::Trigger<events::QuitRequested>();
-        }
+        WindowStateHelpers::handleClose(event);
     }
 
     /**
@@ -442,13 +944,7 @@ private:
      */
     void onWindowPixelSizeChanged(const events::WindowPixelSizeChanged& event)
     {
-        const auto entity = RuntimeFacade::current().windowLookup().findById(event.windowID);
-        if (!Registry::Valid(entity) || !Registry::AllOf<components::Size>(entity)) return;
-
-        auto& size = Registry::Get<components::Size>(entity);
-        size.size.x() = static_cast<float>(event.width);
-        size.size.y() = static_cast<float>(event.height);
-        ui::utils::MarkLayoutAndVisualChanged(entity);
+        WindowStateHelpers::handlePixelSizeChanged(event);
     }
 
     /**
@@ -456,12 +952,7 @@ private:
      */
     void onWindowMoved(const events::WindowMoved& event)
     {
-        const auto entity = RuntimeFacade::current().windowLookup().findById(event.windowID);
-        if (!Registry::Valid(entity) || !Registry::AllOf<components::Position>(entity)) return;
-
-        auto& pos = Registry::Get<components::Position>(entity);
-        pos.value.x() = static_cast<float>(event.x);
-        pos.value.y() = static_cast<float>(event.y);
+        WindowStateHelpers::handleMoved(event);
     }
 
     // ===================================================================
@@ -473,139 +964,17 @@ private:
      */
     void updateScrollbarHoverStates(const events::HitPointerMove& event)
     {
-        auto& state = RuntimeFacade::current().state();
-        auto view = Registry::View<components::ScrollArea, components::Size, components::VisibleTag>();
-
-        for (auto entity : view)
-        {
-            auto& scrollArea = view.get<components::ScrollArea>(entity);
-
-            // 记录旧的悬停状态（用于后面判断是否需要重绘）
-            const bool wasHovered = scrollArea.scrollbarHovered || scrollArea.trackHovered;
-
-            // 如果正在拖拽此滚动条，跳过悬停状态更新（保持按下状态）
-            if (state.isDraggingScrollbar && state.dragScrollEntity == entity)
-            {
-                continue;
-            }
-
-            // 重置状态
-            scrollArea.scrollbarHovered = false;
-            scrollArea.trackHovered = false;
-
-            // 检查是否应该显示滚动条
-            if (policies::HasFlag(scrollArea.scrollBar, policies::ScrollBar::NoVisibility))
-            {
-                continue;
-            }
-
-            const auto& sizeComp = view.get<components::Size>(entity);
-            Vec2 pos = HitTestSystem::getAbsolutePosition(entity);
-            Vec2 size = sizeComp.size;
-
-            float viewportHeight = size.y();
-            if (const auto* padding = Registry::TryGet<components::Padding>(entity))
-            {
-                viewportHeight = std::max(0.0F, size.y() - padding->values.x() - padding->values.z());
-            }
-
-            bool hasVerticalScroll =
-                (scrollArea.scroll == policies::Scroll::Vertical || scrollArea.scroll == policies::Scroll::Both);
-
-            if (!hasVerticalScroll || scrollArea.contentSize.y() <= viewportHeight)
-            {
-                continue;
-            }
-
-            // 计算滚动条几何信息
-            float trackHeight = size.y();
-            float visibleRatio = viewportHeight / scrollArea.contentSize.y();
-            float thumbSize = std::max(20.0F, trackHeight * visibleRatio);
-            float maxScroll = std::max(0.0F, scrollArea.contentSize.y() - viewportHeight);
-            float scrollRatio =
-                maxScroll > 0.0F ? std::clamp(scrollArea.scrollOffset.y() / maxScroll, 0.0F, 1.0F) : 0.0F;
-            float thumbPos = (trackHeight - thumbSize) * scrollRatio;
-            thumbPos = std::clamp(thumbPos, 0.0F, trackHeight - thumbSize);
-
-            float trackWidth = 12.0F;
-            float trackPadding = 2.0F;
-            float barWidth = 10.0F;
-
-            // 检查轨道悬停
-            float trackX = pos.x() + size.x() - trackWidth - trackPadding;
-            float trackY = pos.y();
-            if (event.raw.position.x() >= trackX && event.raw.position.x() <= trackX + trackWidth &&
-                event.raw.position.y() >= trackY && event.raw.position.y() <= trackY + trackHeight)
-            {
-                scrollArea.trackHovered = true;
-
-                // 检查滑块悬停
-                float barX = pos.x() + size.x() - barWidth - trackPadding - 1.0F;
-                float barY = pos.y() + thumbPos + 2.0F;
-                float barH = thumbSize - 4.0F;
-
-                if (event.raw.position.x() >= barX && event.raw.position.x() <= barX + barWidth &&
-                    event.raw.position.y() >= barY && event.raw.position.y() <= barY + barH)
-                {
-                    scrollArea.scrollbarHovered = true;
-                }
-            }
-
-            // 如果状态改变，标记需要重绘
-            if (wasHovered != (scrollArea.scrollbarHovered || scrollArea.trackHovered))
-            {
-                ui::utils::MarkVisualChanged(entity);
-            }
-        }
+        ScrollbarStateHelpers::updateHoverStates(event, RuntimeFacade::current().state());
     }
 
     void handleScrollbarDrag(const events::HitPointerMove& event, globalcontext::StateContext& state)
     {
-        float deltaPix = state.isVerticalDrag ? (event.raw.position.y() - state.dragStartMousePos.y())
-                                              : (event.raw.position.x() - state.dragStartMousePos.x());
-
-        auto& scroll = Registry::Get<components::ScrollArea>(state.dragScrollEntity);
-        const auto& sizeComp = Registry::Get<components::Size>(state.dragScrollEntity);
-        float viewportSize = state.isVerticalDrag ? sizeComp.size.y() : sizeComp.size.x();
-
-        if (const auto* padding = Registry::TryGet<components::Padding>(state.dragScrollEntity))
-        {
-            viewportSize -= state.isVerticalDrag ? (padding->values.x() + padding->values.z())
-                                                 : (padding->values.w() + padding->values.y());
-        }
-
-        float contentSize = state.isVerticalDrag ? scroll.contentSize.y() : scroll.contentSize.x();
-        float maxScroll = std::max(0.0F, contentSize - viewportSize);
-        float trackScrollableArea = state.dragTrackLength - state.dragThumbSize;
-
-        if (trackScrollableArea > 0 && maxScroll > 0)
-        {
-            float ratio = deltaPix / trackScrollableArea;
-            float offsetDelta = ratio * maxScroll;
-
-            float& currentOffset = state.isVerticalDrag ? scroll.scrollOffset.y() : scroll.scrollOffset.x();
-            float startOffset =
-                state.isVerticalDrag ? state.dragStartScrollOffset.y() : state.dragStartScrollOffset.x();
-
-            currentOffset = std::clamp(startOffset + offsetDelta, 0.0F, maxScroll);
-
-            ui::utils::MarkLayoutAndVisualChanged(state.dragScrollEntity);
-        }
+        ScrollbarStateHelpers::handleDrag(event, state);
     }
 
     void handleHoverUpdate(const events::HitPointerMove& event, const globalcontext::StateContext& state)
     {
-        if (event.hitEntity != state.hoveredEntity)
-        {
-            if (state.hoveredEntity != entt::null && Registry::Valid(state.hoveredEntity))
-            {
-                Dispatcher::Enqueue<events::UnhoverEvent>(events::UnhoverEvent{state.hoveredEntity});
-            }
-            if (event.hitEntity != entt::null)
-            {
-                Dispatcher::Enqueue<events::HoverEvent>(events::HoverEvent{event.hitEntity});
-            }
-        }
+        PointerStateHelpers::handleHoverUpdate(event, state);
     }
 
     /**
@@ -617,73 +986,12 @@ private:
      */
     bool tryHandleScrollbarPress(const events::HitPointerButton& event, globalcontext::StateContext& state)
     {
-        entt::entity scrollEntity = entt::null;
-        bool isVertical = true;
-        bool clickedOnThumb = false;
-        entt::entity current = event.hitEntity;
-
-        // 向上遍历层级查找 ScrollArea
-        while (current != entt::null && Registry::Valid(current))
-        {
-            if (Registry::AnyOf<components::ScrollArea>(current))
-            {
-                auto hitType = checkScrollbarHit(current, event.raw.position, isVertical);
-                if (hitType != ScrollbarHitType::NONE)
-                {
-                    scrollEntity = current;
-                    clickedOnThumb = (hitType == ScrollbarHitType::THUMB);
-                    break;
-                }
-            }
-            const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current);
-            current = hierarchy != nullptr ? hierarchy->parent : entt::null;
-        }
-
-        if (scrollEntity != entt::null)
-        {
-            auto& scroll = Registry::Get<components::ScrollArea>(scrollEntity);
-
-            if (clickedOnThumb)
-            {
-                // 点击滑块 - 开始拖拽
-                scroll.scrollbarPressed = true;
-                state.isDraggingScrollbar = true;
-                state.dragScrollEntity = scrollEntity;
-                state.dragStartMousePos = event.raw.position;
-                state.isVerticalDrag = isVertical;
-                state.dragStartScrollOffset = scroll.scrollOffset;
-
-                calculateScrollbarGeometry(scrollEntity, isVertical, state.dragTrackLength, state.dragThumbSize);
-            }
-            else
-            {
-                // 点击轨道 - 跳转到点击位置
-                handleTrackClick(scrollEntity, event.raw.position, isVertical);
-            }
-
-            ui::utils::MarkVisualChanged(scrollEntity);
-            return true;
-        }
-        return false;
+        return ScrollbarStateHelpers::tryHandlePress(event, state);
     }
 
     void handleEntityPress(const events::HitPointerButton& event)
     {
-        if (event.hitEntity != entt::null)
-        {
-            if (isWritableTextEdit(event.hitEntity))
-            {
-                if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
-                {
-                    setFocus(event.hitEntity, sdlWindow);
-                }
-            }
-
-            if (shouldEmitPressForEntity(event.hitEntity))
-            {
-                Dispatcher::Trigger<events::MousePressEvent>(events::MousePressEvent{event.hitEntity});
-            }
-        }
+        PointerStateHelpers::handleEntityPress(event);
     }
     /**
      * @brief 处理实体释放事件
@@ -692,154 +1000,27 @@ private:
      */
     void handleEntityRelease(const events::HitPointerButton& event, globalcontext::StateContext& state)
     {
-        // 先保存当前激活实体，点击逻辑需要在释放清理之前完成
-        const entt::entity releasedEntity = state.activeEntity;
-        const bool suppressClick = state.activeDragMoved;
-
-        if (m_isDraggingSlider)
-        {
-            stopSliderDrag();
-        }
-
-        // 如果正在拖拽滚动条，停止拖拽并清除按下状态
-        if (state.isDraggingScrollbar)
-        {
-            if (Registry::Valid(state.dragScrollEntity))
-            {
-                auto& scrollArea = Registry::Get<components::ScrollArea>(state.dragScrollEntity);
-                scrollArea.scrollbarPressed = false;
-                ui::utils::MarkVisualChanged(state.dragScrollEntity);
-            }
-
-            state.isDraggingScrollbar = false;
-            state.dragScrollEntity = entt::null;
-            // 不 return，允许释放 activeEntity（如果有）
-        }
-
-        if (!suppressClick && releasedEntity != entt::null && releasedEntity == event.hitEntity)
-        {
-            if (Registry::TryGet<components::Clickable>(releasedEntity) != nullptr)
-            {
-                Dispatcher::Trigger<events::ClickEvent>(events::ClickEvent{releasedEntity});
-            }
-
-            if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
-            {
-                if (isWritableTextEdit(releasedEntity))
-                {
-                    setFocus(releasedEntity, sdlWindow);
-                    return;
-                }
-                clearFocus(sdlWindow);
-            }
-        }
-        else
-        {
-            // 兜底：如果没有 activeEntity 但命中了可点击实体，也触发点击
-            if (!suppressClick && event.hitEntity != entt::null &&
-                Registry::TryGet<components::Clickable>(event.hitEntity) != nullptr)
-            {
-                Logger::debug("StateSystem: Click Event (fallback) on entity {}",
-                              static_cast<uint32_t>(event.hitEntity));
-                Dispatcher::Trigger<events::ClickEvent>(events::ClickEvent{event.hitEntity});
-            }
-
-            if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
-            {
-                clearFocus(sdlWindow);
-            }
-        }
-
-        // 最后再触发释放，避免提前清空 activeEntity 影响点击逻辑
-        if (releasedEntity != entt::null)
-        {
-            Dispatcher::Trigger<events::MouseReleaseEvent>(events::MouseReleaseEvent{releasedEntity});
-        }
+        PointerStateHelpers::handleEntityRelease(*this, event, state);
     }
 
     bool tryHandleSliderPress(const events::HitPointerButton& event)
     {
-        if (event.hitEntity == entt::null || !Registry::Valid(event.hitEntity))
-        {
-            return false;
-        }
-
-        if (Registry::TryGet<components::SliderInfo>(event.hitEntity) == nullptr)
-        {
-            return false;
-        }
-
-        m_isDraggingSlider = true;
-        m_dragSliderEntity = event.hitEntity;
-        updateSliderValueFromPointer(event.hitEntity, event.raw.position);
-        return true;
+        return SliderStateHelpers::tryHandlePress(*this, event);
     }
 
     void handleSliderDrag(const events::HitPointerMove& event)
     {
-        if (!Registry::Valid(m_dragSliderEntity) ||
-            Registry::TryGet<components::SliderInfo>(m_dragSliderEntity) == nullptr)
-        {
-            stopSliderDrag();
-            return;
-        }
-
-        updateSliderValueFromPointer(m_dragSliderEntity, event.raw.position);
+        SliderStateHelpers::handleDrag(*this, event);
     }
 
     void stopSliderDrag()
     {
-        m_isDraggingSlider = false;
-        m_dragSliderEntity = entt::null;
+        SliderStateHelpers::stopDrag(*this);
     }
 
     void updateSliderValueFromPointer(entt::entity entity, const Vec2& mousePos)
     {
-        auto* slider = Registry::TryGet<components::SliderInfo>(entity);
-        const auto* sizeComp = Registry::TryGet<components::Size>(entity);
-        if (slider == nullptr || sizeComp == nullptr)
-        {
-            return;
-        }
-
-        Vec2 absPos = HitTestSystem::getAbsolutePosition(entity);
-        const Vec2 size = sizeComp->size;
-
-        float ratio = 0.0F;
-        if (slider->vertical == policies::Orientation::Vertical)
-        {
-            if (size.y() <= 0.0F) return;
-            ratio = (absPos.y() + size.y() - mousePos.y()) / size.y();
-        }
-        else
-        {
-            if (size.x() <= 0.0F) return;
-            ratio = (mousePos.x() - absPos.x()) / size.x();
-        }
-
-        ratio = std::clamp(ratio, 0.0F, 1.0F);
-        const float range = slider->maxValue - slider->minValue;
-        float newValue = slider->minValue + (range * ratio);
-
-        if (slider->step > 0.0F)
-        {
-            const float stepIndex = std::round((newValue - slider->minValue) / slider->step);
-            newValue = slider->minValue + (stepIndex * slider->step);
-        }
-
-        newValue = std::clamp(newValue, slider->minValue, slider->maxValue);
-        if (std::abs(slider->currentValue - newValue) < 0.0001F)
-        {
-            return;
-        }
-
-        slider->currentValue = newValue;
-        if (slider->onValueChanged)
-        {
-            slider->onValueChanged(slider->currentValue);
-        }
-
-        ui::utils::MarkVisualChanged(entity);
+        SliderStateHelpers::updateValueFromPointer(entity, mousePos);
     }
 
     /**
@@ -851,92 +1032,12 @@ private:
      */
     ScrollbarHitType checkScrollbarHit(entt::entity entity, const Vec2& mousePos, bool& outIsVertical)
     {
-        const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
-        if (scrollArea == nullptr || policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::NoVisibility))
-        {
-            return ScrollbarHitType::NONE;
-        }
-        if (!policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::Draggable)) return ScrollbarHitType::NONE;
-
-        const auto* sizeComp = Registry::TryGet<components::Size>(entity);
-        if (sizeComp == nullptr) return ScrollbarHitType::NONE;
-
-        Vec2 pos = HitTestSystem::getAbsolutePosition(entity);
-        Vec2 size = sizeComp->size;
-
-        float viewportWidth = size.x();
-        float viewportHeight = size.y();
-        if (const auto* padding = Registry::TryGet<components::Padding>(entity))
-        {
-            viewportHeight = std::max(0.0F, size.y() - padding->values.x() - padding->values.z());
-            viewportWidth = std::max(0.0F, size.x() - padding->values.w() - padding->values.y());
-        }
-
-        float trackWidth = 12.0F;
-        float trackPadding = 2.0F;
-        float barWidth = 10.0F;
-
-        // 检查垂直滚动条
-        bool hasVertical =
-            (scrollArea->scroll == policies::Scroll::Vertical || scrollArea->scroll == policies::Scroll::Both);
-        if (hasVertical && scrollArea->contentSize.y() > viewportHeight)
-        {
-            float trackHeight = size.y();
-            float visibleRatio = viewportHeight / scrollArea->contentSize.y();
-            float thumbSize = std::max(20.0F, trackHeight * visibleRatio);
-            float maxScroll = std::max(0.0F, scrollArea->contentSize.y() - viewportHeight);
-            float scrollRatio =
-                maxScroll > 0.0F ? std::clamp(scrollArea->scrollOffset.y() / maxScroll, 0.0F, 1.0F) : 0.0F;
-            float thumbPos = (trackHeight - thumbSize) * scrollRatio;
-            thumbPos = std::clamp(thumbPos, 0.0F, trackHeight - thumbSize);
-
-            // 先检查轨道区域
-            float trackX = pos.x() + size.x() - trackWidth - trackPadding;
-            float trackY = pos.y();
-
-            if (mousePos.x() >= trackX && mousePos.x() <= trackX + trackWidth && mousePos.y() >= trackY &&
-                mousePos.y() <= trackY + trackHeight)
-            {
-                outIsVertical = true;
-
-                // 再检查是否命中滑块
-                float barX = pos.x() + size.x() - barWidth - trackPadding - 1.0F;
-                float barY = pos.y() + thumbPos + 2.0F;
-                float barH = thumbSize - 4.0F;
-
-                if (mousePos.x() >= barX && mousePos.x() <= barX + barWidth && mousePos.y() >= barY &&
-                    mousePos.y() <= barY + barH)
-                {
-                    return ScrollbarHitType::THUMB;
-                }
-
-                // 命中轨道但不是滑块
-                return ScrollbarHitType::TRACK;
-            }
-        }
-
-        // TODO: 水平滚动条支持可在此添加
-
-        return ScrollbarHitType::NONE;
+        return ScrollbarStateHelpers::checkHit(entity, mousePos, outIsVertical);
     }
 
     void calculateScrollbarGeometry(entt::entity entity, bool isVertical, float& outTrackLen, float& outThumbSize)
     {
-        const auto& scrollArea = Registry::Get<components::ScrollArea>(entity);
-        const auto& sizeComp = Registry::Get<components::Size>(entity);
-
-        float viewportSize = isVertical ? sizeComp.size.y() : sizeComp.size.x();
-        if (const auto* padding = Registry::TryGet<components::Padding>(entity))
-        {
-            viewportSize -=
-                isVertical ? (padding->values.x() + padding->values.z()) : (padding->values.w() + padding->values.y());
-        }
-
-        float contentSize = isVertical ? scrollArea.contentSize.y() : scrollArea.contentSize.x();
-
-        outTrackLen = isVertical ? sizeComp.size.y() : sizeComp.size.x();
-        float visibleRatio = std::max(0.001F, viewportSize / std::max(1.0F, contentSize));
-        outThumbSize = std::max(20.0F, outTrackLen * visibleRatio);
+        ScrollbarStateHelpers::calculateGeometry(entity, isVertical, outTrackLen, outThumbSize);
     }
 
     /**
@@ -947,45 +1048,7 @@ private:
      */
     void handleTrackClick(entt::entity entity, const Vec2& mousePos, bool isVertical)
     {
-        auto& scrollArea = Registry::Get<components::ScrollArea>(entity);
-        const auto& sizeComp = Registry::Get<components::Size>(entity);
-
-        Vec2 pos = HitTestSystem::getAbsolutePosition(entity);
-        Vec2 size = sizeComp.size;
-
-        float viewportSize = isVertical ? size.y() : size.x();
-        if (const auto* padding = Registry::TryGet<components::Padding>(entity))
-        {
-            viewportSize -=
-                isVertical ? (padding->values.x() + padding->values.z()) : (padding->values.w() + padding->values.y());
-        }
-
-        float contentSize = isVertical ? scrollArea.contentSize.y() : scrollArea.contentSize.x();
-        float maxScroll = std::max(0.0F, contentSize - viewportSize);
-
-        if (maxScroll <= 0.0F) return;
-
-        // 计算点击位置相对于轨道的比例
-        float trackLen = isVertical ? size.y() : size.x();
-        float clickPos = isVertical ? (mousePos.y() - pos.y()) : (mousePos.x() - pos.x());
-
-        // 设置滚动位置（点击位置对应滑块中心）
-        float& scrollOffset = isVertical ? scrollArea.scrollOffset.y() : scrollArea.scrollOffset.x();
-
-        // 计算滑块大小
-        float visibleRatio = viewportSize / contentSize;
-        float thumbSize = std::max(20.0F, trackLen * visibleRatio);
-
-        // 将点击位置映射到内容位置（考虑滑块会占用一定空间）
-        float scrollableTrack = trackLen - thumbSize;
-        float targetThumbPos = clickPos - (thumbSize * 0.5F); // 使滑块中心对齐点击位置
-        targetThumbPos = std::clamp(targetThumbPos, 0.0F, scrollableTrack);
-
-        float targetRatio = scrollableTrack > 0.0F ? (targetThumbPos / scrollableTrack) : 0.0F;
-        scrollOffset = targetRatio * maxScroll;
-        scrollOffset = std::clamp(scrollOffset, 0.0F, maxScroll);
-
-        ui::utils::MarkLayoutAndVisualChanged(entity);
+        ScrollbarStateHelpers::handleTrackClick(entity, mousePos, isVertical);
     }
 
     // ===================================================================
@@ -1009,43 +1072,7 @@ private:
      */
     void onEndFrame()
     {
-        // 1. 应用 Hover 状态更新
-        for (entt::entity entity : m_pendingHoverRemove)
-        {
-            if (Registry::Valid(entity))
-            {
-                Registry::Remove<components::HoveredTag>(entity);
-            }
-        }
-        for (entt::entity entity : m_pendingHoverAdd)
-        {
-            if (Registry::Valid(entity))
-            {
-                Registry::EmplaceOrReplace<components::HoveredTag>(entity);
-            }
-        }
-
-        // 2. 应用 Active 状态更新
-        for (entt::entity entity : m_pendingActiveRemove)
-        {
-            if (Registry::Valid(entity))
-            {
-                Registry::Remove<components::ActiveTag>(entity);
-            }
-        }
-        for (entt::entity entity : m_pendingActiveAdd)
-        {
-            if (Registry::Valid(entity))
-            {
-                Registry::EmplaceOrReplace<components::ActiveTag>(entity);
-            }
-        }
-
-        // 3. 清空待处理队列
-        m_pendingHoverAdd.clear();
-        m_pendingHoverRemove.clear();
-        m_pendingActiveAdd.clear();
-        m_pendingActiveRemove.clear();
+        EndFrameStateHelpers::flush(*this);
     }
 
     // ===================================================================

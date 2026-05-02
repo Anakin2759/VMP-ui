@@ -3,14 +3,18 @@
  */
 
 #include "Application.hpp"
-#include "singleton/Dispatcher.hpp"
-#include "singleton/Logger.hpp"
-#include <SDL3/SDL.h>
-#include "RuntimeFacade.hpp"
-#include "TaskChain.hpp"
-#include "../common/GlobalContext.hpp"
+
 #include <algorithm>
 #include <cstdint>
+
+#include <SDL3/SDL.h>
+
+#include "RuntimeFacade.hpp"
+#include "TaskChain.hpp"
+
+#include "../common/GlobalContext.hpp"
+#include "../singleton/Logger.hpp"
+
 static constexpr uint32_t DEFAULT_WIDTH = 800;
 static constexpr uint32_t DEFAULT_HEIGHT = 600;
 static constexpr uint32_t FRAME_DELAY_MS = 16;     // ~60 FPS
@@ -23,6 +27,7 @@ Application::Application(std::span<char*> arg) // NOLINT
     : m_runtimeScope(m_runtime)
 {
     (void)arg;
+    auto& runtime = RuntimeFacade::current();
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
     {
@@ -30,8 +35,8 @@ Application::Application(std::span<char*> arg) // NOLINT
     }
 
     Logger::info("SDL 初始化成功");
-    (void)RuntimeFacade::current().ensureContext<globalcontext::FrameContext>();
-    (void)RuntimeFacade::current().ensureContext<globalcontext::StateContext>();
+    (void)runtime.ensureContext<globalcontext::FrameContext>();
+    (void)runtime.ensureContext<globalcontext::StateContext>();
 
     m_systems.registerAllHandlers();
     auto taskChain = tasks::QueuedTask{} | tasks::InputTask{} | tasks::RenderTask{};
@@ -57,12 +62,12 @@ Application::Application(std::span<char*> arg) // NOLINT
             SDL_Delay(LOOP_DELAY_MS);
         });
 
-    Dispatcher::Sink<ui::events::QuitRequested>().connect<&Application::onQuitRequested>(*this);
+    runtime.sink<ui::events::QuitRequested>().connect<&Application::onQuitRequested>(*this);
 }
 
 Application::~Application()
 {
-    Dispatcher::Sink<ui::events::QuitRequested>().disconnect<&Application::onQuitRequested>(*this);
+    RuntimeFacade::current().sink<ui::events::QuitRequested>().disconnect<&Application::onQuitRequested>(*this);
     m_systems.unregisterAllHandlers();
     SDL_Quit();
 }

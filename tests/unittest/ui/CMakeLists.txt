@@ -27,7 +27,6 @@ target_link_libraries(ui_tests PRIVATE
     EnTT::EnTT
     asio::asio
     SDL3::SDL3
-    utils
     ui
     GTest::gmock
     GTest::gmock_main  # 如果你自己没写 main 函数，用这个

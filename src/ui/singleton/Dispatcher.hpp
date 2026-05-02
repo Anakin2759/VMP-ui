@@ -56,6 +56,12 @@ public:
 
     static Dispatcher& getInstance() { return current(); }
 
+    [[nodiscard]] entt::dispatcher& raw() noexcept { return m_dispatcher; }
+
+    [[nodiscard]] const entt::dispatcher& raw() const noexcept { return m_dispatcher; }
+
+    // Legacy PascalCase entrypoints stay for compatibility with existing UI call sites.
+    // NOLINTBEGIN(readability-identifier-naming)
     template <traits::Events Event>
     static void Trigger(Event&& event = {})
     {
@@ -80,6 +86,7 @@ public:
     {
         return current().m_dispatcher.sink<Type>();
     }
+    // NOLINTEND(readability-identifier-naming)
 
 private:
     static Dispatcher*& activeInstance()

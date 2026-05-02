@@ -5,10 +5,10 @@
 ## 渲染核心角色
 
 1. RenderSystem
-- 管线调度中心：收集、排序、提交。
+- 管线调度中心：在 `UpdateRendering` 阶段负责收集、排序、提交。
 
 2. IRenderer
-- 各类型渲染器（文本、形状等）把组件数据转为几何数据。
+- `ui::core::IRenderer` 是渲染扩展接口；各类型渲染器（文本、形状、图标、滚动条等）把组件数据转为可提交几何。
 
 3. BatchManager
 - 合并满足条件的绘制请求，减少 Draw Call。
@@ -20,6 +20,8 @@
 - 递归遍历中传递位置、透明度、裁剪区等上下文。
 
 ## 每帧流程
+
+当前常规帧由 `Application` 主循环单点消费 `QueuedTask -> InputTask -> RenderTask`，其中渲染相关阶段固定为 `UpdateLayout -> UpdateRendering -> EndFrame`。
 
 1. Collection
 - 从根实体遍历 UI 树。
@@ -56,6 +58,6 @@
 
 ## 渲染改动准则
 
-1. 新增渲染类型优先走 IRenderer 扩展，不直接侵入 RenderSystem。
+1. 新增渲染类型优先实现 `ui::core::IRenderer` 并接入 RenderSystem 的现有收集链路，不直接改写 RenderSystem 的主调度职责。
 2. 对批处理规则的改动必须附带统计对比（批次数、顶点数、帧时）。
 3. 文本相关改动必须考虑 DPI 和缓存键设计。
