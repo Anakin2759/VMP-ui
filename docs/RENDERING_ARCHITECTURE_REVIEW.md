@@ -1,7 +1,7 @@
 # 渲染子系统架构锐评与优化建议
 
 > 审查日期：2026-05-18  
-> 审查范围：`src/ui/renderers/`、`src/ui/systems/RenderSystem.cpp`、`src/ui/managers/`、`src/ui/core/`
+> 审查范围：`src/renderers/`、`src/systems/RenderSystem.cpp`、`src/managers/`、`src/core/`
 
 ---
 
