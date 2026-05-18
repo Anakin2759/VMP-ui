@@ -25,36 +25,29 @@
 
 #pragma once
 
+#include <cassert>
+
 #include <entt/entt.hpp>
 
-#include "SingletonBase.hpp"
 #include "../traits/EventTraits.hpp"
 namespace ui
 {
 class UiRuntime;
 class UiRuntimeScope;
 
-class Dispatcher : public SingletonBase<Dispatcher>
+class Dispatcher
 {
-    friend class SingletonBase<Dispatcher>;
     friend class UiRuntime;
     friend class UiRuntimeScope;
     friend class RuntimeFacade;
 
 public:
-    static Dispatcher& defaultInstance() { return SingletonBase<Dispatcher>::getInstance(); }
-
     static Dispatcher& current()
     {
-        if (auto* instance = activeInstance())
-        {
-            return *instance;
-        }
-
-        return defaultInstance();
+        auto* instance = activeInstance();
+        assert(instance != nullptr && "No active UiRuntime. Wrap all UI calls in UiRuntimeScope.");
+        return *instance;
     }
-
-    static Dispatcher& getInstance() { return current(); }
 
     [[nodiscard]] entt::dispatcher& raw() noexcept { return m_dispatcher; }
 

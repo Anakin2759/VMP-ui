@@ -40,7 +40,7 @@ void TimerSystem::unregisterHandlersImpl()
     Dispatcher::Sink<events::UpdateTimer>().disconnect<&TimerSystem::onUpdateTimer>(*this);
 }
 
-uint32_t TimerSystem::addTask(uint32_t interval, std::move_only_function<void()> func, bool singleShot)
+uint32_t TimerSystem::addTask(uint32_t interval, VoidCallback func, bool singleShot)
 {
     auto& frameCtx = RuntimeFacade::current().frame();
 

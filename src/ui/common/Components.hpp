@@ -299,6 +299,15 @@ struct Image
     policies::AspectRatio maintainAspectRatio = policies::AspectRatio::Maintain;
 };
 
+/// 图像文件来源组件——指定图像路径，由 ImageManager 异步/同步加载
+struct ImageSource
+{
+    using is_component_tag = void;
+    std::string path;          // 文件路径（bmp/png/jpeg）
+    bool loaded = false;       // 是否已加载完毕
+    bool loadFailed = false;   // 加载是否失败
+};
+
 // ===================== 交互与状态 =====================
 
 /**
@@ -501,18 +510,38 @@ struct ListArea
 };
 
 /**
- * @brief 表格组件
+ * @brief 表格单元格数据
+ */
+struct TableCell
+{
+    std::string text;
+    Color textColor{0.0F, 0.0F, 0.0F, 1.0F};
+    Color bgColor{1.0F, 1.0F, 1.0F, 0.0F}; // alpha=0 表示使用默认背景
+    /// 可选：嵌入该单元格的控件实体（entt::null 表示无控件）。
+    /// 控件的 Position/Size 由 TableRenderer 根据单元格几何自动更新。
+    entt::entity cellEntity{entt::null};
+};
+
+/**
+ * @brief 表格组件（富版本）
  */
 struct TableInfo
 {
     using is_component_tag = void;
-    std::vector<std::string> headers;
-    std::vector<std::vector<std::string>> rows;
-    std::vector<float> columnWidths;
-    int sortColumn = -1;
-    policies::Feature resizable = policies::Feature::Enabled;
-    policies::Feature sortable = policies::Feature::Disabled;
-    policies::SortOrder sortAscending = policies::SortOrder::Ascending;
+    int columnCount = 1;
+    int rowCount = 0;
+    std::vector<std::string> headers;           // 表头，size == columnCount
+    std::vector<std::vector<TableCell>> cells;  // cells[row][col]
+    int selectedRow = -1;                       // -1 = 无选中
+    on_event<int, int> onCellClicked;
+    Color headerBgColor{0.2F, 0.4F, 0.8F, 1.0F};
+    Color rowBgColor{1.0F, 1.0F, 1.0F, 1.0F};
+    Color altRowBgColor{0.94F, 0.94F, 0.94F, 1.0F};
+    Color selectedRowBgColor{0.2F, 0.5F, 1.0F, 0.3F};
+    Color gridColor{0.8F, 0.8F, 0.8F, 1.0F};
+    float rowHeight = 28.0F;
+    float headerHeight = 32.0F;
+    std::vector<float> columnWidths; // 每列宽度，空则均等分
 };
 
 /**
@@ -664,6 +693,59 @@ struct Menu
 struct CheckBox
 {
     using is_component_tag = void;
+    bool checked = false;
+    std::string label;
+    Color checkColor{0.20F, 0.60F, 1.0F, 1.0F};
+    Color boxColor{0.25F, 0.25F, 0.30F, 1.0F};
+    on_event<bool> onChanged;
+};
+
+/**
+ * @brief 下拉框组件
+ */
+struct DropDown
+{
+    using is_component_tag = void;
+    std::vector<std::string> options;
+    int selectedIndex = 0;
+    bool open = false;
+    entt::entity popupEntity = entt::null; // 当前弹出列表实体（entt::null 表示已关闭）
+    Color arrowColor{0.70F, 0.70F, 0.75F, 1.0F};
+    on_event<int> onChanged;
+
+    [[nodiscard]] const std::string& selectedText() const
+    {
+        static const std::string EMPTY_STR;
+        if (options.empty()) return EMPTY_STR;
+        int idx = std::clamp(selectedIndex, 0, static_cast<int>(options.size()) - 1);
+        return options[static_cast<std::size_t>(idx)];
+    }
+};
+
+// ===================== Canvas 绘图组件 =====================
+
+enum class CanvasDrawType : uint8_t
+{
+    Line,
+    Rect,
+    FilledRect,
+    Circle,
+    FilledCircle
+};
+
+struct CanvasDrawCommand
+{
+    CanvasDrawType type = CanvasDrawType::Line;
+    Vec2 p1{0.0F, 0.0F}; // 起点 / 矩形左上 / 圆心
+    Vec2 p2{0.0F, 0.0F}; // 终点 / 矩形右下 / (p2.x = 半径)
+    Color color{1.0F, 1.0F, 1.0F, 1.0F};
+    float lineWidth = 1.0F;
+};
+
+struct CanvasDrawList
+{
+    using is_component_tag = void;
+    std::vector<CanvasDrawCommand> commands;
 };
 
 } // namespace ui::components

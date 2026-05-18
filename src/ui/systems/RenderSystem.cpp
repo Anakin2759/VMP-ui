@@ -17,6 +17,7 @@
 #include <bit>
 #include <algorithm>
 #include <cctype>
+#include <stack>
 #include "../api/Utils.hpp"
 #include "../renderers/ShapeRenderer.hpp"
 #include "../renderers/TextRenderer.hpp"
@@ -25,6 +26,11 @@
 #include "../renderers/SliderRenderer.hpp"
 #include "../renderers/ProgressBarRenderer.hpp"
 #include "../renderers/FallbackBackendRenderer.hpp"
+#include "../renderers/ImageRenderer.hpp"
+#include "../renderers/CanvasRenderer.hpp"
+#include "../renderers/TableRenderer.hpp"
+#include "../renderers/CheckBoxRenderer.hpp"
+#include "../renderers/DropDownRenderer.hpp"
 #include "../common/CustomizationPoints.hpp"
 #include "../managers/IconManager.hpp"
 #include "../managers/ResourceProvider.hpp"
@@ -44,10 +50,14 @@ bool IsTruthyEnvironmentValue(const char* value)
     }
 
     std::string normalized(value);
-    std::transform(normalized.begin(),
-                   normalized.end(),
-                   normalized.begin(),
-                   [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+    for (char& char1 : normalized)
+    {
+        char1 = static_cast<char>(
+            std::tolower(
+                static_cast<unsigned char>(char1)
+            )
+        );
+    }
 
     return normalized == "1" || normalized == "true" || normalized == "on" || normalized == "yes" || normalized == "y";
 }
@@ -79,7 +89,13 @@ RenderSystem::RenderSystem()
       m_fontManager(std::make_unique<managers::FontManager>()),
       m_iconManager(std::make_unique<managers::IconManager>(m_deviceManager.get())), m_pipelineCache(nullptr),
       m_textTextureCache(nullptr), m_batchManager(std::make_unique<managers::BatchManager>()), m_commandBuffer(nullptr),
-      m_backendRenderer(nullptr), m_forceFallback(IsTruthyEnvironmentValue(SDL_getenv("PESTMANKILL_FORCE_FALLBACK")))
+      m_backendRenderer(nullptr), m_forceFallback(
+#ifdef UI_FORCE_CPU_RENDER
+          true
+#else
+          IsTruthyEnvironmentValue(SDL_getenv("PESTMANKILL_FORCE_FALLBACK"))
+#endif
+      )
 {
     m_stats.frameCount = 0;
     m_stats.batchCount = 0;
@@ -87,7 +103,11 @@ RenderSystem::RenderSystem()
 
     if (m_forceFallback)
     {
+#ifdef UI_FORCE_CPU_RENDER
+        Logger::warn("[RenderSystem] 编译选项 UI_FORCE_CPU_RENDER 已启用，强制使用 CPU software 后端");
+#else
         Logger::warn("[RenderSystem] 检测到环境变量 PESTMANKILL_FORCE_FALLBACK，强制启用 SDL_Renderer fallback 后端");
+#endif
     }
 }
 
@@ -380,8 +400,13 @@ void RenderSystem::update() noexcept
 
             if (m_pipelineCache->getPipeline() == nullptr)
             {
-                // Still failed? Likely shader loading issue or device context issue
-                // Don't log continuously to avoid spamming
+                // 管线创建失败（通常是着色器二进制过期），切换到 fallback 渲染器
+                Logger::warn("[RenderSystem] GPU 管线不可用，切换到 fallback 渲染器（运行 compile.bat 重新编译着色器可恢复 GPU 渲染）");
+                m_useFallback = true;
+                if (!tryInitializeFallback(sdlWindow))
+                {
+                    Logger::error("[RenderSystem] Fallback 初始化也失败，跳过本帧渲染");
+                }
                 continue;
             }
         }
@@ -658,6 +683,11 @@ void RenderSystem::initializeRenderers()
     if (m_iconManager) m_renderers.push_back(std::make_unique<renderers::IconRenderer>(m_iconManager.get()));
 
     m_renderers.push_back(std::make_unique<renderers::ScrollBarRenderer>());
+    m_renderers.push_back(std::make_unique<renderers::ImageRenderer>());
+    m_renderers.push_back(std::make_unique<renderers::CanvasRenderer>());
+    m_renderers.push_back(std::make_unique<renderers::TableRenderer>());
+    m_renderers.push_back(std::make_unique<renderers::CheckBoxRenderer>());
+    m_renderers.push_back(std::make_unique<renderers::DropDownRenderer>());
 
     // 按优先级排序
     std::sort(m_renderers.begin(),
@@ -669,105 +699,113 @@ void RenderSystem::initializeRenderers()
     Logger::info("[RenderSystem] 初始化了 {} 个渲染器", m_renderers.size());
 }
 
-// NOLINTNEXTLINE(misc-no-recursion)
+// NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size)
 void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& context)
 {
-    if (!Registry::AnyOf<components::VisibleTag>(entity)) return;
-    if (Registry::AnyOf<components::SpacerTag>(entity)) return;
-
-    const auto& pos = Registry::Get<components::Position>(entity);
-    const auto& size = Registry::Get<components::Size>(entity);
-    const auto* alphaComp = Registry::TryGet<components::Alpha>(entity);
-    const auto* scaleComp = Registry::TryGet<components::Scale>(entity);
-    const auto* offsetComp = Registry::TryGet<components::RenderOffset>(entity);
-
-    float globalAlpha = context.alpha * (alphaComp != nullptr ? alphaComp->value : 1.0F);
-    Eigen::Vector2f absolutePos = context.position + pos.value;
-    Eigen::Vector2f finalSize = size.size;
-
-    // 应用渲染偏移
-    if (offsetComp != nullptr)
+    struct StackFrame
     {
-        absolutePos += offsetComp->value;
-    }
+        entt::entity entity;
+        core::RenderContext context;
+    };
 
-    // 应用缩放（基于中心点）
-    if (scaleComp != nullptr)
+    std::stack<StackFrame> stack;
+    stack.push({entity, context});
+
+    while (!stack.empty())
     {
-        Eigen::Vector2f scaleDiff = size.size.cwiseProduct(Eigen::Vector2f::Ones() - scaleComp->value);
-        absolutePos += scaleDiff * 0.5F;
-        finalSize = size.size.cwiseProduct(scaleComp->value);
-    }
+        auto [currentEntity, currentContext] = std::move(stack.top());
+        stack.pop();
 
-    Eigen::Vector2f contentOffset(0.0F, 0.0F);
+        if (!Registry::AnyOf<components::VisibleTag>(currentEntity)) continue;
+        if (Registry::AnyOf<components::SpacerTag>(currentEntity)) continue;
 
-    // 更新上下文
-    core::RenderContext entityContext = context;
-    entityContext.position = absolutePos;
-    entityContext.size = finalSize;
-    entityContext.alpha = globalAlpha;
-    core::RenderContext childBaseContext = entityContext;
+        const auto& pos = Registry::Get<components::Position>(currentEntity);
+        const auto& size = Registry::Get<components::Size>(currentEntity);
+        const auto* alphaComp = Registry::TryGet<components::Alpha>(currentEntity);
+        const auto* scaleComp = Registry::TryGet<components::Scale>(currentEntity);
+        const auto* offsetComp = Registry::TryGet<components::RenderOffset>(currentEntity);
 
-    // 处理 ScrollArea
-    const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
-    bool pushScissor = false;
-    if (scrollArea != nullptr)
-    {
-        const Rect viewportRect = ui::utils::GetScrollViewportRect(entity);
-        SDL_Rect currentScissor{};
-        currentScissor.x = static_cast<int>(viewportRect.x());
-        currentScissor.y = static_cast<int>(viewportRect.y());
-        currentScissor.w = static_cast<int>(std::max(0.0F, viewportRect.width()));
-        currentScissor.h = static_cast<int>(std::max(0.0F, viewportRect.height()));
+        float globalAlpha = currentContext.alpha * (alphaComp != nullptr ? alphaComp->value : 1.0F);
+        Eigen::Vector2f absolutePos = currentContext.position + pos.value;
+        Eigen::Vector2f finalSize = size.size;
 
-        childBaseContext.pushScissor(currentScissor);
-        pushScissor = true;
-        contentOffset = -scrollArea->scrollOffset;
-    }
-
-    // Determine Z-Order
-    int32_t zOrder = 0;
-    if (const auto* zOrderComp = Registry::TryGet<components::ZOrderIndex>(entity))
-    {
-        zOrder = zOrderComp->value;
-    }
-
-    // Shift to positive range for unsigned sorting (int32_min -> 0)
-    auto encodedZ = static_cast<uint64_t>(static_cast<int64_t>(zOrder) + 2147483648LL);
-
-    // 使用渲染器收集数据
-    for (auto& renderer : m_renderers)
-    {
-        if (renderer->canHandle(entity))
+        // 应用渲染偏移
+        if (offsetComp != nullptr)
         {
-            RenderItem item;
-            item.entity = entity;
-            item.renderer = renderer.get();
-            item.context = entityContext;
-
-            // Build Key: High=Z, Low=Order
-            item.sortKey = (encodedZ << 32) | (m_submissionIndex & 0xFFFFFFFF);
-
-            m_renderQueue.push_back(item);
-            m_submissionIndex++;
+            absolutePos += offsetComp->value;
         }
-    }
 
-    // 递归处理子元素
-    const auto* hierarchy = Registry::TryGet<components::Hierarchy>(entity);
-    if (hierarchy != nullptr && !hierarchy->children.empty())
-    {
-        for (entt::entity child : hierarchy->children)
+        // 应用缩放（基于中心点）
+        if (scaleComp != nullptr)
         {
-            core::RenderContext childContext = childBaseContext;
-            childContext.position = absolutePos + contentOffset;
-            collectRenderData(child, childContext);
+            Eigen::Vector2f scaleDiff = size.size.cwiseProduct(Eigen::Vector2f::Ones() - scaleComp->value);
+            absolutePos += scaleDiff * 0.5F;
+            finalSize = size.size.cwiseProduct(scaleComp->value);
         }
-    }
 
-    if (pushScissor)
-    {
-        childBaseContext.popScissor();
+        Eigen::Vector2f contentOffset(0.0F, 0.0F);
+
+        // 更新上下文
+        core::RenderContext entityContext = currentContext;
+        entityContext.position = absolutePos;
+        entityContext.size = finalSize;
+        entityContext.alpha = globalAlpha;
+        core::RenderContext childBaseContext = entityContext;
+
+        // 处理 ScrollArea
+        const auto* scrollArea = Registry::TryGet<components::ScrollArea>(currentEntity);
+        if (scrollArea != nullptr)
+        {
+            const Rect viewportRect = ui::utils::GetScrollViewportRect(currentEntity);
+            SDL_Rect scissorRect{};
+            scissorRect.x = static_cast<int>(viewportRect.x());
+            scissorRect.y = static_cast<int>(viewportRect.y());
+            scissorRect.w = static_cast<int>(std::max(0.0F, viewportRect.width()));
+            scissorRect.h = static_cast<int>(std::max(0.0F, viewportRect.height()));
+
+            childBaseContext.pushScissor(scissorRect);
+            contentOffset = -scrollArea->scrollOffset;
+        }
+
+        // Determine Z-Order
+        int32_t zOrder = 0;
+        if (const auto* zOrderComp = Registry::TryGet<components::ZOrderIndex>(currentEntity))
+        {
+            zOrder = zOrderComp->value;
+        }
+
+        // Shift to positive range for unsigned sorting (int32_min -> 0)
+        auto encodedZ = static_cast<uint64_t>(static_cast<int64_t>(zOrder) + 2147483648LL);
+
+        // 使用渲染器收集数据
+        for (auto& renderer : m_renderers)
+        {
+            if (renderer->canHandle(currentEntity))
+            {
+                RenderItem item;
+                item.entity = currentEntity;
+                item.renderer = renderer.get();
+                item.context = entityContext;
+
+                // Build Key: High=Z, Low=Order
+                item.sortKey = (encodedZ << 32) | (m_submissionIndex & 0xFFFFFFFF);
+
+                m_renderQueue.push_back(item);
+                m_submissionIndex++;
+            }
+        }
+
+        // 迭代处理子元素（反序压栈，保证第一个子先弹出）
+        const auto* hierarchy = Registry::TryGet<components::Hierarchy>(currentEntity);
+        if (hierarchy != nullptr && !hierarchy->children.empty())
+        {
+            for (auto it = hierarchy->children.rbegin(); it != hierarchy->children.rend(); ++it)
+            {
+                core::RenderContext childContext = childBaseContext;
+                childContext.position = absolutePos + contentOffset;
+                stack.push({*it, std::move(childContext)});
+            }
+        }
     }
 }
 

@@ -64,7 +64,7 @@ public:
      * @param singleShot 是否单次执行（默认为false，重复执行）
      * @return 任务句柄
      */
-    static uint32_t addTask(uint32_t interval, std::move_only_function<void()> func, bool singleShot = false);
+    static uint32_t addTask(uint32_t interval, VoidCallback func, bool singleShot = false);
 
     /**
      * @brief 取消定时任务

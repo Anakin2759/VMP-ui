@@ -45,7 +45,6 @@ void AddChild(::entt::entity parent, ::entt::entity child);
 template <typename Func>
 void TraverseChildren(::entt::entity parent, Func visitor)
 {
-    auto& registry = Registry::getInstance();
     if (!Registry::Valid(parent)) return;
 
     const auto* hierarchy = Registry::TryGet<components::Hierarchy>(parent);

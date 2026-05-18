@@ -28,9 +28,6 @@ struct UpdateFlagHandler
 
 TEST(UiRuntimeTest, NestedRuntimeScopesSwitchRegistryAndDispatcherIndependently)
 {
-    Registry::Clear();
-    Dispatcher::Update();
-
     UiRuntime firstRuntime;
     UiRuntime secondRuntime;
     bool firstTriggered = false;
@@ -71,15 +68,10 @@ TEST(UiRuntimeTest, NestedRuntimeScopesSwitchRegistryAndDispatcherIndependently)
 
         EXPECT_TRUE(firstTriggered);
     }
-
-    Registry::Clear();
-    Dispatcher::Update();
 }
 
 TEST(UiRuntimeTest, RuntimeFacadeFollowsActiveRuntimeScope)
 {
-    Registry::Clear();
-
     UiRuntime firstRuntime;
     UiRuntime secondRuntime;
 
@@ -101,14 +93,10 @@ TEST(UiRuntimeTest, RuntimeFacadeFollowsActiveRuntimeScope)
 
         EXPECT_EQ(RuntimeFacade::current().frame().intervalMs, 33U);
     }
-
-    Registry::Clear();
 }
 
 TEST(UiRuntimeTest, WindowLookupCacheIsolatedPerRuntime)
 {
-    Registry::Clear();
-
     UiRuntime firstRuntime;
     UiRuntime secondRuntime;
     entt::entity firstWindow = entt::null;
@@ -135,14 +123,10 @@ TEST(UiRuntimeTest, WindowLookupCacheIsolatedPerRuntime)
 
         EXPECT_EQ(RuntimeFacade::current().windowLookup().findById(101), firstWindow);
     }
-
-    Registry::Clear();
 }
 
 TEST(UiRuntimeTest, WindowLookupCacheRecoversFromDestroyedEntity)
 {
-    Registry::Clear();
-
     UiRuntime runtime;
     {
         UiRuntimeScope scope(runtime);
@@ -160,8 +144,6 @@ TEST(UiRuntimeTest, WindowLookupCacheRecoversFromDestroyedEntity)
 
         EXPECT_EQ(RuntimeFacade::current().windowLookup().findById(202), secondWindow);
     }
-
-    Registry::Clear();
 }
 
 } // namespace

@@ -42,7 +42,7 @@ void QuitUiEventLoop();
 [[nodiscard]] float GetScrollMaxOffset(::entt::entity entity, bool isVertical);
 [[nodiscard]] components::VerticalScrollbarGeometry GetVerticalScrollbarGeometry(::entt::entity entity);
 
-void InvokeTask(std::move_only_function<void()> func);
+void InvokeTask(::ui::VoidCallback func);
 using TaskHandle = uint32_t;
 /**
  * @brief 注册一个定时任务，返回任务句柄
@@ -50,7 +50,7 @@ using TaskHandle = uint32_t;
  * @param func 任务函数
  * @return 任务句柄
  */
-TaskHandle TimerCallback(uint32_t interval, std::move_only_function<void()> func);
+TaskHandle TimerCallback(uint32_t interval, ::ui::VoidCallback func);
 /**
  * @brief 取消注册一个定时任务
  * @param handle 任务句柄

@@ -23,6 +23,17 @@ float4 main_ps(PSInput input) : SV_Target
 {
     float4 tex = u_texture.Sample(u_sampler, input.texcoord);
 
+    // 从顶点属性读取逐实体参数
+    float2 rect_size     = input.rect_size;
+    float4 radius        = input.radius;
+    float  shadow_soft   = input.shadow_params.x;
+    float  shadow_offset_x = input.shadow_params.y;
+    float  shadow_offset_y = input.shadow_params.z;
+    float  opacity       = input.shadow_params.w;
+    float  _padding      = input.mode_params.x;
+    float  stroke_width  = input.mode_params.y;
+    float  draw_mode     = input.mode_params.z;
+
     // 文本 alpha mask 路径：R8 单通道纹理，采样 .r 作为 coverage，由 shader 统一着色
     if (_padding > 1.5)
     {

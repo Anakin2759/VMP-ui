@@ -16,6 +16,7 @@
 #include "../systems/StateSystem.hpp" // 保持与 Application.h 中的一致
 #include "../systems/ActionSystem.hpp"
 #include "../systems/TimerSystem.hpp"
+#include "../systems/ShortcutSystem.hpp"
 namespace ui
 {
 SystemManager::SystemManager()
@@ -49,6 +50,9 @@ SystemManager::SystemManager()
 
     Logger::info("[SystemManager] 正在注册 TimerSystem...");
     m_systems.emplace_back(systems::TimerSystem{});
+
+    Logger::info("[SystemManager] 正在注册 ShortcutSystem...");
+    m_systems.emplace_back(systems::ShortcutSystem{});
 
     Logger::info("[SystemManager] 系统管理器初始化完成，已注册 {} 个系统", m_systems.size());
 }

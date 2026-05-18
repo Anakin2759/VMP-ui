@@ -10,8 +10,15 @@ option(ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 option(UI_ENABLE_STD_EMBED_EXPERIMENTAL "Enable the experimental std::embed resource backend skeleton" ON)
 # 调试选项
 option(UI_ENABLE_ASAN "Enable AddressSanitizer for UI module" OFF)
+# CPU 渲染选项：跳过所有 GPU 后端，直接使用 SDL_Renderer software 后端（用于无 GPU 环境或调试）
+option(UI_FORCE_CPU_RENDER "Force CPU-only software rendering (skip all GPU backends)" OFF)
 # DXC 着色器编译选项
-option(UI_ENABLE_SHADER_COMPILATION "Compile UI shaders with DXC during the build" OFF)
+# AUTO：构建时自动检测 DXC；若找到则编译，否则回退到预编译二进制
+# ON  ：强制要求 DXC，找不到则报错
+# OFF ：禁用，直接使用预编译二进制（构建更快，但 HLSL 改动后不自动更新）
+set(UI_ENABLE_SHADER_COMPILATION "AUTO" CACHE STRING
+    "Shader compilation mode: AUTO (auto-detect DXC), ON (require DXC), OFF (precompiled only)")
+set_property(CACHE UI_ENABLE_SHADER_COMPILATION PROPERTY STRINGS AUTO ON OFF)
 
 
 # 资源后端选项（CMRC 或 STD_EMBED）
@@ -58,16 +65,67 @@ if(UI_RESOURCE_BACKEND STREQUAL "STD_EMBED")
     )
 endif()
 
-if(UI_ENABLE_SHADER_COMPILATION)
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+# 解析 AUTO 模式：尝试找到 DXC，根据实际能力决定编译内容
+# DXC 版本分类：
+#   Vulkan SDK DXC（LunarG）  → DXC_SUPPORTS_SPIRV=TRUE  + DXC_SUPPORTS_DXIL=TRUE
+#   Windows Kits DXC（新）    → DXC_SUPPORTS_SPIRV=FALSE + DXC_SUPPORTS_DXIL=TRUE
+#   Windows Kits DXC（旧，如 19041）→ 两者皆 FALSE，完全回退预编译
+if(UI_ENABLE_SHADER_COMPILATION STREQUAL "AUTO")
+    find_package(DXC QUIET)
+    if(DXC_FOUND AND (DXC_SUPPORTS_SPIRV OR DXC_SUPPORTS_DXIL))
+        set(_UI_DO_SHADER_COMPILE TRUE)
+        if(DXC_SUPPORTS_SPIRV AND DXC_SUPPORTS_DXIL)
+            message(STATUS "[UI Shaders] DXC (Vulkan SDK) at ${DXC_EXECUTABLE} — SPIR-V + DXIL.")
+        elseif(DXC_SUPPORTS_DXIL)
+            message(STATUS "[UI Shaders] DXC at ${DXC_EXECUTABLE} — DXIL only; SPIR-V uses precompiled binaries.")
+        else()
+            message(STATUS "[UI Shaders] DXC at ${DXC_EXECUTABLE} — SPIR-V only.")
+        endif()
+    else()
+        set(_UI_DO_SHADER_COMPILE FALSE)
+        if(DXC_FOUND)
+            message(STATUS "[UI Shaders] DXC found but too old to compile shaders (sm6.6 unsupported). Using precompiled binaries.")
+        else()
+            message(STATUS "[UI Shaders] DXC not found. Using precompiled binaries.")
+        endif()
+    endif()
+elseif(UI_ENABLE_SHADER_COMPILATION STREQUAL "ON" OR UI_ENABLE_SHADER_COMPILATION)
     find_package(DXC REQUIRED)
+    if(NOT DXC_SUPPORTS_SPIRV AND NOT DXC_SUPPORTS_DXIL)
+        message(FATAL_ERROR "[UI Shaders] DXC forced ON but cannot compile SPIR-V or DXIL sm6.6. "
+            "Install Vulkan SDK or update Windows Kits.")
+    endif()
+    set(_UI_DO_SHADER_COMPILE TRUE)
+    if(DXC_SUPPORTS_SPIRV AND DXC_SUPPORTS_DXIL)
+        message(STATUS "[UI Shaders] DXC forced ON (${DXC_EXECUTABLE}) — SPIR-V + DXIL.")
+    elseif(DXC_SUPPORTS_DXIL)
+        message(STATUS "[UI Shaders] DXC forced ON (${DXC_EXECUTABLE}) — DXIL only.")
+    else()
+        message(STATUS "[UI Shaders] DXC forced ON (${DXC_EXECUTABLE}) — SPIR-V only.")
+    endif()
 else()
-    foreach(UI_SHADER_OUTPUT IN LISTS UI_SHADER_OUTPUTS)
-        if(NOT EXISTS "${UI_SHADER_OUTPUT}")
+    set(_UI_DO_SHADER_COMPILE FALSE)
+endif()
+
+if(NOT _UI_DO_SHADER_COMPILE)
+    # 验证所有预编译产物存在；Linux 不使用 D3D12，DXIL 可缺失
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(_UI_REQUIRED_SHADER_OUTPUTS
+            "${SHADER_OUTPUT_DIR}/vert.spv"
+            "${SHADER_OUTPUT_DIR}/frag.spv")
+    else()
+        set(_UI_REQUIRED_SHADER_OUTPUTS ${UI_SHADER_OUTPUTS})
+    endif()
+    foreach(_shader IN LISTS _UI_REQUIRED_SHADER_OUTPUTS)
+        if(NOT EXISTS "${_shader}")
             message(FATAL_ERROR
-                "UI shader compilation is disabled, but required shader artifact is missing: ${UI_SHADER_OUTPUT}. "
-                "Enable UI_ENABLE_SHADER_COMPILATION=ON or provide the precompiled shader files."
-            )
+                "[UI Shaders] Precompiled shader missing: ${_shader}.\n"
+                "  Options:\n"
+                "    1. Run src/ui/assets/shader/compile.sh (Linux) or compile.bat (Windows)\n"
+                "    2. Set UI_ENABLE_SHADER_COMPILATION=ON (requires DXC / Vulkan SDK)\n"
+                "    3. Set UI_ENABLE_SHADER_COMPILATION=AUTO (auto-detects DXC)")
         endif()
     endforeach()
 endif()
@@ -81,6 +139,7 @@ set(UI_SOURCES
     systems/LayoutSystem.cpp
     systems/RenderSystem.cpp
     systems/TimerSystem.cpp
+    systems/ShortcutSystem.cpp
     managers/FontManager.cpp
     managers/IconManager.cpp
     managers/ResourceProvider.cpp
@@ -95,6 +154,10 @@ set(UI_SOURCES
     api/Utils.cpp
     api/Factory.cpp
     api/Controls.cpp
+    api/Canvas.cpp
+    api/Table.cpp
+    api/Shortcut.cpp
+    managers/ImageManager.cpp
     core/PlatformWindow.cpp
 )
 set(UI_HEADERS
@@ -118,6 +181,7 @@ set(UI_HEADERS
     systems/HitTestSystem.hpp
     systems/ActionSystem.hpp
     systems/TimerSystem.hpp
+    systems/ShortcutSystem.hpp
     
     # Managers
     managers/DeviceManager.hpp
@@ -149,6 +213,11 @@ set(UI_HEADERS
     renderers/TextRenderer.hpp
     renderers/IconRenderer.hpp
     renderers/ScrollBarRenderer.hpp
+    renderers/ImageRenderer.hpp
+    renderers/CanvasRenderer.hpp
+    renderers/TableRenderer.hpp
+    renderers/CheckBoxRenderer.hpp
+    renderers/DropDownRenderer.hpp
 
 
     singleton/Registry.hpp
@@ -166,8 +235,11 @@ set(UI_HEADERS
     api/Utils.hpp
     api/Layout.hpp
     api/Controls.hpp
-    
-    ui/ui.hpp
+    api/Canvas.hpp
+    api/Table.hpp
+    api/Shortcut.hpp
+    managers/ImageManager.hpp
+    systems/ShortcutSystem.hpp
 )
 # UI 模块库定义
 add_library(ui STATIC ${UI_SOURCES} ${UI_HEADERS})
@@ -182,53 +254,123 @@ target_include_directories(ui
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/third_party/stb
     PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/ui
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}
 )
 
-if(UI_ENABLE_SHADER_COMPILATION)
+if(_UI_DO_SHADER_COMPILE)
     # ===========================
     # Shader Compilation
+    # CMake 的 add_custom_command 天然基于 OUTPUT 依赖做增量检查：
+    # 只有 DEPENDS 中的 .hlsl 比 OUTPUT 中的产物新时才重新编译。
     # ===========================
-    add_custom_command(
-        OUTPUT 
-            "${SHADER_OUTPUT_DIR}/vert.spv"
-            "${SHADER_OUTPUT_DIR}/vert.dxil"
-        COMMAND ${DXC_EXECUTABLE}
-            -spirv -T vs_6_0 -E main_vs -fspv-target-env=vulkan1.3
-            -Fo "${SHADER_OUTPUT_DIR}/vert.spv"
-            "${SHADER_SOURCE_DIR}/vert.hlsl"
-        COMMAND ${DXC_EXECUTABLE}
-            -T vs_6_6 -E main_vs
-            -Fo "${SHADER_OUTPUT_DIR}/vert.dxil"
-            "${SHADER_SOURCE_DIR}/vert.hlsl"
-        DEPENDS "${SHADER_SOURCE_DIR}/vert.hlsl" "${SHADER_SOURCE_DIR}/common.hlsl"
-        WORKING_DIRECTORY "${SHADER_SOURCE_DIR}"
-        COMMENT "Compiling vertex shader (SPIR-V + DXIL)"
-        VERBATIM
-    )
 
-    add_custom_command(
-        OUTPUT 
-            "${SHADER_OUTPUT_DIR}/frag.spv"
-            "${SHADER_OUTPUT_DIR}/frag.dxil"
-        COMMAND ${DXC_EXECUTABLE}
-            -spirv -T ps_6_0 -E main_ps -fspv-target-env=vulkan1.3
-            -Fo "${SHADER_OUTPUT_DIR}/frag.spv"
-            "${SHADER_SOURCE_DIR}/frag.hlsl"
-        COMMAND ${DXC_EXECUTABLE}
-            -T ps_6_6 -E main_ps
-            -Fo "${SHADER_OUTPUT_DIR}/frag.dxil"
-            "${SHADER_SOURCE_DIR}/frag.hlsl"
-        DEPENDS "${SHADER_SOURCE_DIR}/frag.hlsl" "${SHADER_SOURCE_DIR}/common.hlsl"
-        WORKING_DIRECTORY "${SHADER_SOURCE_DIR}"
-        COMMENT "Compiling fragment shader (SPIR-V + DXIL)"
-        VERBATIM
-    )
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # Linux：DXC 通常不支持 DXIL，只编译 SPIR-V
+        if(NOT DXC_SUPPORTS_SPIRV)
+            message(FATAL_ERROR "[UI Shaders] Linux requires DXC with SPIR-V support.\n"
+                "  Install: sudo apt install directx-shader-compiler\n"
+                "  Or: https://vulkan.lunarg.com/sdk/home#linux")
+        endif()
+        add_custom_command(
+            OUTPUT  "${SHADER_OUTPUT_DIR}/vert.spv"
+            COMMAND ${DXC_EXECUTABLE}
+                -spirv -T vs_6_0 -E main_vs -fspv-target-env=vulkan1.3
+                -Fo "${SHADER_OUTPUT_DIR}/vert.spv"
+                "${SHADER_SOURCE_DIR}/vert.hlsl"
+            DEPENDS "${SHADER_SOURCE_DIR}/vert.hlsl" "${SHADER_SOURCE_DIR}/common.hlsl"
+            WORKING_DIRECTORY "${SHADER_SOURCE_DIR}"
+            COMMENT "[UI Shaders] Compiling vertex shader (SPIR-V, Linux)"
+            VERBATIM
+        )
+        add_custom_command(
+            OUTPUT  "${SHADER_OUTPUT_DIR}/frag.spv"
+            COMMAND ${DXC_EXECUTABLE}
+                -spirv -T ps_6_0 -E main_ps -fspv-target-env=vulkan1.3
+                -Fo "${SHADER_OUTPUT_DIR}/frag.spv"
+                "${SHADER_SOURCE_DIR}/frag.hlsl"
+            DEPENDS "${SHADER_SOURCE_DIR}/frag.hlsl" "${SHADER_SOURCE_DIR}/common.hlsl"
+            WORKING_DIRECTORY "${SHADER_SOURCE_DIR}"
+            COMMENT "[UI Shaders] Compiling fragment shader (SPIR-V, Linux)"
+            VERBATIM
+        )
+        add_custom_target(ui_shaders
+            DEPENDS "${SHADER_OUTPUT_DIR}/vert.spv" "${SHADER_OUTPUT_DIR}/frag.spv"
+            COMMENT "[UI Shaders] Building UI shaders (SPIR-V only)"
+        )
 
-    add_custom_target(ui_shaders
-        DEPENDS ${UI_SHADER_OUTPUTS}
-        COMMENT "Building UI shaders"
-    )
+    elseif(DXC_SUPPORTS_SPIRV AND DXC_SUPPORTS_DXIL)
+        # Windows / macOS + Vulkan SDK DXC：同时输出 SPIR-V + DXIL
+        add_custom_command(
+            OUTPUT  "${SHADER_OUTPUT_DIR}/vert.spv" "${SHADER_OUTPUT_DIR}/vert.dxil"
+            COMMAND ${DXC_EXECUTABLE}
+                -spirv -T vs_6_0 -E main_vs -fspv-target-env=vulkan1.3
+                -Fo "${SHADER_OUTPUT_DIR}/vert.spv" "${SHADER_SOURCE_DIR}/vert.hlsl"
+            COMMAND ${DXC_EXECUTABLE}
+                -T vs_6_0 -E main_vs
+                -Fo "${SHADER_OUTPUT_DIR}/vert.dxil" "${SHADER_SOURCE_DIR}/vert.hlsl"
+            DEPENDS "${SHADER_SOURCE_DIR}/vert.hlsl" "${SHADER_SOURCE_DIR}/common.hlsl"
+            WORKING_DIRECTORY "${SHADER_SOURCE_DIR}"
+            COMMENT "[UI Shaders] Compiling vertex shader (SPIR-V + DXIL)"
+            VERBATIM
+        )
+        add_custom_command(
+            OUTPUT  "${SHADER_OUTPUT_DIR}/frag.spv" "${SHADER_OUTPUT_DIR}/frag.dxil"
+            COMMAND ${DXC_EXECUTABLE}
+                -spirv -T ps_6_0 -E main_ps -fspv-target-env=vulkan1.3
+                -Fo "${SHADER_OUTPUT_DIR}/frag.spv" "${SHADER_SOURCE_DIR}/frag.hlsl"
+            COMMAND ${DXC_EXECUTABLE}
+                -T ps_6_0 -E main_ps
+                -Fo "${SHADER_OUTPUT_DIR}/frag.dxil" "${SHADER_SOURCE_DIR}/frag.hlsl"
+            DEPENDS "${SHADER_SOURCE_DIR}/frag.hlsl" "${SHADER_SOURCE_DIR}/common.hlsl"
+            WORKING_DIRECTORY "${SHADER_SOURCE_DIR}"
+            COMMENT "[UI Shaders] Compiling fragment shader (SPIR-V + DXIL)"
+            VERBATIM
+        )
+        add_custom_target(ui_shaders
+            DEPENDS ${UI_SHADER_OUTPUTS}
+            COMMENT "[UI Shaders] Building UI shaders (SPIR-V + DXIL)"
+        )
+
+    else()
+        # Windows + Windows SDK DXC：仅支持 DXIL，SPIR-V 必须使用预编译二进制
+        foreach(_spv "${SHADER_OUTPUT_DIR}/vert.spv" "${SHADER_OUTPUT_DIR}/frag.spv")
+            if(NOT EXISTS "${_spv}")
+                message(FATAL_ERROR
+                    "[UI Shaders] Windows Kits DXC does not support SPIR-V, "
+                    "but precompiled SPIR-V binary is missing: ${_spv}.\n"
+                    "  Options:\n"
+                    "    1. Install Vulkan SDK to compile SPIR-V (recommended)\n"
+                    "    2. Run compile.bat from a machine with Vulkan SDK to generate .spv files")
+            endif()
+        endforeach()
+        add_custom_command(
+            OUTPUT  "${SHADER_OUTPUT_DIR}/vert.dxil"
+            COMMAND ${DXC_EXECUTABLE}
+                -T vs_6_0 -E main_vs
+                -Fo "${SHADER_OUTPUT_DIR}/vert.dxil" "${SHADER_SOURCE_DIR}/vert.hlsl"
+            DEPENDS "${SHADER_SOURCE_DIR}/vert.hlsl" "${SHADER_SOURCE_DIR}/common.hlsl"
+            WORKING_DIRECTORY "${SHADER_SOURCE_DIR}"
+            COMMENT "[UI Shaders] Compiling vertex shader (DXIL only, sm6.0)"
+            VERBATIM
+        )
+        add_custom_command(
+            OUTPUT  "${SHADER_OUTPUT_DIR}/frag.dxil"
+            COMMAND ${DXC_EXECUTABLE}
+                -T ps_6_0 -E main_ps
+                -Fo "${SHADER_OUTPUT_DIR}/frag.dxil" "${SHADER_SOURCE_DIR}/frag.hlsl"
+            DEPENDS "${SHADER_SOURCE_DIR}/frag.hlsl" "${SHADER_SOURCE_DIR}/common.hlsl"
+            WORKING_DIRECTORY "${SHADER_SOURCE_DIR}"
+            COMMENT "[UI Shaders] Compiling fragment shader (DXIL only, sm6.0)"
+            VERBATIM
+        )
+        add_custom_target(ui_shaders
+            DEPENDS
+                "${SHADER_OUTPUT_DIR}/vert.dxil"
+                "${SHADER_OUTPUT_DIR}/frag.dxil"
+            COMMENT "[UI Shaders] Building UI shaders (DXIL only, SPIR-V from precompiled)"
+        )
+    endif()
 endif()
 
 if(UI_RESOURCE_BACKEND STREQUAL "STD_EMBED")
@@ -259,7 +401,7 @@ if(UI_RESOURCE_BACKEND STREQUAL "CMRC")
 
     )
 
-    if(UI_ENABLE_SHADER_COMPILATION)
+    if(_UI_DO_SHADER_COMPILE)
         add_dependencies(ui_fonts ui_shaders)
     endif()
 
@@ -305,6 +447,11 @@ target_link_libraries(ui PUBLIC
 )
 
 target_compile_definitions(ui PRIVATE UI_ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
+
+if(UI_FORCE_CPU_RENDER)
+    target_compile_definitions(ui PRIVATE UI_FORCE_CPU_RENDER=1)
+    message(STATUS "[UI] UI_FORCE_CPU_RENDER=ON: GPU backends disabled, using SDL_Renderer software fallback.")
+endif()
 
 # Windows 平台链接 DWM + comctl32（用于无边框窗口透明合成 + 子类化）
 if(WIN32)

@@ -26,9 +26,11 @@ namespace
 class UiIntegrationTest : public ::testing::Test
 {
 protected:
-    void SetUp() override { Registry::Clear(); }
+    UiRuntime m_runtime;
+    std::unique_ptr<UiRuntimeScope> m_scope;
 
-    void TearDown() override { Registry::Clear(); }
+    void SetUp() override { m_scope = std::make_unique<UiRuntimeScope>(m_runtime); }
+    void TearDown() override { m_scope.reset(); }
 };
 
 bool ContainsChild(const components::Hierarchy& hierarchy, entt::entity child)

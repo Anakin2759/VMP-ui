@@ -1,3 +1,17 @@
+/**
+ * ************************************************************************
+ * 
+ * @file RuntimeFacade.hpp
+ * @author AnakinLiu (azrael2759@qq.com)
+ * @date 2026-05-18
+ * @version 0.1
+ * @brief 运行时上下文门面 - 提供全局访问点和上下文管理功能
+ * 
+ * ************************************************************************
+ * @copyright Copyright (c) 2026 AnakinLiu
+ * For study and research only, no reprinting.
+ * ************************************************************************
+ */
 #pragma once
 
 #include <cstdint>

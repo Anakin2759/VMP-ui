@@ -556,9 +556,7 @@ private:
         }
 
         const int relativeLine = cursorInfo.lineIndex - static_cast<int>(startIndex);
-        const float cursorY = (lines.size() == 1)
-                                  ? args.textPos.y() + ((args.textSize.y() - args.lineHeight) * 0.5F)
-                                  : args.textPos.y() + (static_cast<float>(relativeLine) * args.lineHeight);
+        const float cursorY = args.textPos.y() + (static_cast<float>(relativeLine) * args.lineHeight);
         drawTextEditCaret({args.textPos.x() + cursorInfo.lineOffsetX, cursorY},
                           args.lineHeight,
                           args.renderContext(),

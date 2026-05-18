@@ -16,11 +16,10 @@
  */
 #pragma once
 
-#include <memory>
+#include <cassert>
 
 #include <entt/entt.hpp>
 
-#include "SingletonBase.hpp"
 #include "../traits/ComponentsTraits.hpp"
 
 namespace ui
@@ -30,27 +29,19 @@ using traits::ComponentOrUiTag;
 class UiRuntime;
 class UiRuntimeScope;
 
-class Registry : public SingletonBase<Registry>
+class Registry
 {
-    friend class SingletonBase<Registry>;
     friend class UiRuntime;
     friend class UiRuntimeScope;
     friend class RuntimeFacade;
 
 public:
-    static Registry& defaultInstance() { return SingletonBase<Registry>::getInstance(); }
-
     static Registry& current()
     {
-        if (auto* instance = activeInstance())
-        {
-            return *instance;
-        }
-
-        return defaultInstance();
+        auto* instance = activeInstance();
+        assert(instance != nullptr && "No active UiRuntime. Wrap all UI calls in UiRuntimeScope.");
+        return *instance;
     }
-
-    static Registry& getInstance() { return current(); }
 
     [[nodiscard]] entt::registry& raw() noexcept { return m_registry; }
 
@@ -58,14 +49,6 @@ public:
 
     // Legacy PascalCase entrypoints stay for compatibility with existing UI call sites.
     // NOLINTBEGIN(readability-identifier-naming)
-    static std::shared_ptr<Registry> GetRegistryPtr()
-    {
-        return std::shared_ptr<Registry>(&current(),
-                                         [](Registry*)
-                                         {
-                                             // Do nothing, prevent deletion
-                                         });
-    }
     static entt::entity Create() { return current().m_registry.create(); }
 
     template <ComponentOrUiTag... Type>

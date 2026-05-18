@@ -196,7 +196,7 @@ struct ValueChangedSelection
 struct SendHandlerToEventLoop
 {
     using is_event_tag = void;
-    std::move_only_function<void()> handler;
+    VoidCallback handler;
 };
 
 /**
@@ -261,7 +261,7 @@ struct UpdateTimer
 struct QueuedTask
 {
     using is_event_tag = void;
-    std::move_only_function<void()> func;
+    VoidCallback func;
     uint32_t intervalMs = 0; // 延迟执行时间
     uint32_t remainingMs = 0;
     bool singleShoot = false;

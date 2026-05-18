@@ -29,6 +29,11 @@ constexpr float DEFAULT_LEAF_HEIGHT = 20.0F;
 
 [[nodiscard]] bool IsLayoutParticipant(entt::entity entity)
 {
+    // TableCellWidget 实体的 Position/Size 由 TableRenderer 手动写入，不参与 Yoga 布局树
+    if (Registry::AnyOf<components::TableCellWidgetTag>(entity))
+    {
+        return false;
+    }
     return Registry::AnyOf<components::SpacerTag>(entity) ||
            Registry::AllOf<components::Position, components::Size>(entity);
 }

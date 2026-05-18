@@ -38,6 +38,15 @@ void SetScrollMode(::entt::entity entity, policies::Scroll mode);
 void SetScrollBarPolicy(::entt::entity entity, policies::ScrollBar policy);
 void SetScrollAnchor(::entt::entity entity, policies::ScrollAnchor anchor);
 void SetScrollSpeed(::entt::entity entity, float speed);
+
+// CheckBox
+void SetCheckBoxChecked(::entt::entity entity, bool checked);
+void SetCheckBoxOnChanged(::entt::entity entity, components::on_event<bool> callback);
+
+// DropDown
+void SetDropDownOptions(::entt::entity entity, const std::vector<std::string>& options);
+void SetDropDownSelected(::entt::entity entity, int index);
+void SetDropDownOnChanged(::entt::entity entity, components::on_event<int> callback);
 } // namespace ui::controls
 
 namespace ui::actions
@@ -58,6 +67,11 @@ inline constexpr EntityAction<&ui::controls::SetScrollMode> SET_SCROLL_MODE_ACTI
 inline constexpr EntityAction<&ui::controls::SetScrollBarPolicy> SET_SCROLL_BAR_POLICY_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetScrollAnchor> SET_SCROLL_ANCHOR_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetScrollSpeed> SET_SCROLL_SPEED_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetCheckBoxChecked> SET_CHECKBOX_CHECKED_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetCheckBoxOnChanged> SET_CHECKBOX_ON_CHANGED_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetDropDownOptions> SET_DROPDOWN_OPTIONS_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetDropDownSelected> SET_DROPDOWN_SELECTED_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetDropDownOnChanged> SET_DROPDOWN_ON_CHANGED_ACTION{};
 } // namespace controls
 } // namespace ui::actions
 
@@ -131,5 +145,32 @@ inline auto ScrollAnchor(ui::policies::ScrollAnchor anchor)
 inline auto ScrollSpeed(float speed)
 {
     return ui::actions::controls::SET_SCROLL_SPEED_ACTION.bind(speed);
+}
+
+// CheckBox DSL
+inline auto CheckBoxChecked(bool checked)
+{
+    return ui::actions::controls::SET_CHECKBOX_CHECKED_ACTION.bind(checked);
+}
+
+inline auto OnCheckBoxChanged(ui::components::on_event<bool> callback)
+{
+    return ui::actions::controls::SET_CHECKBOX_ON_CHANGED_ACTION.bind(std::move(callback));
+}
+
+// DropDown DSL
+inline auto DropDownOptions(const std::vector<std::string>& options)
+{
+    return ui::actions::controls::SET_DROPDOWN_OPTIONS_ACTION.bind(options);
+}
+
+inline auto DropDownSelected(int index)
+{
+    return ui::actions::controls::SET_DROPDOWN_SELECTED_ACTION.bind(index);
+}
+
+inline auto OnDropDownChanged(ui::components::on_event<int> callback)
+{
+    return ui::actions::controls::SET_DROPDOWN_ON_CHANGED_ACTION.bind(std::move(callback));
 }
 } // namespace ui::chains

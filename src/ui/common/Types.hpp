@@ -20,8 +20,11 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <cstdint>
 #include <algorithm>
+#include <concepts>
+#include <cstdint>
+#include <functional>
+#include <type_traits>
 
 namespace ui
 {
@@ -121,12 +124,12 @@ struct Color
     /**
      * @brief 从32位RGBA值创建（0-255范围）
      */
-    static Color fromRGBA(uint8_t r_, uint8_t g_, uint8_t b_, uint8_t a_ = 255)
+    static Color fromRGBA(uint8_t redVal, uint8_t greenVal, uint8_t blueVal, uint8_t alphaVal = 255)
     {
-        return Color(static_cast<float>(r_) / 255.0f,
-                     static_cast<float>(g_) / 255.0f,
-                     static_cast<float>(b_) / 255.0f,
-                     static_cast<float>(a_) / 255.0f);
+        return Color(static_cast<float>(redVal)   / 255.0F,
+                     static_cast<float>(greenVal) / 255.0F,
+                     static_cast<float>(blueVal)  / 255.0F,
+                     static_cast<float>(alphaVal) / 255.0F);
     }
 
     /**
@@ -139,17 +142,17 @@ struct Color
      */
     [[nodiscard]] Color multiplyAlpha(float factor) const { return Color(red, green, blue, alpha * factor); }
 
-    // 预定义颜色
-    static constexpr Color White() { return {1.0F, 1.0F, 1.0F, 1.0F}; }
-    static constexpr Color Black() { return {0.0F, 0.0F, 0.0F, 1.0F}; }
-    static constexpr Color Red() { return {1.0F, 0.0F, 0.0F, 1.0F}; }
-    static constexpr Color Green() { return {0.0F, 1.0F, 0.0F, 1.0F}; }
-    static constexpr Color Blue() { return {0.0F, 0.0F, 1.0F, 1.0F}; }
-    static constexpr Color Yellow() { return {1.0F, 1.0F, 0.0F, 1.0F}; }
-    static constexpr Color Cyan() { return {0.0F, 1.0F, 1.0F, 1.0F}; }
-    static constexpr Color Magenta() { return {1.0F, 0.0F, 1.0F, 1.0F}; }
-    static constexpr Color Transparent() { return {0.0F, 0.0F, 0.0F, 0.0F}; }
-    static constexpr Color Gray() { return {0.5F, 0.5F, 0.5F, 1.0F}; }
+    // 预定义颜色 // NOLINT(readability-identifier-naming)
+    static constexpr Color White()       { return {1.0F, 1.0F, 1.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Black()       { return {0.0F, 0.0F, 0.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Red()         { return {1.0F, 0.0F, 0.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Green()       { return {0.0F, 1.0F, 0.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Blue()        { return {0.0F, 0.0F, 1.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Yellow()      { return {1.0F, 1.0F, 0.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Cyan()        { return {0.0F, 1.0F, 1.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Magenta()     { return {1.0F, 0.0F, 1.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Transparent() { return {0.0F, 0.0F, 0.0F, 0.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Gray()        { return {0.5F, 0.5F, 0.5F, 1.0F}; } // NOLINT(readability-identifier-naming)
 };
 
 // ===================== 矩形类型 =====================
@@ -159,12 +162,12 @@ struct Color
  */
 struct Rect
 {
-    Vec2 position{0.0f, 0.0f}; // 左上角位置
-    Vec2 size{0.0f, 0.0f};     // 尺寸
+    Vec2 position{0.0F, 0.0F}; // 左上角位置
+    Vec2 size{0.0F, 0.0F};     // 尺寸
 
     Rect() = default;
-    Rect(float x, float y, float w, float h) : position(x, y), size(w, h) {}
-    Rect(const Vec2& pos, const Vec2& sz) : position(pos), size(sz) {}
+    Rect(float posX, float posY, float width, float height) : position(posX, posY), size(width, height) {}
+    Rect(const Vec2& pos, const Vec2& sizeVal) : position(pos), size(sizeVal) {}
 
     [[nodiscard]] float x() const { return position.x(); }
     [[nodiscard]] float y() const { return position.y(); }
@@ -180,7 +183,7 @@ struct Rect
     [[nodiscard]] Vec2 topRight() const { return Vec2(right(), top()); }
     [[nodiscard]] Vec2 bottomLeft() const { return Vec2(left(), bottom()); }
     [[nodiscard]] Vec2 bottomRight() const { return position + size; }
-    [[nodiscard]] Vec2 center() const { return position + size * 0.5f; }
+    [[nodiscard]] Vec2 center() const { return position + (size * 0.5F); }
 
     /**
      * @brief 点是否在矩形内
@@ -195,7 +198,7 @@ struct Rect
      */
     [[nodiscard]] bool intersects(const Rect& other) const
     {
-        return !(other.left() > right() || other.right() < left() || other.top() > bottom() || other.bottom() < top());
+        return other.left() <= right() && other.right() >= left() && other.top() <= bottom() && other.bottom() >= top();
     }
 
     /**
@@ -203,7 +206,7 @@ struct Rect
      */
     [[nodiscard]] Rect expanded(float amount) const
     {
-        return Rect(position.x() - amount, position.y() - amount, size.x() + amount * 2, size.y() + amount * 2);
+        return Rect(position.x() - amount, position.y() - amount, size.x() + (amount * 2), size.y() + (amount * 2));
     }
 
     /**
@@ -226,18 +229,21 @@ struct Rect
  */
 struct EdgeInsets
 {
-    float top = 0.0f;
-    float right = 0.0f;
-    float bottom = 0.0f;
-    float left = 0.0f;
+    float top    = 0.0F;
+    float right  = 0.0F;
+    float bottom = 0.0F;
+    float left   = 0.0F;
 
     constexpr EdgeInsets() = default;
-    constexpr EdgeInsets(float all) : top(all), right(all), bottom(all), left(all) {}
+    constexpr explicit EdgeInsets(float all) : top(all), right(all), bottom(all), left(all) {}
     constexpr EdgeInsets(float vertical, float horizontal)
         : top(vertical), right(horizontal), bottom(vertical), left(horizontal)
     {
     }
-    constexpr EdgeInsets(float t, float r, float b, float l) : top(t), right(r), bottom(b), left(l) {}
+    constexpr EdgeInsets(float topVal, float rightVal, float bottomVal, float leftVal)
+        : top(topVal), right(rightVal), bottom(bottomVal), left(leftVal)
+    {
+    }
 
     /**
      * @brief 从Vec4构造（Top, Right, Bottom, Left）
@@ -258,35 +264,38 @@ struct EdgeInsets
 /**
  * @brief 创建Vec2
  */
-inline Vec2 MakeVec2(float x, float y)
+inline Vec2 MakeVec2(float vecX, float vecY)
 {
-    return {x, y};
+    return {vecX, vecY};
 }
 
 /**
  * @brief 创建Vec4
  */
-inline Vec4 makeVec4(float x, float y, float z, float w)
+inline Vec4 MakeVec4(float vecX, float vecY, float vecZ, float vecW)
 {
-    return Vec4(x, y, z, w);
+    return Vec4(vecX, vecY, vecZ, vecW);
 }
 
 /**
  * @brief 线性插值
  */
-inline Vec2 Lerp(const Vec2& a, const Vec2& b, float t)
+inline Vec2 Lerp(const Vec2& from, const Vec2& dest, float alpha)
 {
-    return a + (b - a) * t;
+    return from + ((dest - from) * alpha);
 }
 
-inline float Lerp(float a, float b, float t)
+inline float Lerp(float from, float dest, float alpha)
 {
-    return a + (b - a) * t;
+    return from + ((dest - from) * alpha);
 }
 
-inline Color Lerp(const Color& a, const Color& b, float t)
+inline Color Lerp(const Color& from, const Color& dest, float alpha)
 {
-    return {Lerp(a.red, b.red, t), Lerp(a.green, b.green, t), Lerp(a.blue, b.blue, t), Lerp(a.alpha, b.alpha, t)};
+    return {Lerp(from.red,   dest.red,   alpha),
+            Lerp(from.green, dest.green, alpha),
+            Lerp(from.blue,  dest.blue,  alpha),
+            Lerp(from.alpha, dest.alpha, alpha)};
 }
 
 /**
@@ -294,27 +303,27 @@ inline Color Lerp(const Color& a, const Color& b, float t)
  */
 inline Mat2 Rotation2D(float angleRadians)
 {
-    float c = std::cos(angleRadians);
-    float s = std::sin(angleRadians);
+    const float cosA = std::cos(angleRadians);
+    const float sinA = std::sin(angleRadians);
     Mat2 mat;
-    mat << c, -s, s, c;
+    mat << cosA, -sinA, sinA, cosA;
     return mat;
 }
 
 /**
  * @brief 2D缩放矩阵
  */
-inline Mat2 Scale2D(float sx, float sy)
+inline Mat2 Scale2D(float scaleX, float scaleY)
 {
     Mat2 mat;
-    mat << sx, 0, 0, sy;
+    mat << scaleX, 0, 0, scaleY;
     return mat;
 }
 
 /**
  * @brief 创建2D仿射变换
  */
-inline Transform2D MakeTransform2D(const Vec2& translation, float rotation = 0.0f, const Vec2& scale = Vec2(1, 1))
+inline Transform2D MakeTransform2D(const Vec2& translation, float rotation = 0.0F, const Vec2& scale = Vec2(1, 1))
 {
     Transform2D transform = Transform2D::Identity();
     transform.translate(translation);
@@ -322,5 +331,62 @@ inline Transform2D MakeTransform2D(const Vec2& translation, float rotation = 0.0
     transform.scale(scale);
     return transform;
 }
+
+// ===================== 通用回调包装 =====================
+
+/**
+ * @brief 零开销单态回调包装器
+ *
+ * 直接以模板参数存储可调用对象，无类型擦除、无堆分配、无虚调用。
+ * operator() 通过 std::invoke 完美转发参数，支持任意返回类型。
+ *
+ * 适用场景：局部传参、模板上下文、性能敏感路径。
+ * 不适用于异构容器/结构体字段（需类型擦除时改用 VoidCallback）。
+ *
+ * 用法：
+ *   auto cb = make_callback([](int x) { return x * 2; });
+ *   int result = cb(21); // 42
+ */
+template <typename Func>
+class CallbackWrapper
+{
+public:
+    explicit CallbackWrapper(Func func) : m_callback(std::move(func)) {}
+
+    ~CallbackWrapper() = default;
+
+    CallbackWrapper(CallbackWrapper&&) noexcept            = default;
+    CallbackWrapper& operator=(CallbackWrapper&&) noexcept = default;
+
+    CallbackWrapper(const CallbackWrapper&)            = default;
+    CallbackWrapper& operator=(const CallbackWrapper&) = default;
+
+    template <typename... Args>
+        requires std::invocable<Func, Args...>
+    decltype(auto) operator()(Args&&... args)
+    {
+        return std::invoke(m_callback, std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+        requires std::invocable<const Func, Args...>
+    decltype(auto) operator()(Args&&... args) const
+    {
+        return std::invoke(m_callback, std::forward<Args>(args)...);
+    }
+
+private:
+    Func m_callback;
+};
+
+/// 推导辅助，免写模板参数：auto cb = MakeCallback([]{ ... });
+template <typename Func>
+auto MakeCallback(Func&& func)
+{
+    return CallbackWrapper<std::decay_t<Func>>(std::forward<Func>(func));
+}
+
+/// 用于结构体字段/容器的类型擦除无参回调别名（需要异构存储时使用）
+using VoidCallback = std::move_only_function<void()>;
 
 } // namespace ui

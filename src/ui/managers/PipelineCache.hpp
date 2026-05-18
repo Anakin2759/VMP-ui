@@ -81,13 +81,13 @@ public:
             return;
         }
 
-        if (m_pipeline != nullptr && m_sampler != nullptr)
+        if (m_pipeline != nullptr || m_creationFailed)
         {
             return;
         }
 
         // 顶点属性描述
-        SDL_GPUVertexAttribute vertexAttributes[3] = {};
+        SDL_GPUVertexAttribute vertexAttributes[7] = {};
 
         // 位置 (vec2)
         vertexAttributes[0].location = 0;
@@ -107,6 +107,30 @@ public:
         vertexAttributes[2].buffer_slot = 0;
         vertexAttributes[2].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, color));
 
+        // rect_size (float2) at location 3
+        vertexAttributes[3].location = 3;
+        vertexAttributes[3].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
+        vertexAttributes[3].buffer_slot = 0;
+        vertexAttributes[3].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, rect_size));
+
+        // radius (float4) at location 4
+        vertexAttributes[4].location = 4;
+        vertexAttributes[4].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
+        vertexAttributes[4].buffer_slot = 0;
+        vertexAttributes[4].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, radius));
+
+        // shadow_params (float4) at location 5
+        vertexAttributes[5].location = 5;
+        vertexAttributes[5].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
+        vertexAttributes[5].buffer_slot = 0;
+        vertexAttributes[5].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, shadow_params));
+
+        // mode_params (float4) at location 6
+        vertexAttributes[6].location = 6;
+        vertexAttributes[6].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
+        vertexAttributes[6].buffer_slot = 0;
+        vertexAttributes[6].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, mode_params));
+
         SDL_GPUVertexBufferDescription vertexBufferDesc = {};
         vertexBufferDesc.slot = 0;
         vertexBufferDesc.pitch = sizeof(ui::render::Vertex);
@@ -117,7 +141,7 @@ public:
         vertexInputState.vertex_buffer_descriptions = &vertexBufferDesc;
         vertexInputState.num_vertex_buffers = 1;
         vertexInputState.vertex_attributes = vertexAttributes;
-        vertexInputState.num_vertex_attributes = 3;
+        vertexInputState.num_vertex_attributes = 7;
 
         // 颜色附件描述
         SDL_GPUColorTargetBlendState blendState = {};
@@ -184,6 +208,8 @@ public:
         if (m_pipeline == nullptr)
         {
             Logger::error("图形管线创建失败: {}", SDL_GetError());
+            m_creationFailed = true; // 标记失败，阻止后续重试
+            return; // 管线失败则不创建采样器，避免下次 guard 失效导致重复重试
         }
 
         // 创建采样器
@@ -203,10 +229,12 @@ public:
         m_pipeline.reset();
         m_vertexShader.reset();
         m_fragmentShader.reset();
+        m_creationFailed = false;
     }
 
     [[nodiscard]] SDL_GPUGraphicsPipeline* getPipeline() const { return m_pipeline.get(); }
     [[nodiscard]] SDL_GPUSampler* getSampler() const { return m_sampler.get(); }
+    [[nodiscard]] bool hasCreationFailed() const { return m_creationFailed; }
 
 private:
     wrappers::UniqueGPUShader
@@ -245,6 +273,7 @@ private:
     wrappers::UniqueGPUShader m_vertexShader;
     wrappers::UniqueGPUShader m_fragmentShader;
     wrappers::UniqueGPUSampler m_sampler;
+    bool m_creationFailed = false;
 };
 
 } // namespace ui::managers

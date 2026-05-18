@@ -26,7 +26,6 @@
 // 防止 Windows.h 宏污染 ASIO 的 execution 命名空间
 
 #include <asio.hpp>
-#include <thread>
 #include <memory>
 #include <atomic>
 #include <concepts>

@@ -8,7 +8,7 @@
 #include <windows.h>
 #endif
 
-#include "../../src/ui/ui/ui.hpp"
+#include <ui.hpp>
 
 #include "View/menu.h"
 

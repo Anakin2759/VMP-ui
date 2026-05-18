@@ -142,6 +142,18 @@ struct TableTag
     using is_tags_tag = void;
 };
 
+/**
+ * @brief 表格单元格控件标记
+ *
+ * 标记某个实体是通过 TableSetCellWidget 注入到 Table 单元格的控件子节点。
+ * LayoutSystem 将跳过此类实体（不加入 Yoga 树），其 Position/Size
+ * 由 TableRenderer 在渲染时根据单元格几何自动写入。
+ */
+struct TableCellWidgetTag
+{
+    using is_tags_tag = void;
+};
+
 // ===================== II. 行为与状态标记 (用于 Interaction/Animation/Layout System) =====================
 
 /**
@@ -233,6 +245,30 @@ struct SliderTag
  * @brief ProgressBar 标记
  */
 struct ProgressBarTag
+{
+    using is_tags_tag = void;
+};
+
+/**
+ * @brief CheckBox 标记
+ */
+struct CheckBoxTag
+{
+    using is_tags_tag = void;
+};
+
+/**
+ * @brief DropDown 标记
+ */
+struct DropDownTag
+{
+    using is_tags_tag = void;
+};
+
+/**
+ * @brief Canvas 绘图组件标记
+ */
+struct CanvasTag
 {
     using is_tags_tag = void;
 };

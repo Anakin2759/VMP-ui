@@ -11,6 +11,7 @@
 #include "../singleton/Logger.hpp"
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
+#include "Hierarchy.hpp"
 #include "Utils.hpp"
 #include "Animation.hpp"
 #include "../core/PlatformWindow.hpp"
@@ -613,16 +614,247 @@ entt::entity CreateTextBrowser(std::string_view initialText, std::string_view pl
 
 entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_view alias)
 {
-    (void)checked;
     auto entity = CreateBaseWidget(alias);
-    // TODO: 实现 CheckBoxTag 和 CheckBox 组件
-    // Registry::Emplace<components::CheckBoxTag>(entity);
-    // auto& checkBox = Registry::Emplace<components::CheckBox>(entity);
-    // checkBox.checked = checked;
+    Registry::Emplace<components::CheckBoxTag>(entity);
+    auto& checkBox = Registry::Emplace<components::CheckBox>(entity);
+    checkBox.checked = checked;
+    checkBox.label   = label;
     auto& text = Registry::Emplace<components::Text>(entity);
-    text.content = label;
+    text.content   = label;
     text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
-    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::Auto;
+    // 为文字留出左侧方框空间（约 24px）
+    auto& padding = Registry::GetOrEmplace<components::Padding>(entity);
+    padding.values = {0.0F, 0.0F, 0.0F, 24.0F}; // Top, Right, Bottom, Left
+    auto& size = Registry::Get<components::Size>(entity);
+    size.sizePolicy = policies::Size::Auto;
+    size.size       = {120.0F, 22.0F};
+    // 挂载点击回调：点击时切换 checked 状态并触发 onChanged
+    auto& clickable = Registry::Emplace<components::Clickable>(entity);
+    clickable.onClick = [entity]()
+    {
+        auto* checkBoxComp = Registry::TryGet<components::CheckBox>(entity);
+        if (checkBoxComp == nullptr) return;
+        checkBoxComp->checked = !checkBoxComp->checked;
+        if (checkBoxComp->onChanged)
+        {
+            checkBoxComp->onChanged(checkBoxComp->checked);
+        }
+        ui::utils::MarkVisualChanged(entity);
+    };
+    return entity;
+}
+
+// ── DropDown 内部辅助函数（仅 Factory.cpp 可见）─────────────────────────────
+// NOLINTBEGIN(readability-*,misc-*)
+namespace
+{
+
+/// 向上遍历层级，找到最近的 WindowTag 祖先
+entt::entity FindWindowRoot(entt::entity entity)
+{
+    entt::entity current = entity;
+    while (current != entt::null && Registry::Valid(current))
+    {
+        if (Registry::AnyOf<components::WindowTag>(current))
+        {
+            return current;
+        }
+        const auto* hier = Registry::TryGet<components::Hierarchy>(current);
+        current = (hier != nullptr) ? hier->parent : entt::null;
+    }
+    return entt::null;
+}
+
+/// 关闭并销毁弹出列表（defer 到下一帧执行，避免在 onClick 内部销毁自身实体）
+void CloseDropDownPopup(entt::entity ddEntity)
+{
+    auto* dropDown = Registry::TryGet<components::DropDown>(ddEntity);
+    if (dropDown == nullptr) return;
+    if (dropDown->popupEntity == entt::null || !Registry::Valid(dropDown->popupEntity))
+    {
+        dropDown->open = false;
+        return;
+    }
+
+    const entt::entity popupToDestroy = dropDown->popupEntity;
+    dropDown->popupEntity = entt::null;
+    dropDown->open        = false;
+    ui::utils::MarkVisualChanged(ddEntity);
+
+    // 延迟到下一帧销毁，确保当前事件处理完毕（避免在 onClick 内删除含 onClick 的实体）
+    ui::utils::InvokeTask([popupToDestroy]()
+    {
+        if (!Registry::Valid(popupToDestroy)) return;
+
+        // 从父级 children 列表中移除
+        const auto* popupHier = Registry::TryGet<components::Hierarchy>(popupToDestroy);
+        if (popupHier != nullptr && popupHier->parent != entt::null)
+        {
+            hierarchy::RemoveChild(popupHier->parent, popupToDestroy);
+        }
+
+        // 深度优先收集子树中所有实体后逆序销毁
+        std::vector<entt::entity> toDestroy;
+        std::vector<entt::entity> stack{popupToDestroy};
+        while (!stack.empty())
+        {
+            const entt::entity cur = stack.back();
+            stack.pop_back();
+            if (!Registry::Valid(cur)) continue;
+            toDestroy.push_back(cur);
+            if (const auto* hier = Registry::TryGet<components::Hierarchy>(cur))
+            {
+                for (const entt::entity child : hier->children)
+                {
+                    stack.push_back(child);
+                }
+            }
+        }
+        for (entt::entity ent : std::ranges::reverse_view(toDestroy))
+        {
+            if (Registry::Valid(ent))
+            {
+                Registry::Destroy(ent);
+            }
+        }
+    });
+}
+
+/// 打开弹出列表（在 ddEntity 正下方创建悬浮选项面板）
+void OpenDropDownPopup(entt::entity ddEntity)
+{
+    auto* dropDown = Registry::TryGet<components::DropDown>(ddEntity);
+    if (dropDown == nullptr || dropDown->options.empty()) return;
+
+    // 找到窗口根节点，弹出层挂在其下以获得正确的绝对坐标空间
+    const entt::entity windowRoot = FindWindowRoot(ddEntity);
+    if (windowRoot == entt::null) return;
+
+    // 计算 dropdown 的屏幕绝对矩形
+    const Rect ddRect = ui::utils::GetEntityRect(ddEntity);
+
+    constexpr float ITEM_H   = 26.0F;
+    constexpr float ITEM_PAD = 6.0F;   // 文字左侧内边距
+    const float popupW = ddRect.width();
+    const float popupH = ITEM_H * static_cast<float>(dropDown->options.size());
+
+    // 创建弹出面板
+    const auto popup = CreateBaseWidget("__dd_popup__");
+    auto& popupPos = Registry::Get<components::Position>(popup);
+    popupPos.value          = {ddRect.x(), ddRect.y() + ddRect.height()};
+    popupPos.positionPolicy = policies::Position::Absolute;
+
+    auto& popupSize = Registry::Get<components::Size>(popup);
+    popupSize.sizePolicy = policies::Size::Fixed;
+    popupSize.size       = {popupW, popupH};
+
+    auto& popupBg = Registry::Emplace<components::Background>(popup);
+    popupBg.color        = Color{0.13F, 0.13F, 0.18F, 0.97F};
+    popupBg.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
+    popupBg.enabled      = policies::Feature::Enabled;
+
+    auto& popupBorder = Registry::Emplace<components::Border>(popup);
+    popupBorder.color        = Color{0.35F, 0.35F, 0.50F, 1.0F};
+    popupBorder.thickness    = 1.0F;
+    popupBorder.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
+    popupBorder.enabled      = policies::Feature::Enabled;
+
+    Registry::Emplace<components::ZOrderIndex>(popup).value = 1000;
+
+    auto& popupLayout = Registry::Emplace<components::LayoutInfo>(popup);
+    popupLayout.direction = policies::LayoutDirection::VERTICAL;
+    popupLayout.alignment = policies::Alignment::TOP_LEFT;
+
+    // 为每个选项创建按钮
+    const int optCount = static_cast<int>(dropDown->options.size());
+    for (int idx = 0; idx < optCount; ++idx)
+    {
+        const std::string optText = dropDown->options[static_cast<std::size_t>(idx)];
+        const bool isSelected     = (idx == dropDown->selectedIndex);
+
+        const auto optBtn = CreateBaseWidget("");
+        Registry::Emplace<components::Clickable>(optBtn);
+
+        auto& btnText = Registry::Emplace<components::Text>(optBtn);
+        btnText.content   = optText;
+        btnText.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
+
+        auto& btnSize = Registry::Get<components::Size>(optBtn);
+        btnSize.sizePolicy = policies::Size::Fixed;
+        btnSize.size       = {popupW, ITEM_H};
+
+        auto& btnPad = Registry::GetOrEmplace<components::Padding>(optBtn);
+        btnPad.values = {0.0F, 0.0F, 0.0F, ITEM_PAD};
+
+        // 高亮当前选中项
+        if (isSelected)
+        {
+            auto& selBg = Registry::Emplace<components::Background>(optBtn);
+            selBg.color   = Color{0.25F, 0.45F, 0.80F, 0.40F};
+            selBg.enabled = policies::Feature::Enabled;
+        }
+        Registry::Emplace<components::Hoverable>(optBtn);
+
+        // 点击选项：更新选中值、关闭弹出层
+        Registry::Get<components::Clickable>(optBtn).onClick = [ddEntity, idx]()
+        {
+            auto* ddComp = Registry::TryGet<components::DropDown>(ddEntity);
+            if (ddComp == nullptr) return;
+            ddComp->selectedIndex = idx;
+            if (auto* textComp = Registry::TryGet<components::Text>(ddEntity))
+            {
+                textComp->content = ddComp->selectedText();
+            }
+            if (ddComp->onChanged)
+            {
+                ddComp->onChanged(idx);
+            }
+            ui::utils::MarkVisualChanged(ddEntity);
+            CloseDropDownPopup(ddEntity);
+        };
+
+        hierarchy::AddChild(popup, optBtn);
+    }
+
+    hierarchy::AddChild(windowRoot, popup);
+    dropDown->popupEntity = popup;
+    dropDown->open        = true;
+    ui::utils::MarkLayoutAndVisualChanged(windowRoot);
+}
+
+} // namespace (DropDown helpers)
+// NOLINTEND(readability-*,misc-*)
+
+entt::entity CreateDropDown(const std::vector<std::string>& options, int selectedIndex, std::string_view alias)
+{
+    auto entity = CreateBaseWidget(alias);
+    Registry::Emplace<components::DropDownTag>(entity);
+    auto& dropDown = Registry::Emplace<components::DropDown>(entity);
+    dropDown.options       = options;
+    dropDown.selectedIndex = selectedIndex;
+    // 显示当前选中项文字
+    auto& text = Registry::Emplace<components::Text>(entity);
+    text.content   = dropDown.selectedText();
+    text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
+    auto& padding = Registry::GetOrEmplace<components::Padding>(entity);
+    padding.values = {0.0F, 20.0F, 0.0F, 6.0F}; // 右侧为箭头留 20px
+    auto& clickable = Registry::Emplace<components::Clickable>(entity);
+    clickable.onClick = [entity]()
+    {
+        auto* ddComp = Registry::TryGet<components::DropDown>(entity);
+        if (ddComp == nullptr) return;
+        if (ddComp->open)
+        {
+            CloseDropDownPopup(entity);
+        }
+        else
+        {
+            OpenDropDownPopup(entity);
+        }
+    };
+    auto& size = Registry::Get<components::Size>(entity);
+    size.sizePolicy = policies::Size::Auto;
+    size.size       = {140.0F, 26.0F};
     return entity;
 }
 
@@ -650,6 +882,52 @@ entt::entity CreateProgressBar(std::string_view alias)
     Registry::Emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
     Registry::Emplace<components::ProgressBarTag>(entity);
+    return entity;
+}
+
+entt::entity CreateImageFromPath(std::string_view path,
+                                 float defaultWidth,
+                                 float defaultHeight,
+                                 std::string_view alias)
+{
+    auto entity = CreateBaseWidget(alias);
+    Registry::Emplace<components::ImageTag>(entity);
+    Registry::Emplace<components::Image>(entity);
+    Registry::Emplace<components::ImageSource>(entity, std::string(path));
+    auto& size = Registry::Get<components::Size>(entity);
+    if (defaultWidth > 0.0F || defaultHeight > 0.0F)
+    {
+        size.size = {defaultWidth, defaultHeight};
+        size.sizePolicy = policies::Size::Fixed;
+    }
+    Registry::Emplace<components::LayoutInfo>(entity);
+    utils::MarkLayoutAndVisualChanged(entity);
+    return entity;
+}
+
+entt::entity CreateCanvas(float width, float height, std::string_view alias)
+{
+    auto entity = CreateBaseWidget(alias);
+    Registry::Emplace<components::CanvasTag>(entity);
+    Registry::Emplace<components::CanvasDrawList>(entity);
+    auto& size = Registry::Get<components::Size>(entity);
+    size.size = {width, height};
+    size.sizePolicy = policies::Size::Fixed;
+    Registry::Emplace<components::LayoutInfo>(entity);
+    utils::MarkLayoutAndVisualChanged(entity);
+    return entity;
+}
+
+entt::entity CreateTable(int columns, std::string_view alias)
+{
+    auto entity = CreateBaseWidget(alias);
+    Registry::Emplace<components::TableTag>(entity);
+    auto& info = Registry::Emplace<components::TableInfo>(entity);
+    info.columnCount = columns;
+    auto& size = Registry::Get<components::Size>(entity);
+    size.sizePolicy = policies::Size::FillParent;
+    Registry::Emplace<components::LayoutInfo>(entity);
+    utils::MarkLayoutAndVisualChanged(entity);
     return entity;
 }
 

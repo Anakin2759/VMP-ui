@@ -36,7 +36,7 @@ struct FrameContext
 struct TimerTask
 {
     uint32_t id;                          // 任务ID
-    std::move_only_function<void()> func; // 任务函数
+    VoidCallback func;                    // 任务函数
     uint32_t intervalMs;                  // 间隔时间（毫秒）
     uint32_t remainingMs;                 // 剩余时间（毫秒）
     bool singleShot;                      // 是否单次执行

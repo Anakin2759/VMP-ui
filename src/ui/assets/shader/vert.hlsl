@@ -12,8 +12,12 @@ PSInput main_vs(VSInput input)
     float2 ndc = float2((input.position.x / screen_size.x) * 2.0f - 1.0f,
                         1.0f - (input.position.y / screen_size.y) * 2.0f);
 
-    output.sv_position = float4(ndc, 0.0f, 1.0f);
-    output.texcoord = input.texcoord;
-    output.color = input.color;
+    output.sv_position  = float4(ndc, 0.0f, 1.0f);
+    output.texcoord     = input.texcoord;
+    output.color        = input.color;
+    output.rect_size    = input.rect_size;
+    output.radius       = input.radius;
+    output.shadow_params = input.shadow_params;
+    output.mode_params  = input.mode_params;
     return output;
 }

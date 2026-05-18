@@ -8,6 +8,8 @@
 #include "src/ui/common/Events.hpp"
 #include "src/ui/common/GlobalContext.hpp"
 #include "src/ui/core/TaskChain.hpp"
+#include "src/ui/core/RuntimeFacade.hpp"
+#include "src/ui/core/UiRuntime.hpp"
 #include "src/ui/singleton/Dispatcher.hpp"
 #include "src/ui/singleton/Registry.hpp"
 
@@ -81,26 +83,21 @@ struct EventRecorder
 class TaskChainTest : public ::testing::Test
 {
 protected:
+    UiRuntime m_runtime;
+    std::unique_ptr<UiRuntimeScope> m_scope;
+
     void SetUp() override
     {
-        Registry::Clear();
-        Dispatcher::Update();
-
-        if (auto* frameContext = Registry::ctx().find<globalcontext::FrameContext>())
-        {
-            frameContext->intervalMs = 0;
-            frameContext->frameSlot = 0;
-        }
-        else
-        {
-            Registry::ctx().emplace<globalcontext::FrameContext>();
-        }
+        m_scope = std::make_unique<UiRuntimeScope>(m_runtime);
+        auto& frame = RuntimeFacade::current().ensureContext<globalcontext::FrameContext>();
+        frame.intervalMs = 0;
+        frame.frameSlot = 0;
     }
 
     void TearDown() override
     {
         Dispatcher::Update();
-        Registry::Clear();
+        m_scope.reset();
     }
 };
 

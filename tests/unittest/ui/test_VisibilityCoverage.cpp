@@ -17,8 +17,11 @@ namespace ui::tests
 class VisibilityTest : public ::testing::Test
 {
 protected:
-    void SetUp() override { Registry::Clear(); }
-    void TearDown() override { Registry::Clear(); }
+    UiRuntime m_runtime;
+    std::unique_ptr<UiRuntimeScope> m_scope;
+
+    void SetUp() override { m_scope = std::make_unique<UiRuntimeScope>(m_runtime); }
+    void TearDown() override { m_scope.reset(); }
 };
 
 // ===================== Show / Hide =====================

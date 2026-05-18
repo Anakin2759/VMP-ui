@@ -236,7 +236,7 @@ components::VerticalScrollbarGeometry GetVerticalScrollbarGeometry(::entt::entit
     return geometry;
 }
 
-void InvokeTask(std::move_only_function<void()> func)
+void InvokeTask(VoidCallback func)
 {
     systems::TimerSystem::addTask(0, std::move(func), true);
 }
@@ -246,7 +246,7 @@ void InvokeTask(std::move_only_function<void()> func)
  * @param func 任务函数
  * @return 任务句柄
  */
-TaskHandle TimerCallback(uint32_t interval, std::move_only_function<void()> func)
+TaskHandle TimerCallback(uint32_t interval, VoidCallback func)
 {
     return systems::TimerSystem::addTask(interval, std::move(func));
 }

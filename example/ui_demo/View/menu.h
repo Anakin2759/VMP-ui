@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../../src/ui/ui/ui.hpp"
+#include <ui.hpp>
 
 #include "Logging.hpp"
 #include "Mainwindow.h"

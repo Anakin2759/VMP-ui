@@ -41,12 +41,13 @@ void SetupCustomTitleBar(SDL_Window* sdlWindow, int borderWidth = 6);
  * 让 GPU 渲染的 alpha 通道控制窗口透明度。
  * 配合清屏色 {0,0,0,0}，可实现圆角外区域透明。
  *
- * - Windows: DwmExtendFrameIntoClientArea 全客户区扩展
+ * - Windows: DwmExtendFrameIntoClientArea 全客户区扩展 + WS_EX_NOREDIRECTIONBITMAP + SetWindowRgn
  * - Linux: 不需要额外操作（由 compositor 处理）
  *
  * @param sdlWindow SDL窗口指针
+ * @param cornerRadius 圆角半径（像素），用于 SetWindowRgn 层裁剪；0 则不裁剪
  */
-void EnableTransparency(SDL_Window* sdlWindow);
+void EnableTransparency(SDL_Window* sdlWindow, int cornerRadius = 8);
 
 /**
  * @brief 一次性完成自绘窗口所需的全部平台设置
@@ -55,13 +56,14 @@ void EnableTransparency(SDL_Window* sdlWindow);
  *
  * @param sdlWindow SDL窗口指针
  * @param borderWidth 边缘缩放命中区域宽度（像素）
+ * @param cornerRadius 圆角半径（像素），传入 EnableTransparency 用于 SetWindowRgn
  */
-inline void InitCustomWindow(SDL_Window* sdlWindow, int borderWidth = 6)
+inline void InitCustomWindow(SDL_Window* sdlWindow, int borderWidth = 6, int cornerRadius = 8)
 {
     // 先设置标题栏以确保正确的窗口样式，再启用透明合成
     SetupCustomTitleBar(sdlWindow, borderWidth);
-    // Windows 需要 DWM 扩展帧以支持 GPU alpha，Linux compositing 原生支持
-    EnableTransparency(sdlWindow);
+    // Windows 需要 DWM 扩展帧 + WS_EX_NOREDIRECTIONBITMAP + SetWindowRgn，以支持 GPU alpha，并充分圆角全透明
+    EnableTransparency(sdlWindow, cornerRadius);
 }
 
 } // namespace ui::platform

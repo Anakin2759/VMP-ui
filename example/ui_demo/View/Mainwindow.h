@@ -4,8 +4,13 @@
  * @file Mainwindow.h
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-02-24
- * @version 0.1
- * @brief 主窗口界面定义
+ * @version 0.2
+ * @brief 主窗口界面——全套控件演示
+ *
+ * 覆盖控件：Button（4种状态）/ CheckBox / LineEdit（普通+密码）/
+ *            TextEdit（多行）/ ProgressBar / Slider（H+V）/
+ *            ScrollArea / Canvas（Line/Rect/FilledRect/Circle）/
+ *            Table / TextBrowser
  *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
@@ -16,7 +21,7 @@
 
 #include <string>
 
-#include "../../../src/ui/ui/ui.hpp"
+#include <ui.hpp>
 
 #include "Logging.hpp"
 
@@ -24,203 +29,382 @@ namespace example::ui_demo::view
 {
 using namespace ui::chains; // 引入 DSL
 
+// ─────────────────────────────────────────────────────────────
+// 内部辅助：创建带样式的节标题 Label
+// ─────────────────────────────────────────────────────────────
+namespace detail
+{
+inline entt::entity MakeSectionTitle(const std::string& text, const std::string& alias)
+{
+    auto lbl = ui::factory::CreateLabel(text, alias);
+    lbl | TextColor({1.0F, 0.85F, 0.5F, 1.0F}) | FontSize(14.0F)
+        | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 22.0F)
+        | TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::VCENTER);
+    return lbl;
+}
+} // namespace detail
+
 /**
- * @brief 创建主窗口（空窗口，点击开始游戏后显示）
+ * @brief 创建主窗口（全套控件演示）
  */
 inline void CreateMainWindow() // NOLINT
 {
-    auto gameWindow = ui::factory::CreateWindow("Game", "gameWindow");
+    // ══════════════════════════════════════════════════════════
+    // 主窗口
+    // ══════════════════════════════════════════════════════════
+    auto gameWindow = ui::factory::CreateWindow("UI 控件全集演示", "gameWindow");
 
     gameWindow | WindowFlag(ui::policies::WindowFlag::Default) | Size(1200.0F, 800.0F) |
         BackgroundColor({0.1F, 0.1F, 0.12F, 1.0F}) | BorderRadius(4.0F) |
         LayoutDirection(ui::policies::LayoutDirection::VERTICAL) | Spacing(10.0F) | Padding(10.0F);
 
-    // ===========================================
-    // 控件测试区域
-    // ===========================================
-    auto controlsTestPanel = ui::factory::CreateVBoxLayout("controlsTestPanel");
-    controlsTestPanel | BackgroundColor({0.06F, 0.06F, 0.09F, 0.85F}) | BorderRadius(6.0F) |
-        BorderColor({0.25F, 0.25F, 0.32F, 0.9F}) | BorderThickness(1.0F) |
-        SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 360.0F) | Padding(10.0F) |
-        Spacing(8.0F);
+    gameWindow | WindowFlag(ui::policies::WindowFlag::Default) | Size(1200.0F, 800.0F)
+               | BackgroundColor({0.10F, 0.10F, 0.12F, 1.0F}) | BorderRadius(4.0F)
+               | LayoutDirection(ui::policies::LayoutDirection::VERTICAL) | Spacing(8.0F) | Padding(8.0F);
 
-    auto testTitle = ui::factory::CreateLabel("UI 控件测试区", "testTitle");
-    testTitle | TextColor({1.0F, 0.9F, 0.6F, 1.0F}) | FontSize(18.0F) |
-        TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::VCENTER);
-    controlsTestPanel | AddChild(testTitle);
+    // 公共面板外观 — 可通过 Chain 组合复用
+    auto panelStyle = BackgroundColor({0.06F, 0.06F, 0.09F, 0.85F}) | BorderRadius(6.0F)
+                    | BorderColor({0.25F, 0.25F, 0.32F, 0.9F}) | BorderThickness(1.0F)
+                    | Padding(8.0F) | Spacing(5.0F);
 
-    auto buttonRow = ui::factory::CreateHBoxLayout("buttonRow");
-    buttonRow | Spacing(8.0F) | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 36.0F);
+    // ══════════════════════════════════════════════════════════
+    // 行 1：输入控件（左 530px） ┃ Canvas 绘图（右 fill）
+    //        高度固定 340px
+    // ══════════════════════════════════════════════════════════
+    auto row1 = ui::factory::CreateHBoxLayout("row1");
+    row1 | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 340.0F) | Spacing(8.0F);
+    gameWindow | AddChild(row1);
 
-    auto testButton = ui::factory::CreateButton("测试按钮", "testButton");
-    testButton | FixedSize(120.0F, 32.0F) | BackgroundColor({0.2F, 0.5F, 0.85F, 1.0F}) | BorderRadius(4.0F) |
-        BorderColor({0.3F, 0.65F, 1.0F, 1.0F}) | BorderThickness(1.0F) | OnClick([]() { ::example::ui_demo::LogInfo("测试按钮点击"); });
-
-    auto testCheckBox = ui::factory::CreateCheckBox("复选框(占位)", false, "testCheckBox");
-    testCheckBox | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill) |
-        BackgroundColor({0.14F, 0.14F, 0.17F, 0.9F}) | BorderRadius(4.0F) | BorderColor({0.3F, 0.3F, 0.35F, 1.0F}) |
-        BorderThickness(1.0F) | Padding(8.0F) |
-        TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::VCENTER);
-
-    buttonRow | AddChild(testButton) | AddChild(testCheckBox);
-    controlsTestPanel | AddChild(buttonRow);
-
-    auto testLineEdit = ui::factory::CreateLineEdit("", "输入测试文本...", "testLineEdit");
-    testLineEdit | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 34.0F) |
-        BackgroundColor({0.15F, 0.15F, 0.18F, 0.95F}) | BorderRadius(4.0F) | BorderColor({0.35F, 0.35F, 0.4F, 1.0F}) |
-        BorderThickness(1.0F) | Padding(8.0F) | FontSize(13.0F);
-    controlsTestPanel | AddChild(testLineEdit);
-
-    auto progressBar = ui::factory::CreateProgressBar("testProgress");
-    progressBar | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 16.0F) |
-        ProgressValue(0.35F) | ProgressFillColor({0.2F, 0.75F, 0.45F, 1.0F}) |
-        ProgressBackgroundColor({0.2F, 0.2F, 0.24F, 1.0F}) | ProgressLabel(ui::policies::LabelVisibility::Visible);
-    controlsTestPanel | AddChild(progressBar);
-
-    auto sliderRow = ui::factory::CreateHBoxLayout("sliderRow");
-    sliderRow | Spacing(8.0F) | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 120.0F);
-
-    auto horizontalSlider = ui::factory::CreateSlider("horizontalSlider");
-    horizontalSlider | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 28.0F) |
-        SliderRange(0.0F, 100.0F) | SliderValue(35.0F) | SliderStep(5.0F) |
-        OnSliderValueChanged(
-            [progressBar](float value)
-            {
-                progressBar | ProgressValue(value / 100.0F);
-                ::example::ui_demo::LogInfo("水平滑块值: {}", value);
-            });
-
-    auto verticalSlider = ui::factory::CreateSlider("verticalSlider");
-    verticalSlider | SliderOrientation(ui::policies::Orientation::Vertical) | SliderRange(0.0F, 100.0F) |
-        SliderValue(60.0F) | FixedSize(28.0F, 110.0F);
-
-    auto sliderColumn = ui::factory::CreateVBoxLayout("sliderColumn");
-    sliderColumn | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill);
-    sliderColumn | AddChild(horizontalSlider);
-
-    sliderRow | AddChild(sliderColumn) | AddChild(verticalSlider);
-    controlsTestPanel | AddChild(sliderRow);
-
-    auto testScroll = ui::factory::CreateScrollArea("testScroll");
-    testScroll | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill) |
-        BackgroundColor({0.1F, 0.1F, 0.13F, 0.7F}) | BorderRadius(4.0F) | BorderColor({0.3F, 0.3F, 0.35F, 0.9F}) |
-        BorderThickness(1.0F) | Padding(6.0F) | ScrollMode(ui::policies::Scroll::Vertical) |
-        ScrollBarPolicy(ui::policies::ScrollBar::Draggable | ui::policies::ScrollBar::AutoHide) |
-        ScrollAnchor(ui::policies::ScrollAnchor::Top) | ScrollSpeed(20.0F);
-
-    auto scrollContent = ui::factory::CreateVBoxLayout("scrollContent");
-    scrollContent | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::Auto) | Spacing(4.0F);
-
-    for (int i = 1; i <= 12; ++i)
+    // ── 左：输入控件面板 ──────────────────────────────────────
     {
-        auto item = ui::factory::CreateLabel("滚动项 " + std::to_string(i), "scrollItem" + std::to_string(i));
-        item | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 22.0F) |
-            BackgroundColor({0.16F, 0.16F, 0.2F, 0.8F}) | BorderRadius(3.0F) | Padding(6.0F) |
-            TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::VCENTER) | FontSize(12.0F);
-        scrollContent | AddChild(item);
+        auto inputPanel = ui::factory::CreateVBoxLayout("inputPanel");
+        inputPanel | panelStyle | FixedSize(530.0F, 340.0F);
+        row1 | AddChild(inputPanel);
+
+        inputPanel | AddChild(detail::MakeSectionTitle("输入控件", "inputTitle"));
+
+        // 按钮行：主要 / 警告 / 危险 / 幽灵 / 禁用
+        auto btnRow = ui::factory::CreateHBoxLayout("btnRow");
+        btnRow | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 32.0F) | Spacing(5.0F);
+
+        auto primaryBtn = ui::factory::CreateButton("主要", "primaryBtn");
+        primaryBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.20F, 0.50F, 0.85F, 1.0F}) | BorderRadius(5.0F)
+                   | BorderColor({0.30F, 0.65F, 1.0F, 1.0F}) | BorderThickness(1.0F)
+                   | OnClick([]() { ::example::ui_demo::LogInfo("主要按钮"); });
+
+        auto warnBtn = ui::factory::CreateButton("警告", "warnBtn");
+        warnBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.75F, 0.45F, 0.10F, 1.0F}) | BorderRadius(5.0F)
+                | BorderColor({1.0F, 0.65F, 0.20F, 1.0F}) | BorderThickness(1.0F)
+                | OnClick([]() { ::example::ui_demo::LogInfo("警告按钮"); });
+
+        auto dangerBtn = ui::factory::CreateButton("危险", "dangerBtn");
+        dangerBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.65F, 0.18F, 0.18F, 1.0F}) | BorderRadius(5.0F)
+                  | BorderColor({0.85F, 0.30F, 0.30F, 1.0F}) | BorderThickness(1.0F)
+                  | OnClick([]() { ::example::ui_demo::LogInfo("危险按钮"); });
+
+        auto ghostBtn = ui::factory::CreateButton("幽灵", "ghostBtn");
+        ghostBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.0F, 0.0F, 0.0F, 0.0F}) | BorderRadius(5.0F)
+                 | BorderColor({0.60F, 0.60F, 0.65F, 1.0F}) | BorderThickness(1.5F)
+                 | TextColor({0.80F, 0.80F, 0.85F, 1.0F})
+                 | OnClick([]() { ::example::ui_demo::LogInfo("幽灵按钮"); });
+
+        auto disabledBtn = ui::factory::CreateButton("禁用", "disabledBtn");
+        disabledBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.25F, 0.25F, 0.28F, 0.6F}) | BorderRadius(5.0F)
+                    | BorderColor({0.35F, 0.35F, 0.38F, 0.5F}) | BorderThickness(1.0F) | ButtonEnabled(false);
+
+        btnRow | AddChild(primaryBtn) | AddChild(warnBtn) | AddChild(dangerBtn)
+               | AddChild(ghostBtn) | AddChild(disabledBtn);
+        inputPanel | AddChild(btnRow);
+
+        // CheckBox 行
+        auto cbRow = ui::factory::CreateHBoxLayout("cbRow");
+        cbRow | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 26.0F) | Spacing(10.0F);
+
+        auto cb1 = ui::factory::CreateCheckBox("选项A（选中）", true,  "cb1");
+        auto cb2 = ui::factory::CreateCheckBox("选项B",         false, "cb2");
+        auto cb3 = ui::factory::CreateCheckBox("选项C",         false, "cb3");
+        for (auto cbEnt : {cb1, cb2, cb3})
+        {
+            cbEnt | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill) | BorderRadius(3.0F);
+        }
+        cbRow | AddChild(cb1) | AddChild(cb2) | AddChild(cb3);
+        inputPanel | AddChild(cbRow);
+
+        // 单行文本框
+        auto lineEdit = ui::factory::CreateLineEdit("", "单行文本...", "demoLineEdit");
+        lineEdit | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 30.0F)
+                 | BackgroundColor({0.15F, 0.15F, 0.18F, 0.95F}) | BorderRadius(4.0F)
+                 | BorderColor({0.35F, 0.35F, 0.42F, 1.0F}) | BorderThickness(1.0F) | Padding(6.0F) | FontSize(13.0F)
+                 | OnTextChanged([](const std::string& /*v*/) { ::example::ui_demo::LogInfo("LineEdit changed"); });
+        inputPanel | AddChild(lineEdit);
+
+        // 密码框
+        auto pwdEdit = ui::factory::CreateLineEdit("", "密码...", "pwdEdit");
+        pwdEdit | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 30.0F)
+                | BackgroundColor({0.15F, 0.15F, 0.18F, 0.95F}) | BorderRadius(4.0F)
+                | BorderColor({0.35F, 0.35F, 0.42F, 1.0F}) | BorderThickness(1.0F) | Padding(6.0F) | FontSize(13.0F)
+                | PasswordMode(ui::policies::TextFlag::Password);
+        inputPanel | AddChild(pwdEdit);
+
+        // 多行文本框（TextEdit）
+        auto multiEdit = ui::factory::CreateTextEdit("多行文本输入（TextEdit）...", true, "multiEdit");
+        multiEdit | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 68.0F)
+                  | BackgroundColor({0.12F, 0.12F, 0.16F, 0.95F}) | BorderRadius(4.0F)
+                  | BorderColor({0.30F, 0.30F, 0.38F, 1.0F}) | BorderThickness(1.0F) | Padding(6.0F) | FontSize(12.0F)
+                  | TextWordWrap(ui::policies::TextWrap::Char) | TextWrapWidth(490.0F);
+        inputPanel | AddChild(multiEdit);
+
+        // ProgressBar（与水平 Slider 联动）
+        auto progressBar = ui::factory::CreateProgressBar("demoProgress");
+        progressBar | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 16.0F)
+                    | ProgressValue(0.40F) | ProgressFillColor({0.20F, 0.75F, 0.45F, 1.0F})
+                    | ProgressBackgroundColor({0.20F, 0.20F, 0.24F, 1.0F}) | BorderRadius(8.0F)
+                    | ProgressLabel(ui::policies::LabelVisibility::Visible);
+        inputPanel | AddChild(progressBar);
+
+        // 水平 Slider（控制 ProgressBar）
+        auto hSlider = ui::factory::CreateSlider("hSlider");
+        hSlider | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 22.0F)
+                | SliderRange(0.0F, 100.0F) | SliderValue(40.0F) | SliderStep(1.0F)
+                | OnSliderValueChanged([progressBar](float val) { progressBar | ProgressValue(val / 100.0F); });
+        inputPanel | AddChild(hSlider);
+
+        // 垂直 Slider（独立演示，嵌入小行）
+        auto vRow = ui::factory::CreateHBoxLayout("vSliderRow");
+        vRow | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 36.0F) | Spacing(6.0F);
+
+        auto vLabel = ui::factory::CreateLabel("垂直 Slider:", "vSliderLabel");
+        vLabel | FixedSize(90.0F, 36.0F) | FontSize(12.0F) | TextColor({0.70F, 0.70F, 0.75F, 1.0F})
+               | TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::VCENTER);
+
+        auto vSlider = ui::factory::CreateSlider("vSlider");
+        vSlider | SliderOrientation(ui::policies::Orientation::Vertical)
+                | SliderRange(0.0F, 100.0F) | SliderValue(60.0F) | FixedSize(22.0F, 34.0F);
+
+        vRow | AddChild(vLabel) | AddChild(vSlider);
+        inputPanel | AddChild(vRow);
     }
 
-    testScroll | AddChild(scrollContent);
-    controlsTestPanel | AddChild(testScroll);
-
-    gameWindow | AddChild(controlsTestPanel);
-
-    // 填充空白区域
-    auto mainSpacer = ui::factory::CreateSpacer(1, "mainSpacer");
-    gameWindow | AddChild(mainSpacer);
-
-    // ===========================================
-    // 聊天区域 (左下角游戏风格)
-    // ===========================================
-    // 1. 聊天总容器 (垂直布局：上面消息，下面输入)
-    auto chatContainer = ui::factory::CreateVBoxLayout("chatContainer");
-
-    chatContainer | BackgroundColor({0.05F, 0.05F, 0.08F, 0.8F}) | BorderRadius(4.0F) | FixedSize(500.0F, 250.0F) |
-        Spacing(5.0F) | Padding(5.0F);
-
-    // 2. 消息显示区域 (占用大部分垂直空间)
-    // 使用 TextBrowser（只读多行）展示消息
-    const std::string initialMessages = "[System] Welcome to PestManKill!\n[System] Press Enter to send message.";
-    auto messageArea = ui::factory::CreateTextBrowser(initialMessages, "", "messageArea");
-
-    messageArea | SizePolicy(ui::policies::Size::FillParent) | TextContent(initialMessages) |
-        TextWordWrap(ui::policies::TextWrap::Char) | TextWrapWidth(490.0F) |
-        TextAlignment(ui::policies::Alignment::TOP_LEFT) | Padding(4.0F) | BackgroundColor({0.08F, 0.08F, 0.1F, 0.5F}) |
-        BorderRadius(3.0F) | BorderColor({0.3F, 0.3F, 0.35F, 0.8F}) | BorderThickness(1.0F) | FontSize(13.0F);
-
-    chatContainer | AddChild(messageArea);
-
-    // 3. 输入区域 (底部水平排列)
-    auto inputRow = ui::factory::CreateHBoxLayout("inputRow");
-
-    inputRow | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 30.0F) | Spacing(5.0F);
-
-    // 输入框 - 填充剩余宽度
-    auto chatInput = ui::factory::CreateLineEdit("", "Say something...", "chatInput");
-
-    // 发送按钮 - 固定宽度 (使用回车图标)
-    auto sendBtn = ui::factory::CreateButton("", "sendBtn");
-
-    // 发送消息的共享逻辑
-    auto sendMessage = [chatInput, messageArea]()
+    // ── 右：Canvas 绘图 ───────────────────────────────────────
     {
-        // 获取输入框内容
-        std::string content = ui::text::GetTextEditContent(chatInput);
-        if (!content.empty())
+        auto canvasPanel = ui::factory::CreateVBoxLayout("canvasPanel");
+        canvasPanel | panelStyle | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill);
+        row1 | AddChild(canvasPanel);
+
+        canvasPanel | AddChild(detail::MakeSectionTitle(
+            "Canvas 绘图（Line / Rect / FilledRect / Circle）", "canvasTitle"));
+
+        auto canvas = ui::factory::CreateCanvas(640.0F, 290.0F, "demoCanvas");
+        canvas | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill)
+               | BackgroundColor({0.08F, 0.08F, 0.11F, 1.0F}) | BorderRadius(4.0F)
+               | BorderColor({0.25F, 0.25F, 0.32F, 0.9F}) | BorderThickness(1.0F);
+
+        // 对角交叉线（绿色）
+        canvas | CanvasDrawLine({10.0F,  10.0F}, {200.0F,  80.0F}, {0.30F, 0.80F, 0.40F, 1.0F}, 2.0F)
+               | CanvasDrawLine({10.0F,  80.0F}, {200.0F,  10.0F}, {0.30F, 0.80F, 0.40F, 1.0F}, 2.0F);
+
+        // 空心矩形（蓝色）
+        canvas | CanvasDrawRect({220.0F, 10.0F}, {390.0F, 90.0F}, {0.30F, 0.60F, 1.00F, 1.0F}, 2.0F);
+
+        // 填充矩形（红色半透明）
+        canvas | CanvasDrawFilledRect({410.0F, 10.0F}, {580.0F, 90.0F}, {0.80F, 0.30F, 0.30F, 0.8F});
+
+        // 空心圆 + 填充圆（Chain 未封装，直接调用）
+        ui::canvas::DrawCircle(canvas,       {70.0F,  180.0F}, 55.0F, {0.90F, 0.70F, 0.20F, 1.0F}, 2.5F);
+        ui::canvas::DrawFilledCircle(canvas, {230.0F, 180.0F}, 55.0F, {0.40F, 0.30F, 0.80F, 0.85F});
+
+        // 坐标轴参考线（灰色）
+        canvas | CanvasDrawLine({10.0F, 270.0F}, {610.0F, 270.0F}, {0.45F, 0.45F, 0.50F, 0.7F}, 1.0F)
+               | CanvasDrawLine({10.0F,  10.0F}, {  10.0F, 270.0F}, {0.45F, 0.45F, 0.50F, 0.7F}, 1.0F);
+
+        canvasPanel | AddChild(canvas);
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // 行 2：Table（左 fill） ┃ ScrollArea（右 320px）
+    //        高度填充剩余空间
+    // ══════════════════════════════════════════════════════════
+    auto row2 = ui::factory::CreateHBoxLayout("row2");
+    row2 | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill) | Spacing(8.0F);
+    gameWindow | AddChild(row2);
+
+    // ── 左：Table ─────────────────────────────────────────────
+    {
+        auto tablePanel = ui::factory::CreateVBoxLayout("tablePanel");
+        tablePanel | panelStyle | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill);
+        row2 | AddChild(tablePanel);
+
+        tablePanel | AddChild(detail::MakeSectionTitle("Table 表格", "tableTitle"));
+
+        auto dataTable = ui::factory::CreateTable(5, "dataTable");
+        dataTable | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill)
+                  | BackgroundColor({0.10F, 0.10F, 0.13F, 0.9F}) | BorderRadius(4.0F)
+                  | BorderColor({0.28F, 0.28F, 0.35F, 0.9F}) | BorderThickness(1.0F)
+                  | TableColumns(5, {"玩家", "分数", "胜/负", "在线", "操作"})
+                  | TableColumnWidths({180.0F, 90.0F, 80.0F, 120.0F, 120.0F})
+                  | TableAddRow({"玩家一", "1200", "18/5", "", ""})
+                  | TableAddRow({"玩家二", "980",  "12/8", "", ""})
+                  | TableAddRow({"玩家三", "1560", "24/3", "", ""})
+                  | TableAddRow({"玩家四", "740",  "9/11", "", ""})
+                  | TableAddRow({"玩家五", "2100", "30/2", "", ""})
+                  | TableAddRow({"玩家六", "430",  "5/15", "", ""});
+
+        // 在第0行第3列放一个"封禁"按钮，演示 TableSetCellWidget
+        auto banBtn0 = ui::factory::CreateButton("封禁", "banBtn0");
+        banBtn0 | FixedSize(90.0F, 22.0F) | BackgroundColor({0.55F, 0.15F, 0.15F, 1.0F}) | BorderRadius(3.0F)
+                | BorderColor({0.75F, 0.25F, 0.25F, 1.0F}) | BorderThickness(1.0F) | FontSize(11.0F)
+                | OnClick([]() { ::example::ui_demo::LogInfo("封禁: 玩家一"); });
+
+        auto banBtn1 = ui::factory::CreateButton("封禁", "banBtn1");
+        banBtn1 | FixedSize(90.0F, 22.0F) | BackgroundColor({0.55F, 0.15F, 0.15F, 1.0F}) | BorderRadius(3.0F)
+                | BorderColor({0.75F, 0.25F, 0.25F, 1.0F}) | BorderThickness(1.0F) | FontSize(11.0F)
+                | OnClick([]() { ::example::ui_demo::LogInfo("封禁: 玩家二"); });
+
+        // 第3列 — CheckBox：在线状态
+        auto cb0 = ui::factory::CreateCheckBox("", true,  "cb_row0");
+        auto cb1 = ui::factory::CreateCheckBox("", false, "cb_row1");
+        auto cb2 = ui::factory::CreateCheckBox("", true,  "cb_row2");
+        auto cb3 = ui::factory::CreateCheckBox("", false, "cb_row3");
+        auto cb4 = ui::factory::CreateCheckBox("", true,  "cb_row4");
+        auto cb5 = ui::factory::CreateCheckBox("", false, "cb_row5");
+        for (auto cbEnt : {cb0, cb1, cb2, cb3, cb4, cb5})
         {
-            try
+            cbEnt | FixedSize(100.0F, 22.0F);
+        }
+        cb0 | OnCheckBoxChanged([](bool online) { ::example::ui_demo::LogInfo(online ? "玩家一 上线" : "玩家一 下线"); });
+        cb1 | OnCheckBoxChanged([](bool online) { ::example::ui_demo::LogInfo(online ? "玩家二 上线" : "玩家二 下线"); });
+
+        // 第4列 — DropDown：操作
+        const std::vector<std::string> kActions{"选择操作", "封禁", "踢出", "禁言"};
+        auto dd0 = ui::factory::CreateDropDown(kActions, 0, "dd_row0");
+        auto dd1 = ui::factory::CreateDropDown(kActions, 0, "dd_row1");
+        auto dd2 = ui::factory::CreateDropDown(kActions, 0, "dd_row2");
+        auto dd3 = ui::factory::CreateDropDown(kActions, 0, "dd_row3");
+        auto dd4 = ui::factory::CreateDropDown(kActions, 0, "dd_row4");
+        auto dd5 = ui::factory::CreateDropDown(kActions, 0, "dd_row5");
+        for (auto ddEnt : {dd0, dd1, dd2, dd3, dd4, dd5})
+        {
+            ddEnt | FixedSize(110.0F, 22.0F) | BackgroundColor({0.15F, 0.15F, 0.20F, 0.95F})
+                  | BorderRadius(3.0F) | BorderColor({0.35F, 0.35F, 0.45F, 1.0F}) | BorderThickness(1.0F);
+        }
+        dd0 | OnDropDownChanged([](int idx) { ::example::ui_demo::LogInfo("玩家一 操作", idx); });
+        dd1 | OnDropDownChanged([](int idx) { ::example::ui_demo::LogInfo("玩家二 操作", idx); });
+
+        dataTable | TableSetCellWidget(0, 3, cb0) | TableSetCellWidget(1, 3, cb1)
+                  | TableSetCellWidget(2, 3, cb2) | TableSetCellWidget(3, 3, cb3)
+                  | TableSetCellWidget(4, 3, cb4) | TableSetCellWidget(5, 3, cb5)
+                  | TableSetCellWidget(0, 4, dd0) | TableSetCellWidget(1, 4, dd1)
+                  | TableSetCellWidget(2, 4, dd2) | TableSetCellWidget(3, 4, dd3)
+                  | TableSetCellWidget(4, 4, dd4) | TableSetCellWidget(5, 4, dd5);
+        (void)banBtn0; (void)banBtn1; // 封禁按钮已被 DropDown 取代，保留变量避免警告
+
+        tablePanel | AddChild(dataTable);
+    }
+
+    // ── 右：ScrollArea ────────────────────────────────────────
+    {
+        auto scrollPanel = ui::factory::CreateVBoxLayout("scrollPanel");
+        scrollPanel | panelStyle
+                    | Size(320.0F, 0.0F) | SizePolicy(ui::policies::Size::HFixed | ui::policies::Size::VFill);
+        row2 | AddChild(scrollPanel);
+
+        scrollPanel | AddChild(detail::MakeSectionTitle("ScrollArea（20 条）", "scrollTitle"));
+
+        auto scrollArea = ui::factory::CreateScrollArea("demoScroll");
+        scrollArea | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill)
+                   | BackgroundColor({0.10F, 0.10F, 0.13F, 0.7F}) | BorderRadius(4.0F)
+                   | BorderColor({0.28F, 0.28F, 0.35F, 0.9F}) | BorderThickness(1.0F) | Padding(4.0F)
+                   | ScrollMode(ui::policies::Scroll::Vertical)
+                   | ScrollBarPolicy(ui::policies::ScrollBar::Draggable | ui::policies::ScrollBar::AutoHide)
+                   | ScrollAnchor(ui::policies::ScrollAnchor::Top) | ScrollSpeed(20.0F);
+
+        auto scrollContent = ui::factory::CreateVBoxLayout("scrollContent");
+        scrollContent | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::Auto) | Spacing(3.0F);
+
+        for (int i = 1; i <= 20; ++i)
+        {
+            const bool even = (i % 2 == 0);
+            auto item = ui::factory::CreateLabel("条目 " + std::to_string(i), "si" + std::to_string(i));
+            const auto bgColor = even
+                ? ui::Color{0.14F, 0.14F, 0.18F, 0.8F}
+                : ui::Color{0.18F, 0.18F, 0.22F, 0.8F};
+            item | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 22.0F)
+                 | BackgroundColor(bgColor)
+                 | BorderRadius(3.0F) | Padding(4.0F) | FontSize(12.0F)
+                 | TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::VCENTER);
+            scrollContent | AddChild(item);
+        }
+
+        scrollArea | AddChild(scrollContent);
+        scrollPanel | AddChild(scrollArea);
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // 行 3：TextBrowser + LineEdit（聊天示例）
+    //        高度固定 200px
+    // ══════════════════════════════════════════════════════════
+    auto row3 = ui::factory::CreateHBoxLayout("row3");
+    row3 | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 200.0F) | Spacing(8.0F);
+    gameWindow | AddChild(row3);
+
+    {
+        auto chatPanel = ui::factory::CreateVBoxLayout("chatPanel");
+        chatPanel | panelStyle | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill);
+        row3 | AddChild(chatPanel);
+
+        chatPanel | AddChild(detail::MakeSectionTitle(
+            "TextBrowser + LineEdit（聊天示例）", "chatTitle"));
+
+        const std::string initMsg =
+            "[系统] 欢迎使用 UI 控件全集演示！\n[系统] 在下方输入消息后按 Enter 或点击发送。";
+        auto msgArea = ui::factory::CreateTextBrowser(initMsg, "", "msgArea");
+        msgArea | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill) | TextContent(initMsg)
+                | TextWordWrap(ui::policies::TextWrap::Char) | TextWrapWidth(1150.0F)
+                | TextAlignment(ui::policies::Alignment::TOP_LEFT) | Padding(4.0F)
+                | BackgroundColor({0.08F, 0.08F, 0.10F, 0.6F}) | BorderRadius(3.0F)
+                | BorderColor({0.28F, 0.28F, 0.35F, 0.8F}) | BorderThickness(1.0F) | FontSize(13.0F);
+        chatPanel | AddChild(msgArea);
+
+        auto inputRow = ui::factory::CreateHBoxLayout("chatInputRow");
+        inputRow | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 30.0F) | Spacing(5.0F);
+
+        auto chatInput = ui::factory::CreateLineEdit("", "输入消息...", "chatInput");
+        auto sendBtn   = ui::factory::CreateButton("", "sendBtn");
+
+        auto sendMessage = [chatInput, msgArea]()
+        {
+            std::string text = ui::text::GetTextEditContent(chatInput);
+            if (!text.empty())
             {
-                ::example::ui_demo::LogInfo("发送聊天消息: {}", content);
-
-                // 追加新消息到 TextBrowser
-                const std::string fullMsg = "[Me]: " + content;
-                std::string currentHistory = ui::text::GetTextEditContent(messageArea);
-
-                if (!currentHistory.empty())
-                {
-                    currentHistory += "\n";
-                }
-                currentHistory += fullMsg;
-
-                // 更新显示内容
-                ui::text::SetTextEditContent(messageArea, currentHistory);
-                ui::text::SetTextContent(messageArea, currentHistory);
-
-                // 清空输入框
+                std::string history = ui::text::GetTextEditContent(msgArea);
+                if (!history.empty()) history += "\n";
+                history += "[我]: " + text;
+                ui::text::SetTextEditContent(msgArea, history);
+                ui::text::SetTextContent(msgArea, history);
                 ui::text::SetTextEditContent(chatInput, "");
                 ui::text::SetTextContent(chatInput, "");
-
-                // 文本内容变化但尺寸不变，只需标记渲染脏
                 ui::utils::MarkRenderDirty(chatInput);
-                ui::utils::MarkRenderDirty(messageArea);
+                ui::utils::MarkRenderDirty(msgArea);
             }
-            catch (const std::exception& e)
-            {
-                ::example::ui_demo::LogError("Chat Error: {}", e.what());
-            }
-        }
-    };
+        };
 
-    chatInput | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) |
-        BackgroundColor({0.15F, 0.15F, 0.18F, 0.9F}) | BorderRadius(3.0F) | BorderColor({0.3F, 0.3F, 0.35F, 1.0F}) |
-        BorderThickness(1.0F) | FontSize(13.0F) | OnSubmit(sendMessage);
+        chatInput | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill)
+                  | BackgroundColor({0.15F, 0.15F, 0.18F, 0.9F}) | BorderRadius(3.0F)
+                  | BorderColor({0.30F, 0.30F, 0.35F, 1.0F}) | BorderThickness(1.0F) | FontSize(13.0F)
+                  | OnSubmit(sendMessage);
 
-    sendBtn | Icon("MaterialSymbols", 0xe31b, ui::policies::IconFlag::Default, 20.0F, 0.0F) |
-        SizePolicy(ui::policies::Size::HFixed | ui::policies::Size::VFill) | Size(40.0F, 0.0F) |
-        BackgroundColor({0.2F, 0.5F, 0.8F, 1.0F}) | BorderRadius(4.0F) | BorderColor({0.3F, 0.6F, 1.0F, 1.0F}) |
-        BorderThickness(1.0F) | OnClick(sendMessage);
+        sendBtn | Icon("MaterialSymbols", 0xe31b, ui::policies::IconFlag::Default, 20.0F, 0.0F)
+                | SizePolicy(ui::policies::Size::HFixed | ui::policies::Size::VFill) | Size(40.0F, 0.0F)
+                | BackgroundColor({0.20F, 0.50F, 0.80F, 1.0F}) | BorderRadius(4.0F)
+                | BorderColor({0.30F, 0.60F, 1.0F, 1.0F}) | BorderThickness(1.0F) | OnClick(sendMessage);
 
-    inputRow | AddChild(chatInput) | AddChild(sendBtn);
+        inputRow | AddChild(chatInput) | AddChild(sendBtn);
+        chatPanel | AddChild(inputRow);
+    }
 
-    chatContainer | AddChild(inputRow);
-
-    // 将聊天面板添加到主窗口底部
-    gameWindow | AddChild(chatContainer);
-
-    // 显示主窗口（同步尺寸并居中）
+    // 显示主窗口
     gameWindow | Show();
-
-    ::example::ui_demo::LogInfo("主窗口已创建");
+    ::example::ui_demo::LogInfo("主窗口已创建（全套控件演示）");
 }
 
 } // namespace example::ui_demo::view

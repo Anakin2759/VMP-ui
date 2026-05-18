@@ -154,4 +154,56 @@ void SetScrollSpeed(::entt::entity entity, float speed)
     scrollArea.scrollSpeed = std::max(1.0F, speed);
     ui::utils::MarkVisualChanged(entity);
 }
+
+void SetCheckBoxChecked(::entt::entity entity, bool checked)
+{
+    if (!Registry::Valid(entity)) return;
+    auto* checkBox = Registry::TryGet<components::CheckBox>(entity);
+    if (checkBox == nullptr) return;
+    checkBox->checked = checked;
+    ui::utils::MarkVisualChanged(entity);
+}
+
+void SetCheckBoxOnChanged(::entt::entity entity, components::on_event<bool> callback)
+{
+    if (!Registry::Valid(entity)) return;
+    auto* checkBox = Registry::TryGet<components::CheckBox>(entity);
+    if (checkBox == nullptr) return;
+    checkBox->onChanged = std::move(callback);
+}
+
+void SetDropDownOptions(::entt::entity entity, const std::vector<std::string>& options)
+{
+    if (!Registry::Valid(entity)) return;
+    auto* dropDown = Registry::TryGet<components::DropDown>(entity);
+    if (dropDown == nullptr) return;
+    dropDown->options = options;
+    dropDown->selectedIndex = 0;
+    if (auto* text = Registry::TryGet<components::Text>(entity))
+    {
+        text->content = dropDown->selectedText();
+    }
+    ui::utils::MarkVisualChanged(entity);
+}
+
+void SetDropDownSelected(::entt::entity entity, int index)
+{
+    if (!Registry::Valid(entity)) return;
+    auto* dropDown = Registry::TryGet<components::DropDown>(entity);
+    if (dropDown == nullptr) return;
+    dropDown->selectedIndex = index;
+    if (auto* text = Registry::TryGet<components::Text>(entity))
+    {
+        text->content = dropDown->selectedText();
+    }
+    ui::utils::MarkVisualChanged(entity);
+}
+
+void SetDropDownOnChanged(::entt::entity entity, components::on_event<int> callback)
+{
+    if (!Registry::Valid(entity)) return;
+    auto* dropDown = Registry::TryGet<components::DropDown>(entity);
+    if (dropDown == nullptr) return;
+    dropDown->onChanged = std::move(callback);
+}
 } // namespace ui::controls

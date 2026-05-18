@@ -16,6 +16,7 @@
 #include <expected>
 #include <memory>
 #include <system_error>
+#include <vector>
 #include <entt/entt.hpp>
 #include <string>
 #include <string_view>
@@ -98,9 +99,33 @@ entt::entity CreateTextBrowser(std::string_view initialText = "",
  * @return entt::entity 创建的实体
  */
 entt::entity CreateCheckBox(const std::string& label, bool checked = false, std::string_view alias = "");
+entt::entity CreateDropDown(const std::vector<std::string>& options, int selectedIndex = 0, std::string_view alias = "");
 
 // Slider / ProgressBar
 entt::entity CreateSlider(std::string_view alias = "");
 entt::entity CreateProgressBar(std::string_view alias = "");
+
+// Canvas / Table / Image from path
+/**
+ * @brief 通过文件路径创建图像实体（支持 bmp/png/jpeg，首次渲染时懒加载）
+ * @param path         图像文件路径
+ * @param defaultWidth 默认宽度（0 表示自适应）
+ * @param defaultHeight 默认高度（0 表示自适应）
+ */
+entt::entity CreateImageFromPath(std::string_view path,
+                                 float defaultWidth = 0.0F,
+                                 float defaultHeight = 0.0F,
+                                 std::string_view alias = "");
+
+/**
+ * @brief 创建 Canvas 实体（可通过 ui::canvas::Draw* 绘制内容）
+ */
+entt::entity CreateCanvas(float width = 400.0F, float height = 300.0F, std::string_view alias = "");
+
+/**
+ * @brief 创建 Table 实体
+ * @param columns 初始列数
+ */
+entt::entity CreateTable(int columns = 3, std::string_view alias = "");
 
 } // namespace ui::factory

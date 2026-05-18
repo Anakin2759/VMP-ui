@@ -49,6 +49,7 @@ constexpr UINT_PTR SUBCLASS_ID = 1;
 struct SubclassData
 {
     int borderWidth = 6;
+    int cornerRadius = 0; // 0 = 不裁剪圆角；> 0 时在 WM_SIZE 中同步更新 SetWindowRgn
 };
 
 /**
@@ -128,6 +129,23 @@ LRESULT CALLBACK CustomFrameProc(
             return HTCLIENT;
         }
 
+        case WM_SIZE:
+        {
+            // 窗口尺寸变化时同步更新圆角裁剪区域
+            if (data != nullptr && data->cornerRadius > 0)
+            {
+                int winW = static_cast<int>(LOWORD(lParam));
+                int winH = static_cast<int>(HIWORD(lParam));
+                if (winW > 0 && winH > 0)
+                {
+                    HRGN hRgn = CreateRoundRectRgn(0, 0, winW + 1, winH + 1,
+                                                   data->cornerRadius * 2, data->cornerRadius * 2);
+                    SetWindowRgn(hWnd, hRgn, TRUE);
+                }
+            }
+            break; // 继续默认处理
+        }
+
         case WM_DESTROY:
         {
             // 清理子类化数据
@@ -162,10 +180,12 @@ void SetupCustomTitleBar(SDL_Window* sdlWindow, int borderWidth)
     HWND hwnd = GetHwndFromSDL(sdlWindow);
     if (hwnd == nullptr) return;
 
-    // 1. 修改窗口样式：移除标题栏但保留厚边框（缩放手柄）和 Min/Max 按钮功能
+    // 1. 修改窗口样式：保留 WS_CAPTION + WS_THICKFRAME（Win11 伪无边框方案）
+    //    WS_CAPTION 必须保留，否则 DWM 不会应用 Win11 圆角和透明合成，
+    //    导致圆角外区域显示黑色。标题栏区域通过 WM_NCCALCSIZE 返回 0 来隐藏。
     LONG style = GetWindowLongW(hwnd, GWL_STYLE);
-    style &= ~(WS_CAPTION | WS_SYSMENU);                        // 移除标题栏 + 系统菜单
-    style |= (WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX); // 保留边框缩放 + 最小化/最大化
+    style &= ~WS_SYSMENU;                                        // 仅移除系统菜单，保留 WS_CAPTION 给 DWM
+    style |= (WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
     SetWindowLongW(hwnd, GWL_STYLE, style);
 
     // 2. 子类化窗口过程以处理 WM_NCCALCSIZE / WM_NCHITTEST
@@ -176,14 +196,42 @@ void SetupCustomTitleBar(SDL_Window* sdlWindow, int borderWidth)
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-void EnableTransparency(SDL_Window* sdlWindow)
+void EnableTransparency(SDL_Window* sdlWindow, int cornerRadius)
 {
     HWND hwnd = GetHwndFromSDL(sdlWindow);
     if (hwnd == nullptr) return;
 
-    // DWM 帧扩展到整个客户区 → GPU alpha = 窗口透明度
+    // 1. WS_EX_NOREDIRECTIONBITMAP：告知 DWM 直接从 GPU 交换链读取像素（含 alpha 通道），
+    //    而非使用 GDI 重定向位图（后者忽略 alpha）。在支持的驱动/OS 上可使 GPU alpha 生效。
+    LONG exStyle = GetWindowLongW(hwnd, GWL_EXSTYLE);
+    exStyle |= WS_EX_NOREDIRECTIONBITMAP;
+    SetWindowLongW(hwnd, GWL_EXSTYLE, exStyle);
+
+    // 2. DWM 帧扩展到整个客户区 → GPU alpha = 窗口透明度
     const MARGINS margins = {-1, -1, -1, -1};
     DwmExtendFrameIntoClientArea(hwnd, &margins);
+
+    // 3. SetWindowRgn 兜底：在 OS 层裁剪圆角，确保 DWM alpha 合成不可用时也无黑角。
+    //    WM_SIZE 子类化处理器会在窗口缩放时自动同步此区域。
+    if (cornerRadius > 0)
+    {
+        // 将 cornerRadius 写入 SubclassData，供 WM_SIZE 使用
+        DWORD_PTR dwRefData = 0;
+        if (GetWindowSubclass(hwnd, CustomFrameProc, SUBCLASS_ID, &dwRefData) != FALSE && dwRefData != 0)
+        {
+            reinterpret_cast<SubclassData*>(dwRefData)->cornerRadius = cornerRadius; // NOLINT
+        }
+
+        RECT rect;
+        GetWindowRect(hwnd, &rect);
+        int winW = rect.right - rect.left;
+        int winH = rect.bottom - rect.top;
+        if (winW > 0 && winH > 0)
+        {
+            HRGN hRgn = CreateRoundRectRgn(0, 0, winW + 1, winH + 1, cornerRadius * 2, cornerRadius * 2);
+            SetWindowRgn(hwnd, hRgn, TRUE);
+        }
+    }
 }
 
 } // namespace ui::platform
@@ -253,7 +301,7 @@ void SetupCustomTitleBar(SDL_Window* sdlWindow, [[maybe_unused]] int borderWidth
     // （SDL3 创建窗口时已设置该标志）
 }
 
-void EnableTransparency([[maybe_unused]] SDL_Window* sdlWindow)
+void EnableTransparency([[maybe_unused]] SDL_Window* sdlWindow, [[maybe_unused]] int cornerRadius)
 {
     // Linux 下的 compositing 由 Compositor 自动处理 alpha 通道
     // 若使用 X11 + 支持 ARGB visual 的合成器（picom/compton），透明自动生效
@@ -275,7 +323,7 @@ void SetupCustomTitleBar([[maybe_unused]] SDL_Window* sdlWindow, [[maybe_unused]
     // 空操作：未实现的平台依赖 SDL_WINDOW_BORDERLESS
 }
 
-void EnableTransparency([[maybe_unused]] SDL_Window* sdlWindow)
+void EnableTransparency([[maybe_unused]] SDL_Window* sdlWindow, [[maybe_unused]] int cornerRadius)
 {
     // 空操作
 }

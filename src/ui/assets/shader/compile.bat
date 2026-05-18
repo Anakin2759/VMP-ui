@@ -34,7 +34,7 @@ if errorlevel 1 (
 
 echo.
 echo [3/4] Compiling vertex shader for DX12 (DXIL)...
-"%DXC_EXE%" -T vs_6_6 -E main_vs -Fo vert.dxil vert.hlsl
+"%DXC_EXE%" -T vs_6_0 -E main_vs -Fo vert.dxil vert.hlsl
 if errorlevel 1 (
     echo Failed to compile vertex shader for DX12.
     pause
@@ -42,7 +42,7 @@ if errorlevel 1 (
 )
 
 echo [4/4] Compiling fragment shader for DX12 (DXIL)...
-"%DXC_EXE%" -T ps_6_6 -E main_ps -Fo frag.dxil frag.hlsl
+"%DXC_EXE%" -T ps_6_0 -E main_ps -Fo frag.dxil frag.hlsl
 if errorlevel 1 (
     echo Failed to compile fragment shader for DX12.
     pause

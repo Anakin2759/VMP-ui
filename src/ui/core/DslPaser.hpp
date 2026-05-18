@@ -5,7 +5,7 @@
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-02-09
  * @version 0.1
- * @brief  实现一种基于json-like DSL 的 UI 定义解析器
+ * @brief  实现解析js文件 的 UI 定义解析器
  *  - 支持从 DSL 定义创建 UI 组件和布局
  *  - 提供灵活的属性映射和组件配置
  *  - 简化 UI 创建流程，支持快速原型设计
