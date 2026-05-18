@@ -12,12 +12,12 @@ void Clear(entt::entity entity)
     list.commands.clear();
 }
 
-void DrawLine(entt::entity entity, Vec2 from, Vec2 to, Color color, float lineWidth)
+void DrawLine(entt::entity entity, Vec2 from, Vec2 endPos, Color color, float lineWidth)
 {
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
     list.commands.push_back(
-        {components::CanvasDrawType::Line, from, to, color, lineWidth});
+        {components::CanvasDrawType::LINE, from, endPos, color, lineWidth});
 }
 
 void DrawRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color, float lineWidth)
@@ -25,7 +25,7 @@ void DrawRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color, 
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
     list.commands.push_back(
-        {components::CanvasDrawType::Rect, topLeft, bottomRight, color, lineWidth});
+        {components::CanvasDrawType::RECT, topLeft, bottomRight, color, lineWidth});
 }
 
 void DrawFilledRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color)
@@ -33,7 +33,7 @@ void DrawFilledRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color c
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
     list.commands.push_back(
-        {components::CanvasDrawType::FilledRect, topLeft, bottomRight, color, 1.0F});
+        {components::CanvasDrawType::FILLED_RECT, topLeft, bottomRight, color, 1.0F});
 }
 
 void DrawCircle(entt::entity entity, Vec2 center, float radius, Color color, float lineWidth)
@@ -41,7 +41,7 @@ void DrawCircle(entt::entity entity, Vec2 center, float radius, Color color, flo
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
     list.commands.push_back(
-        {components::CanvasDrawType::Circle, center, {radius, 0.0F}, color, lineWidth});
+        {components::CanvasDrawType::CIRCLE, center, {radius, 0.0F}, color, lineWidth});
 }
 
 void DrawFilledCircle(entt::entity entity, Vec2 center, float radius, Color color)
@@ -49,7 +49,7 @@ void DrawFilledCircle(entt::entity entity, Vec2 center, float radius, Color colo
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
     list.commands.push_back(
-        {components::CanvasDrawType::FilledCircle, center, {radius, 0.0F}, color, 1.0F});
+        {components::CanvasDrawType::FILLED_CIRCLE, center, {radius, 0.0F}, color, 1.0F});
 }
 
 } // namespace ui::canvas

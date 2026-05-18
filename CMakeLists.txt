@@ -109,7 +109,13 @@ add_subdirectory(third_party/yoga)
 if(ENABLE_LTO AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND TARGET yogacore)
     set_property(TARGET yogacore PROPERTY INTERPROCEDURAL_OPTIMIZATION FALSE)
 endif()
+# Eigen 5.0.0 内部 `cmake_policy(SET CMP0146 OLD)` 触发 deprecation 警告；
+# 该策略仅用于其禁用 FindCUDA 警告，对本项目无影响。临时抑制 deprecated 警告。
+set(_pmk_saved_warn_deprecated ${CMAKE_WARN_DEPRECATED})
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/eigen-5.0.0)
+set(CMAKE_WARN_DEPRECATED ${_pmk_saved_warn_deprecated} CACHE BOOL "" FORCE)
+unset(_pmk_saved_warn_deprecated)
 add_subdirectory(third_party/freetype)
 add_subdirectory(third_party/harfbuzz)
 
@@ -151,7 +157,7 @@ else()
 endif()
 
 # ===================== UI 库 ====================
-add_subdirectory(src/ui)
+add_subdirectory(src)
 
 # ===================== 示例程序 ====================
 if(BUILD_EXAMPLES)

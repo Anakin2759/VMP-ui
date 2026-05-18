@@ -2,10 +2,10 @@
 
 #include <ui.hpp>
 
-#include "src/ui/api/Hierarchy.hpp"
-#include "src/ui/common/Components.hpp"
-#include "src/ui/common/Tags.hpp"
-#include "src/ui/singleton/Registry.hpp"
+#include "src/api/Hierarchy.hpp"
+#include "src/common/Components.hpp"
+#include "src/common/Tags.hpp"
+#include "src/singleton/Registry.hpp"
 
 namespace ui::tests
 {

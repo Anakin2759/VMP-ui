@@ -9,7 +9,7 @@ target_compile_features(example_ui_demo PRIVATE cxx_std_23)
 
 target_include_directories(example_ui_demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src/ui
+    ${CMAKE_SOURCE_DIR}/src
 )
 
 target_link_libraries(example_ui_demo PRIVATE ui)

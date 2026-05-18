@@ -16,7 +16,7 @@
 
 #include <ui.hpp>
 
-#include "src/ui/singleton/Registry.hpp"
+#include "src/singleton/Registry.hpp"
 
 namespace ui::tests
 {

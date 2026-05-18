@@ -17,3 +17,24 @@ Diagnostics:
 
 Index:
   Background: Build
+
+---
+# 公共聚合头（include/ui.hpp）没有自己的 TU，clangd 无法从 compile_commands 推断。
+# 在此显式补全所需 include 路径与宏，确保独立打开时也能解析所有传递依赖。
+If:
+  PathMatch: [include/.*\.hpp]
+
+CompileFlags:
+  Add:
+    - "-ID:/test/PMK"
+    - "-ID:/test/PMK/src"
+    - "-ID:/test/PMK/include"
+    - "-ID:/test/PMK/third_party/entt/src"
+    - "-ID:/test/PMK/third_party/asio/include"
+    - "-ID:/test/PMK/third_party/eigen-5.0.0"
+    - "-ID:/test/PMK/third_party/spdlog/include"
+    - "-DASIO_STANDALONE"
+    - "-DASIO_DISABLE_STD_EXECUTION"
+    - "-DNOMINMAX"
+    - "-DWIN32_LEAN_AND_MEAN"
+

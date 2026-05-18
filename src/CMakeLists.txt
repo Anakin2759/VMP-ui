@@ -123,7 +123,7 @@ if(NOT _UI_DO_SHADER_COMPILE)
             message(FATAL_ERROR
                 "[UI Shaders] Precompiled shader missing: ${_shader}.\n"
                 "  Options:\n"
-                "    1. Run src/ui/assets/shader/compile.sh (Linux) or compile.bat (Windows)\n"
+                "    1. Run src/assets/shader/compile.sh (Linux) or compile.bat (Windows)\n"
                 "    2. Set UI_ENABLE_SHADER_COMPILATION=ON (requires DXC / Vulkan SDK)\n"
                 "    3. Set UI_ENABLE_SHADER_COMPILATION=AUTO (auto-detects DXC)")
         endif()

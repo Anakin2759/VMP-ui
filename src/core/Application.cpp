@@ -15,10 +15,6 @@
 #include "../common/GlobalContext.hpp"
 #include "../singleton/Logger.hpp"
 
-static constexpr uint32_t DEFAULT_WIDTH = 800;
-static constexpr uint32_t DEFAULT_HEIGHT = 600;
-static constexpr uint32_t FRAME_DELAY_MS = 16;     // ~60 FPS
-static constexpr uint32_t RENDER_DELAY_MS = 0;     // ~60 FPS
 static constexpr uint32_t MAX_FRAME_TIME_MS = 250; // 防止卡顿时长时间更新
 static constexpr uint32_t LOOP_DELAY_MS = 1;       // 主循环延迟，防止100% CPU占用
 namespace ui

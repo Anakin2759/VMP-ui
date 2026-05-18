@@ -2,13 +2,13 @@
 
 #include <ui.hpp>
 
-#include "src/ui/common/GlobalContext.hpp"
-#include "src/ui/core/RuntimeFacade.hpp"
-#include "src/ui/core/UiRuntime.hpp"
-#include "src/ui/singleton/Dispatcher.hpp"
-#include "src/ui/singleton/Registry.hpp"
-#include "src/ui/systems/ActionSystem.hpp"
-#include "src/ui/systems/TweenSystem.hpp"
+#include "src/common/GlobalContext.hpp"
+#include "src/core/RuntimeFacade.hpp"
+#include "src/core/UiRuntime.hpp"
+#include "src/singleton/Dispatcher.hpp"
+#include "src/singleton/Registry.hpp"
+#include "src/systems/ActionSystem.hpp"
+#include "src/systems/TweenSystem.hpp"
 
 namespace ui::tests
 {

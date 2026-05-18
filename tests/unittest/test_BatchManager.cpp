@@ -14,7 +14,7 @@
  */
 #include <gtest/gtest.h>
 
-#include "src/ui/managers/BatchManager.hpp"
+#include "src/managers/BatchManager.hpp"
 
 namespace ui::tests
 {
@@ -85,8 +85,10 @@ TEST(BatchManagerTest, DifferentScissorProducesDifferentBatches)
     EXPECT_EQ(batches[1].scissorRect->x, 10);
 }
 
-TEST(BatchManagerTest, DifferentPushConstantsBreakBatchMerging)
+TEST(BatchManagerTest, DifferentOpacityMergesIntoBatchWithPerVertexParams)
 {
+    // P0-3.3 重构后：逐实体参数（opacity 等）下沉到顶点属性，
+    // 合批条件仅比较 texture + scissor，相同纹理和裁剪的两次 beginBatch 应合并为 1 个批次。
     ui::managers::BatchManager batchManager;
 
     batchManager.beginBatch(nullptr, std::nullopt, MakePushConstants(100.0F, 40.0F, 1.0F));
@@ -95,10 +97,22 @@ TEST(BatchManagerTest, DifferentPushConstantsBreakBatchMerging)
     batchManager.addRect({20.0F, 20.0F}, {10.0F, 10.0F}, White());
     batchManager.optimize();
 
-    ASSERT_EQ(batchManager.getBatchCount(), 2U);
+    // 相同纹理（nullptr）+ 相同裁剪（nullopt）→ 合并为 1 个批次
+    ASSERT_EQ(batchManager.getBatchCount(), 1U);
+    // 总共 2 个 rect × 4 顶点 = 8 个顶点
+    EXPECT_EQ(batchManager.getTotalVertexCount(), 8U);
+
     const auto& batches = batchManager.getBatches();
-    EXPECT_FLOAT_EQ(batches[0].pushConstants.opacity, 1.0F);
-    EXPECT_FLOAT_EQ(batches[1].pushConstants.opacity, 0.5F);
+    // 第一个 rect 的 4 顶点 shadow_params[3] = opacity = 1.0F
+    EXPECT_FLOAT_EQ(batches[0].vertices[0].shadow_params[3], 1.0F);
+    EXPECT_FLOAT_EQ(batches[0].vertices[1].shadow_params[3], 1.0F);
+    EXPECT_FLOAT_EQ(batches[0].vertices[2].shadow_params[3], 1.0F);
+    EXPECT_FLOAT_EQ(batches[0].vertices[3].shadow_params[3], 1.0F);
+    // 第二个 rect 的 4 顶点 shadow_params[3] = opacity = 0.5F
+    EXPECT_FLOAT_EQ(batches[0].vertices[4].shadow_params[3], 0.5F);
+    EXPECT_FLOAT_EQ(batches[0].vertices[5].shadow_params[3], 0.5F);
+    EXPECT_FLOAT_EQ(batches[0].vertices[6].shadow_params[3], 0.5F);
+    EXPECT_FLOAT_EQ(batches[0].vertices[7].shadow_params[3], 0.5F);
 }
 
 TEST(BatchManagerTest, ClearResetsAllBatchesAndSupportsReuse)

@@ -32,6 +32,10 @@ Checks: >
   
 CheckOptions:
   # === Naming Conventions ===
+  # 命名规范：命名风格和规则，确保代码中的标识符（如变量、函数、类等）遵循一致的命名约定，提高代码的可读性和维护性
+  # 命名空间使用小写字母，单词之间用下划线分隔
+  - key: readability-identifier-naming-suffix
+    value: 'lowercase'
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case
   - key: readability-identifier-naming.ClassCase
@@ -62,14 +66,17 @@ CheckOptions:
   # constexpr 变量使用全大写
   - key: readability-identifier-naming.ConstexprVariableCase
     value: UPPER_CASE
+
+      #枚举 常量使用全大写
   - key: readability-identifier-naming.EnumConstantCase
     value: UPPER_CASE
+  #全局常量使用全大写
   - key: readability-identifier-naming.GlobalConstantCase
     value: UPPER_CASE
-  - key: readability-identifier-naming.StaticConstantCase
-    value: UPPER_CASE
+      #静态constexpr变量使用全大写
   - key: readability-identifier-naming.StaticConstexprCase
     value: UPPER_CASE
+    # 结构体、联合体、类等类型名允许以 type、impl、tag、proxy、base 结尾，表示其特定用途
   - key: readability-identifier-naming.ClassIgnoredRegexp
     value: '^(type|impl|tag|proxy|base)$'
 

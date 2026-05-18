@@ -20,7 +20,6 @@
 #include <entt/entt.hpp>
 #include <string>
 #include <string_view>
-#include "../common/UiErrors.hpp"
 #include "../core/Application.hpp"
 #ifdef CreateWindow
 #undef CreateWindow

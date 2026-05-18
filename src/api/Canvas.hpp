@@ -15,9 +15,6 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include <vector>
-#include <string>
-#include "../common/Components.hpp"
 #include "../common/Types.hpp"
 #include "Chains.hpp"
 
@@ -25,7 +22,7 @@ namespace ui::canvas
 {
 
 void Clear(entt::entity entity);
-void DrawLine(entt::entity entity, Vec2 from, Vec2 to, Color color, float lineWidth = 1.0F);
+void DrawLine(entt::entity entity, Vec2 from, Vec2 endPos, Color color, float lineWidth = 1.0F);
 void DrawRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color, float lineWidth = 1.0F);
 void DrawFilledRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color);
 void DrawCircle(entt::entity entity, Vec2 center, float radius, Color color, float lineWidth = 1.0F);
@@ -52,9 +49,9 @@ inline auto CanvasClear()
     return ui::actions::canvas::CANVAS_CLEAR_ACTION.bind();
 }
 
-inline auto CanvasDrawLine(Vec2 from, Vec2 to, Color color, float lineWidth = 1.0F)
+inline auto CanvasDrawLine(Vec2 from, Vec2 endPos, Color color, float lineWidth = 1.0F)
 {
-    return ui::actions::canvas::CANVAS_DRAW_LINE_ACTION.bind(from, to, color, lineWidth);
+    return ui::actions::canvas::CANVAS_DRAW_LINE_ACTION.bind(from, endPos, color, lineWidth);
 }
 
 inline auto CanvasDrawRect(Vec2 topLeft, Vec2 bottomRight, Color color, float lineWidth = 1.0F)

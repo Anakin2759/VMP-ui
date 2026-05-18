@@ -62,7 +62,6 @@ public:
         if (iconComp == nullptr) return;
 
         // 计算图标的绘制位置和大小
-        Eigen::Vector2f iconDrawPos = context.position;
         // 使用组件定义的尺寸和颜色
         Eigen::Vector2f iconDrawSize = iconComp->size;
         Eigen::Vector4f tint = Eigen::Vector4f(

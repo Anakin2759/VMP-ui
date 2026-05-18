@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "src/ui/managers/ResourceProvider.hpp"
+#include "src/managers/ResourceProvider.hpp"
 
 namespace ui::tests
 {

@@ -14,7 +14,7 @@
  */
 #include <gtest/gtest.h>
 
-#include "src/ui/core/TextUtils.hpp"
+#include "src/core/TextUtils.hpp"
 
 namespace ui::tests
 {

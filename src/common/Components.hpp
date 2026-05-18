@@ -715,8 +715,8 @@ struct DropDown
 
     [[nodiscard]] const std::string& selectedText() const
     {
-        static const std::string EMPTY_STR;
-        if (options.empty()) return EMPTY_STR;
+        static const std::string emptyStr;
+        if (options.empty()) return emptyStr;
         int idx = std::clamp(selectedIndex, 0, static_cast<int>(options.size()) - 1);
         return options[static_cast<std::size_t>(idx)];
     }
@@ -726,16 +726,16 @@ struct DropDown
 
 enum class CanvasDrawType : uint8_t
 {
-    Line,
-    Rect,
-    FilledRect,
-    Circle,
-    FilledCircle
+    LINE,
+    RECT,
+    FILLED_RECT,
+    CIRCLE,
+    FILLED_CIRCLE
 };
 
 struct CanvasDrawCommand
 {
-    CanvasDrawType type = CanvasDrawType::Line;
+    CanvasDrawType type = CanvasDrawType::LINE;
     Vec2 p1{0.0F, 0.0F}; // 起点 / 矩形左上 / 圆心
     Vec2 p2{0.0F, 0.0F}; // 终点 / 矩形右下 / (p2.x = 半径)
     Color color{1.0F, 1.0F, 1.0F, 1.0F};

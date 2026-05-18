@@ -54,7 +54,7 @@ public:
     {
         m_backends = {{.name = "direct3d12",
                        .configure =
-                           [](SDL_PropertiesID props)
+                       [](SDL_PropertiesID props)
                        {
                            SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, "direct3d12");
                            SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, true);
@@ -70,7 +70,7 @@ public:
                        }},
                       {.name = "cpu",
                        .configure =
-                           [](SDL_PropertiesID props)
+                           [](SDL_PropertiesID /*props*/)
                        {
                            try
                            {

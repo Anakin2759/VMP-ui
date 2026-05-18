@@ -2,12 +2,12 @@
 
 #include <ui.hpp>
 
-#include "src/ui/api/Visibility.hpp"
-#include "src/ui/common/Components.hpp"
-#include "src/ui/common/Policies.hpp"
-#include "src/ui/common/Tags.hpp"
-#include "src/ui/common/WindowSync.hpp"
-#include "src/ui/singleton/Registry.hpp"
+#include "src/api/Visibility.hpp"
+#include "src/common/Components.hpp"
+#include "src/common/Policies.hpp"
+#include "src/common/Tags.hpp"
+#include "src/common/WindowSync.hpp"
+#include "src/singleton/Registry.hpp"
 
 #include <limits>
 

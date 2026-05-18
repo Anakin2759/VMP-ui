@@ -7,6 +7,7 @@
 #include "../common/Policies.hpp"
 #include "../common/Types.hpp"
 #include "../common/Events.hpp"
+#include "../common/UiErrors.hpp"
 #include "../core/RuntimeFacade.hpp"
 #include "../singleton/Logger.hpp"
 #include "../singleton/Registry.hpp"
@@ -224,12 +225,12 @@ std::expected<std::unique_ptr<Application>, std::error_code> CreateApplication(s
     catch (const std::exception& e)
     {
         Logger::error("[Factory] UI initialization failed: {}", e.what());
-        return std::unexpected(errors::make_error_code(errors::UiErrc::SdlInitFailed));
+        return std::unexpected(ui::errors::make_error_code(ui::errors::UiErrc::SdlInitFailed));
     }
     catch (...)
     {
         Logger::error("[Factory] Unknown UI initialization failure");
-        return std::unexpected(errors::make_error_code(errors::UiErrc::UnknownInitializationFailure));
+        return std::unexpected(ui::errors::make_error_code(ui::errors::UiErrc::UnknownInitializationFailure));
     }
 }
 
