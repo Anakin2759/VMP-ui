@@ -45,7 +45,7 @@ Application::Application(std::span<char*> arg) // NOLINT
     (void)runtime.ensureContext<globalcontext::StateContext>();
 
     m_systems.registerAllHandlers();
-    auto taskChain = tasks::QueuedTask{} | tasks::InputTask{} | tasks::RenderTask{};
+    auto taskChain = tasks::QueuedTask{} | tasks::InputTask{.systems = &m_systems} | tasks::RenderTask{};
     m_eventLoop.registerDefaultHandler(
         [this, taskChain]() mutable
         {

@@ -38,28 +38,26 @@ class ActionSystem : public ui::interface::EnableRegister<ActionSystem>
 public:
     void registerHandlersImpl()
     {
-        auto& dispatcher = RuntimeFacade::current().enttDispatcher();
         // 只监听抽象事件
-        dispatcher.sink<ui::events::ClickEvent>().connect<&ActionSystem::onClickEvent>(*this);
-        dispatcher.sink<ui::events::HoverEvent>().connect<&ActionSystem::onHoverEvent>(*this);
-        dispatcher.sink<ui::events::UnhoverEvent>().connect<&ActionSystem::onUnhoverEvent>(*this);
+        Dispatcher::Sink<ui::events::ClickEvent>().connect<&ActionSystem::onClickEvent>(*this);
+        Dispatcher::Sink<ui::events::HoverEvent>().connect<&ActionSystem::onHoverEvent>(*this);
+        Dispatcher::Sink<ui::events::UnhoverEvent>().connect<&ActionSystem::onUnhoverEvent>(*this);
 
         // 监听底层事件以驱动交互动效
-        dispatcher.sink<ui::events::MousePressEvent>().connect<&ActionSystem::onMousePress>(*this);
-        dispatcher.sink<ui::events::MouseReleaseEvent>().connect<&ActionSystem::onMouseRelease>(*this);
-        dispatcher.sink<ui::events::HitPointerMove>().connect<&ActionSystem::onHitPointerMove>(*this);
+        Dispatcher::Sink<ui::events::MousePressEvent>().connect<&ActionSystem::onMousePress>(*this);
+        Dispatcher::Sink<ui::events::MouseReleaseEvent>().connect<&ActionSystem::onMouseRelease>(*this);
+        Dispatcher::Sink<ui::events::HitPointerMove>().connect<&ActionSystem::onHitPointerMove>(*this);
     }
 
     void unregisterHandlersImpl()
     {
-        auto& dispatcher = RuntimeFacade::current().enttDispatcher();
-        dispatcher.sink<ui::events::ClickEvent>().disconnect<&ActionSystem::onClickEvent>(*this);
-        dispatcher.sink<ui::events::HoverEvent>().disconnect<&ActionSystem::onHoverEvent>(*this);
-        dispatcher.sink<ui::events::UnhoverEvent>().disconnect<&ActionSystem::onUnhoverEvent>(*this);
+        Dispatcher::Sink<ui::events::ClickEvent>().disconnect<&ActionSystem::onClickEvent>(*this);
+        Dispatcher::Sink<ui::events::HoverEvent>().disconnect<&ActionSystem::onHoverEvent>(*this);
+        Dispatcher::Sink<ui::events::UnhoverEvent>().disconnect<&ActionSystem::onUnhoverEvent>(*this);
 
-        dispatcher.sink<ui::events::MousePressEvent>().disconnect<&ActionSystem::onMousePress>(*this);
-        dispatcher.sink<ui::events::MouseReleaseEvent>().disconnect<&ActionSystem::onMouseRelease>(*this);
-        dispatcher.sink<ui::events::HitPointerMove>().disconnect<&ActionSystem::onHitPointerMove>(*this);
+        Dispatcher::Sink<ui::events::MousePressEvent>().disconnect<&ActionSystem::onMousePress>(*this);
+        Dispatcher::Sink<ui::events::MouseReleaseEvent>().disconnect<&ActionSystem::onMouseRelease>(*this);
+        Dispatcher::Sink<ui::events::HitPointerMove>().disconnect<&ActionSystem::onHitPointerMove>(*this);
     }
 
 private:
@@ -177,11 +175,11 @@ private:
             bool isHovered = (ctx.hoveredEntity == entity);
 
             std::optional<Vec2> targetScale = (isHovered && interact->hoverScale.has_value())
-                                                  ? interact->hoverScale
-                                                  : std::optional<Vec2>(interact->normalScale);
+                                                ? interact->hoverScale
+                                                : std::optional<Vec2>(interact->normalScale);
             std::optional<Vec2> targetOffset = (isHovered && interact->hoverOffset.has_value())
-                                                   ? interact->hoverOffset
-                                                   : std::optional<Vec2>(interact->normalOffset);
+                                                 ? interact->hoverOffset
+                                                 : std::optional<Vec2>(interact->normalOffset);
 
             float duration = interact->pressDuration; // 恢复速度通常快一点
 

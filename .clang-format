@@ -42,7 +42,15 @@ BinPackArguments: false                 # 不紧凑排列实参
 AlignAfterOpenBracket: Align            # 开括号后对齐
 AlignConsecutiveAssignments: false      # 不对齐连续赋值
 AlignConsecutiveDeclarations: false     # 不对齐连续声明
-AlignOperands: AlignAfterOperator       # 换行时按运算符链对齐，更适合 | DSL
+# 重载管道运算符 DSL（如 `ent | Size(...) | Color(...)`）的格式策略：
+#   1. BreakBeforeBinaryOperators=NonAssignment 让 `|` 换行时前置（行首）
+#   2. AlignOperands=AlignAfterOperator 语义上表达"续行运算符与首行运算符对齐"
+#      ↳ 注意：clang-format 对二元运算符不做列对齐，续行实际由 ContinuationIndentWidth 控制
+#   3. BinPackArguments/Parameters=false 保证一行放不下时按运算符断行而非塞参数
+# 实际输出形如：
+#   aa | BB(...) | CC(...)
+#       | DD(...) | EE(...);
+AlignOperands: AlignAfterOperator       # 续行运算符前置；缩进由 ContinuationIndentWidth 决定
 AlignTrailingComments: true             # 对齐尾随注释
 
 # 空格配置

@@ -26,22 +26,19 @@ class TextInputSystem : public ui::interface::EnableRegister<TextInputSystem>
 public:
     void registerHandlersImpl()
     {
-        s_current = this;
+        Dispatcher::Sink<events::TickKeyRepeat>().connect<&TextInputSystem::doProcessKeyRepeat>(*this);
         Dispatcher::Sink<events::RawTextInput>().connect<&TextInputSystem::onRawTextInput>(*this);
         Dispatcher::Sink<events::RawKeyInput>().connect<&TextInputSystem::onRawKeyInput>(*this);
     }
 
     void unregisterHandlersImpl()
     {
-        if (s_current == this) s_current = nullptr;
+        Dispatcher::Sink<events::TickKeyRepeat>().disconnect<&TextInputSystem::doProcessKeyRepeat>(*this);
         Dispatcher::Sink<events::RawTextInput>().disconnect<&TextInputSystem::onRawTextInput>(*this);
         Dispatcher::Sink<events::RawKeyInput>().disconnect<&TextInputSystem::onRawKeyInput>(*this);
     }
 
-    static void processKeyRepeat()
-    {
-        if (s_current != nullptr) s_current->doProcessKeyRepeat();
-    }
+    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Input; }
 
 private:
     void onRawTextInput(const events::RawTextInput& event) { core::TextEditingService::handleTextInput(event.text); }
@@ -92,7 +89,6 @@ private:
     SDL_Keycode m_heldKey = SDLK_UNKNOWN;
     uint64_t m_keyPressTime = 0;
     uint64_t m_lastRepeatTime = 0;
-    static inline TextInputSystem* s_current = nullptr;
     static constexpr uint64_t KEY_REPEAT_DELAY = 500;
     static constexpr uint64_t KEY_REPEAT_INTERVAL = 50;
 };

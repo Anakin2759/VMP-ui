@@ -54,6 +54,8 @@ public:
     void unregisterHandlersImpl();
     void update() noexcept;
 
+    interface::SystemPhase getPhase() { return interface::SystemPhase::Layout; }
+
 private:
     [[nodiscard]] entt::entity findRoot(entt::entity entity) const;
     void clearYogaNodes();

@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <unordered_map>
 #include "Types.hpp"
 #include <entt/entt.hpp>
 
@@ -35,13 +36,13 @@ struct FrameContext
  */
 struct TimerTask
 {
-    uint32_t id;                          // 任务ID
-    VoidCallback func;                    // 任务函数
-    uint32_t intervalMs;                  // 间隔时间（毫秒）
-    uint32_t remainingMs;                 // 剩余时间（毫秒）
-    bool singleShot;                      // 是否单次执行
-    uint8_t frameSlot;                    // 帧槽位
-    bool cancelled;                       // 是否已取消
+    uint32_t id;          // 任务ID
+    VoidCallback func;    // 任务函数
+    uint32_t intervalMs;  // 间隔时间（毫秒）
+    uint32_t remainingMs; // 剩余时间（毫秒）
+    bool singleShot;      // 是否单次执行
+    uint8_t frameSlot;    // 帧槽位
+    bool cancelled;       // 是否已取消
 };
 
 /**
@@ -49,7 +50,7 @@ struct TimerTask
  */
 struct TimerContext
 {
-    std::vector<TimerTask> tasks;
+    std::unordered_map<uint32_t, TimerTask> tasks; ///< key = task id，支持 O(1) cancel
     uint32_t nextTaskId = 1;
 };
 
@@ -82,23 +83,16 @@ struct StateContext
         latestMouseDelta = delta;
     }
 
-    void syncLatestScroll(const Vec2& delta)
-    {
-        latestScrollDelta = delta;
-    }
+    void syncLatestScroll(const Vec2& delta) { latestScrollDelta = delta; }
 
-    [[nodiscard]] bool hasScrollbarDrag() const
-    {
-        return isDraggingScrollbar && dragScrollEntity != entt::null;
-    }
+    [[nodiscard]] bool hasScrollbarDrag() const { return isDraggingScrollbar && dragScrollEntity != entt::null; }
 
-    void beginScrollbarDrag(
-        entt::entity entity,
-        const Vec2& mousePosition,
-        const Vec2& scrollOffset,
-        bool vertical,
-        float trackLength,
-        float thumbSize)
+    void beginScrollbarDrag(entt::entity entity,
+                            const Vec2& mousePosition,
+                            const Vec2& scrollOffset,
+                            bool vertical,
+                            float trackLength,
+                            float thumbSize)
     {
         isDraggingScrollbar = true;
         dragScrollEntity = entity;

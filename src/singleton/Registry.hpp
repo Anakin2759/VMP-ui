@@ -16,7 +16,8 @@
  */
 #pragma once
 
-#include <cassert>
+#include <cstdio>
+#include <exception>
 
 #include <entt/entt.hpp>
 
@@ -39,7 +40,11 @@ public:
     static Registry& current()
     {
         auto* instance = activeInstance();
-        assert(instance != nullptr && "No active UiRuntime. Wrap all UI calls in UiRuntimeScope.");
+        if (instance == nullptr) [[unlikely]]
+        {
+            std::fputs("[Registry] current() called outside UiRuntimeScope\n", stderr);
+            std::terminate();
+        }
         return *instance;
     }
 

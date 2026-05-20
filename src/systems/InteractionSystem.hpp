@@ -72,6 +72,13 @@ public:
     void registerHandlersImpl() {}
 
     void unregisterHandlersImpl() {}
+
+    /// OP-21: 由 SystemManager::pollInput() 调用，替代原来在 TaskChain 中的静态调用
+    void pollInput() { pollSdlEvents(); }
+
+    /// OP-22: Input 阶段
+    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Input; }
+
     /**
      * @brief 处理 SDL每tick事件
      *
@@ -79,7 +86,7 @@ public:
      * - 识别 Quit / Window Resized，并通过回调交由上层处理
      * - 直接从 SDL 事件中追踪鼠标状态
      */
-    static void pollSdlEvents()
+    void pollSdlEvents()
     {
         SDL_Event event{};
 
@@ -94,7 +101,7 @@ private:
      * @brief 分发 SDL 轮询事件到相应处理函数
      * @param event SDL 事件对象
      */
-    static void dispatchPolledEvent(const SDL_Event& event)
+    void dispatchPolledEvent(const SDL_Event& event)
     {
         switch (event.type)
         {
@@ -139,7 +146,7 @@ private:
         }
     }
 
-    static void enqueueCloseWindowRequest(uint32_t windowId)
+    void enqueueCloseWindowRequest(uint32_t windowId)
     {
         const auto targetWindow = RuntimeFacade::current().windowLookup().findById(windowId);
         if (!Registry::Valid(targetWindow)) return;
@@ -147,7 +154,7 @@ private:
         Dispatcher::Enqueue<ui::events::CloseWindow>(ui::events::CloseWindow{targetWindow});
     }
 
-    static void dispatchRawTextInput(const char* text)
+    void dispatchRawTextInput(const char* text)
     {
         std::string input = text != nullptr ? std::string(text) : std::string();
         if (input.empty()) return;
@@ -155,7 +162,7 @@ private:
         Dispatcher::Trigger<ui::events::RawTextInput>(ui::events::RawTextInput{std::move(input)});
     }
 
-    static void enqueueRawPointerMove(const SDL_MouseMotionEvent& motionEvent)
+    void enqueueRawPointerMove(const SDL_MouseMotionEvent& motionEvent)
     {
         const auto pointerX = motionEvent.x;
         const auto pointerY = motionEvent.y;
@@ -165,7 +172,7 @@ private:
             ui::events::RawPointerMove{Vec2(pointerX, pointerY), Vec2(deltaX, deltaY), motionEvent.windowID});
     }
 
-    static void enqueueRawPointerButton(const SDL_MouseButtonEvent& buttonEvent, bool pressed)
+    void enqueueRawPointerButton(const SDL_MouseButtonEvent& buttonEvent, bool pressed)
     {
         const auto pointerX = buttonEvent.x;
         const auto pointerY = buttonEvent.y;
@@ -173,7 +180,7 @@ private:
             ui::events::RawPointerButton{Vec2(pointerX, pointerY), buttonEvent.windowID, pressed, buttonEvent.button});
     }
 
-    static void enqueueRawPointerWheel(const SDL_MouseWheelEvent& wheelEvent)
+    void enqueueRawPointerWheel(const SDL_MouseWheelEvent& wheelEvent)
     {
         float pointerX = 0.0F;
         float pointerY = 0.0F;
@@ -183,7 +190,7 @@ private:
             Vec2(pointerX, pointerY), Vec2(wheelEvent.x, wheelEvent.y), wheelEvent.windowID});
     }
 
-    static void dispatchRawKeyInput(const SDL_KeyboardEvent& keyEvent, bool pressed)
+    void dispatchRawKeyInput(const SDL_KeyboardEvent& keyEvent, bool pressed)
     {
         Dispatcher::Trigger<ui::events::RawKeyInput>(ui::events::RawKeyInput{
             static_cast<int32_t>(keyEvent.key), pressed, keyEvent.repeat, static_cast<uint16_t>(keyEvent.mod)});

@@ -29,9 +29,8 @@
 #include "../common/Events.hpp"
 #include "../common/GlobalContext.hpp"
 #include "RuntimeFacade.hpp"
+#include "SystemManager.hpp"
 #include "../singleton/Dispatcher.hpp"
-#include "../systems/InteractionSystem.hpp"
-#include "../systems/TextInputSystem.hpp"
 namespace ui::tasks
 {
 
@@ -135,6 +134,7 @@ struct RenderTask
 struct InputTask
 {
     using is_task_tag = void;
+    SystemManager* systems = nullptr; ///< 由 Application 注入，不可为 nullptr
     uint32_t remainingTime = 0;
     uint32_t delayTime = 32;
 
@@ -146,8 +146,8 @@ struct InputTask
             return;
         }
         remainingTime = delayTime;
-        ui::systems::InteractionSystem::pollSdlEvents();
-        ui::systems::TextInputSystem::processKeyRepeat();
+        systems->pollInput();                         // InteractionSystem::pollSdlEvents()
+        Dispatcher::Trigger<events::TickKeyRepeat>(); // 驱动 TextInputSystem::doProcessKeyRepeat()
     }
 };
 

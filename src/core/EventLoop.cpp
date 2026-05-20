@@ -7,10 +7,8 @@
 namespace ui
 {
 EventLoop::EventLoop()
-    : m_ioContext(std::make_unique<asio::io_context>()),
-      m_workGuard(asio::make_work_guard(*m_ioContext)),
-      m_frameTimer(*m_ioContext),
-      m_running(false)
+    : m_ioContext(std::make_unique<asio::io_context>()), m_workGuard(asio::make_work_guard(*m_ioContext)),
+      m_frameTimer(*m_ioContext), m_running(false)
 {
 }
 
@@ -28,7 +26,10 @@ void EventLoop::scheduleNextFrame()
             // errCode == operation_aborted 时表示 cancel() 被调用（quit 路径），直接返回
             if (errCode || !m_running.load()) return;
 
-            if (m_defaultHandler) { m_defaultHandler(); }
+            if (m_defaultHandler)
+            {
+                m_defaultHandler();
+            }
 
             scheduleNextFrame();
         });
@@ -49,7 +50,8 @@ void EventLoop::quit()
 
     m_frameTimer.cancel();
     m_workGuard.reset();
-    m_ioContext->stop();
+    // io_context 在 work guard 释放后自然 drain；
+    // 不调用 stop()，避免丢弃未消费的 GPU 帧 handler。
 }
 
 } // namespace ui

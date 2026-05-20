@@ -55,6 +55,12 @@ public:
     void unregisterAllHandlers();
 
     /**
+     * @brief 调用所有系统的 pollInput()
+     * 实际执行者为 InteractionSystem（SDL 轮询），其予系统为 no-op。
+     */
+    void pollInput();
+
+    /**
      * @brief 动态添加系统
      * @tparam T 系统类型
      * @param system 系统实例

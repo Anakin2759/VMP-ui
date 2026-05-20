@@ -77,36 +77,20 @@ class FontManager
 public:
     FontManager()
     {
-        FT_Error error = FT_Init_FreeType(&m_ftLibrary);
+        FT_Library lib = nullptr;
+        FT_Error error = FT_Init_FreeType(&lib);
         if (error)
         {
             Logger::error("[FontManager] Failed to initialize FreeType: error {}", error);
-            m_ftLibrary = nullptr;
         }
         else
         {
+            m_ftLibrary.reset(lib);
             Logger::info("[FontManager] FreeType initialized successfully");
         }
     }
 
-    ~FontManager()
-    {
-        if (m_hbFont != nullptr)
-        {
-            hb_font_destroy(m_hbFont);
-            m_hbFont = nullptr;
-        }
-        if (m_ftFace != nullptr)
-        {
-            FT_Done_Face(m_ftFace);
-            m_ftFace = nullptr;
-        }
-        if (m_ftLibrary != nullptr)
-        {
-            FT_Done_FreeType(m_ftLibrary);
-            m_ftLibrary = nullptr;
-        }
-    }
+    ~FontManager() = default;
 
     // 禁止拷贝和移动
     FontManager(const FontManager&) = delete;
@@ -123,7 +107,7 @@ public:
      */
     Result<void> loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
     {
-        if (m_ftLibrary == nullptr)
+        if (!m_ftLibrary)
         {
             Logger::error("[FontManager] FreeType not initialized");
             return MakeError(ui_errc::device_unavailable);
@@ -139,21 +123,22 @@ public:
         m_fontData.resize(dataSize);
         std::memcpy(m_fontData.data(), fontData, dataSize);
 
-        // 加载字体 Face
+        FT_Face face = nullptr;
         FT_Error error =
-            FT_New_Memory_Face(m_ftLibrary, m_fontData.data(), static_cast<FT_Long>(dataSize), 0, &m_ftFace);
+            FT_New_Memory_Face(m_ftLibrary.get(), m_fontData.data(), static_cast<FT_Long>(dataSize), 0, &face);
         if (error)
         {
             Logger::error("[FontManager] Failed to load font face: error {}", error);
             return MakeError(ui_errc::asset_load_failed);
         }
+        m_ftFace.reset(face);
+        face = nullptr;
 
         // 设置像素大小
-        error = FT_Set_Pixel_Sizes(m_ftFace, 0, static_cast<FT_UInt>(fontSize));
+        error = FT_Set_Pixel_Sizes(m_ftFace.get(), 0, static_cast<FT_UInt>(fontSize));
         if (error)
         {
-            FT_Done_Face(m_ftFace);
-            m_ftFace = nullptr;
+            m_ftFace.reset();
             Logger::error("[FontManager] Failed to set pixel size: error {}", error);
             return MakeError(ui_errc::asset_load_failed);
         }
@@ -334,8 +319,8 @@ public:
         }
 
         // 加载字形
-        FT_UInt glyphIndex = FT_Get_Char_Index(m_ftFace, static_cast<FT_ULong>(codepoint));
-        FT_Error error = FT_Load_Glyph(m_ftFace, glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL);
+        FT_UInt glyphIndex = FT_Get_Char_Index(m_ftFace.get(), static_cast<FT_ULong>(codepoint));
+        FT_Error error = FT_Load_Glyph(m_ftFace.get(), glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL);
         if (error)
         {
             Logger::warn("[FontManager] Failed to load glyph for codepoint {}: error {}", codepoint, error);
@@ -669,7 +654,7 @@ public:
         hb_buffer_guess_segment_properties(buf);
 
         // 执行成形
-        hb_shape(m_hbFont, buf, nullptr, 0);
+        hb_shape(m_hbFont.get(), buf, nullptr, 0);
 
         // 获取结果
         unsigned int glyphCount = 0;
@@ -725,7 +710,7 @@ public:
         }
 
         // 加载字形
-        FT_Error error = FT_Load_Glyph(m_ftFace, glyphId, FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL);
+        FT_Error error = FT_Load_Glyph(m_ftFace.get(), glyphId, FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL);
         if (error)
         {
             Logger::warn("[FontManager] Failed to load glyph index {}: error {}", glyphId, error);
@@ -821,8 +806,8 @@ public:
         if ((byte0 & 0xF0U) == 0xE0)
         {
             if (text.size() < 3) return 0;
-            outCodepoint = static_cast<int>(((byte0 & 0x0FU) << 12U) | ((static_cast<uint8_t>(text[1]) & 0x3FU) << 6U) |
-                                            (static_cast<uint8_t>(text[2]) & 0x3FU));
+            outCodepoint = static_cast<int>(((byte0 & 0x0FU) << 12U) | ((static_cast<uint8_t>(text[1]) & 0x3FU) << 6U)
+                                            | (static_cast<uint8_t>(text[2]) & 0x3FU));
             return 3;
         }
 
@@ -830,9 +815,9 @@ public:
         if ((byte0 & 0xF8U) == 0xF0)
         {
             if (text.size() < 4) return 0;
-            outCodepoint = static_cast<int>(
-                ((byte0 & 0x07U) << 18U) | ((static_cast<uint8_t>(text[1]) & 0x3FU) << 12U) |
-                ((static_cast<uint8_t>(text[2]) & 0x3FU) << 6U) | (static_cast<uint8_t>(text[3]) & 0x3FU));
+            outCodepoint = static_cast<int>(((byte0 & 0x07U) << 18U) | ((static_cast<uint8_t>(text[1]) & 0x3FU) << 12U)
+                                            | ((static_cast<uint8_t>(text[2]) & 0x3FU) << 6U)
+                                            | (static_cast<uint8_t>(text[3]) & 0x3FU));
             return 4;
         }
 
@@ -847,11 +832,7 @@ private:
      */
     void createHarfBuzzFont()
     {
-        if (m_hbFont)
-        {
-            hb_font_destroy(m_hbFont);
-            m_hbFont = nullptr;
-        }
+        m_hbFont.reset(); // 释放旧实例（如有）
 
         if (!m_ftFace)
         {
@@ -860,7 +841,7 @@ private:
         }
 
         // 使用 hb-ft 桥接创建 HarfBuzz font
-        m_hbFont = hb_ft_font_create(m_ftFace, nullptr);
+        m_hbFont.reset(hb_ft_font_create(m_ftFace.get(), nullptr));
         if (!m_hbFont)
         {
             Logger::error("[FontManager] Failed to create HarfBuzz font");
@@ -876,14 +857,14 @@ private:
     void setPixelSize(float size)
     {
         if (!m_ftFace || size <= 0.0F) return;
-        FT_Error error = FT_Set_Pixel_Sizes(m_ftFace, 0, static_cast<FT_UInt>(size));
+        FT_Error error = FT_Set_Pixel_Sizes(m_ftFace.get(), 0, static_cast<FT_UInt>(size));
         if (error == 0)
         {
             m_fontSize = size;
             // 更新 HarfBuzz font 的缩放
             if (m_hbFont)
             {
-                hb_ft_font_changed(m_hbFont);
+                hb_ft_font_changed(m_hbFont.get());
             }
         }
     }
@@ -903,11 +884,24 @@ private:
 
     std::vector<uint8_t> m_fontData;
 
-    FT_Library m_ftLibrary = nullptr;
-    FT_Face m_ftFace = nullptr;
+    // RAII 包装器：负责在析构时自动释放 FreeType/HarfBuzz 资源
+    struct FtLibraryDeleter
+    {
+        void operator()(std::remove_pointer_t<FT_Library>* p) const noexcept { FT_Done_FreeType(p); }
+    };
+    struct FtFaceDeleter
+    {
+        void operator()(std::remove_pointer_t<FT_Face>* p) const noexcept { FT_Done_Face(p); }
+    };
+    struct HbFontDeleter
+    {
+        void operator()(hb_font_t* p) const noexcept { hb_font_destroy(p); }
+    };
 
-    // HarfBuzz font 对象
-    hb_font_t* m_hbFont = nullptr;
+    // 成员销毁顺序为声明逆序：m_hbFont → m_ftFace → m_ftLibrary（正确清理顺序）
+    std::unique_ptr<std::remove_pointer_t<FT_Library>, FtLibraryDeleter> m_ftLibrary;
+    std::unique_ptr<std::remove_pointer_t<FT_Face>, FtFaceDeleter> m_ftFace;
+    std::unique_ptr<hb_font_t, HbFontDeleter> m_hbFont;
 
     // 字形缓存（key = (fontSize << 32) | codepoint）
     std::unordered_map<uint64_t, GlyphInfo> m_glyphCache;

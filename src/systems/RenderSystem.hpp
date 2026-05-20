@@ -106,6 +106,8 @@ public:
         Dispatcher::Sink<events::UpdateRendering>().disconnect<&RenderSystem::update>(*this);
     }
 
+    interface::SystemPhase getPhase() { return interface::SystemPhase::Render; }
+
 private:
     /**
      * @brief 处理窗口图形上下文设置事件

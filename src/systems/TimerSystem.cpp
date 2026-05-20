@@ -53,7 +53,7 @@ uint32_t TimerSystem::addTask(uint32_t interval, VoidCallback func, bool singleS
     task.frameSlot = frameCtx.frameSlot;
     task.cancelled = false;
 
-    timerCtx.tasks.push_back(std::move(task));
+    timerCtx.tasks.emplace(taskId, std::move(task));
 
     Logger::info("TimerSystem: Added task {} with interval {}ms (singleShot={})", taskId, interval, singleShot);
     return taskId;
@@ -62,14 +62,11 @@ uint32_t TimerSystem::addTask(uint32_t interval, VoidCallback func, bool singleS
 void TimerSystem::cancelTask(uint32_t handle)
 {
     auto& timerCtx = RuntimeFacade::current().ensureContext<globalcontext::TimerContext>();
-    for (auto& task : timerCtx.tasks)
+    auto it = timerCtx.tasks.find(handle);
+    if (it != timerCtx.tasks.end())
     {
-        if (task.id == handle)
-        {
-            task.cancelled = true;
-            Logger::info("TimerSystem: Cancelled task {}", handle);
-            return;
-        }
+        it->second.cancelled = true;
+        Logger::info("TimerSystem: Cancelled task {}", handle);
     }
 }
 
@@ -79,7 +76,7 @@ void TimerSystem::update(uint32_t deltaMs)
     auto& timerCtx = RuntimeFacade::current().ensureContext<globalcontext::TimerContext>();
 
     // 处理所有任务
-    for (auto& task : timerCtx.tasks)
+    for (auto& [id, task] : timerCtx.tasks)
     {
         if (task.cancelled)
         {
@@ -118,10 +115,8 @@ void TimerSystem::update(uint32_t deltaMs)
         task.frameSlot = frameCtx.frameSlot;
     }
 
-    // 清理已取消的任务
-    timerCtx.tasks.erase(
-        std::remove_if(timerCtx.tasks.begin(), timerCtx.tasks.end(), [](const globalcontext::TimerTask& task) { return task.cancelled; }),
-        timerCtx.tasks.end());
+    // 清理已取消的任务（C++20 std::erase_if 支持 unordered_map）
+    std::erase_if(timerCtx.tasks, [](const auto& pair) { return pair.second.cancelled; });
 
     // 驱动所有获焦 TextEdit 的 Caret 闪烁（固定时间间隔，点击后立即显示）
     const float deltaSec = static_cast<float>(deltaMs) / 1000.0F;

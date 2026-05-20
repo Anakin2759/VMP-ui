@@ -50,6 +50,8 @@ public:
         RuntimeFacade::current().enttDispatcher().sink<events::UpdateEvent>().disconnect<&TweenSystem::update>(*this);
     }
 
+    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Animation; }
+
 private:
     /**
      * @brief 更新所有活动的动画

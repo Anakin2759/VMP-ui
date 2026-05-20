@@ -4,6 +4,8 @@
 
 #include "SystemManager.hpp"
 #include "singleton/Registry.hpp"
+#include <algorithm>
+#include <numeric>
 
 // 引入所有子系统头文件
 #include "../systems/RenderSystem.hpp"
@@ -64,6 +66,21 @@ SystemManager::~SystemManager()
 
 void SystemManager::registerAllHandlers()
 {
+    // OP-22: 按阶段排序，确保事件处理器按 Input→Logic→Animation→Layout→Render→Frame 顺序订阅
+    // entt::poly 是 move-only 类型，无法直接用于 stable_sort 比较器；改用索引排序后重组
+    std::vector<std::size_t> idx(m_systems.size());
+    std::iota(idx.begin(), idx.end(), std::size_t{0});
+    std::stable_sort(idx.begin(),
+                     idx.end(),
+                     [this](std::size_t a, std::size_t b)
+                     { return m_systems[a]->getPhase() < m_systems[b]->getPhase(); });
+    decltype(m_systems) sorted;
+    sorted.reserve(m_systems.size());
+    for (auto i : idx)
+    {
+        sorted.push_back(std::move(m_systems[i]));
+    }
+    m_systems = std::move(sorted);
     for (auto& system : m_systems)
     {
         system->registerHandlers();
@@ -75,6 +92,14 @@ void SystemManager::unregisterAllHandlers()
     for (auto& system : m_systems)
     {
         system->unregisterHandlers();
+    }
+}
+
+void SystemManager::pollInput()
+{
+    for (auto& system : m_systems)
+    {
+        system->pollInput();
     }
 }
 

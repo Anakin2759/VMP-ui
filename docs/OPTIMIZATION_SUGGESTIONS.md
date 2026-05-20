@@ -390,7 +390,305 @@ jobs:
 | OP-12 | 🟡 P2 | 3h | HitTestSystem | 信号连接改为 Tag 驱动 |
 | OP-13 | 🟢 P3 | 3h | TableInfo + Events | 回调迁移至事件驱动 |
 | OP-14 | 🟢 P3 | 2h | Image / ImageManager | textureId 改为 RAII 句柄 |
-| OP-15 | 🟢 P3 | 1h | FontManager | FreeType/HarfBuzz RAII 化 |
+| OP-15 | 🟢 P3 | 1h | FontManager | FreeType/HarfBuzz RAII 化 | ✅ 已完成 |
 | OP-16 | 🟢 P3 | 4h | ThemeSystem | 主题系统实现 |
 | OP-17 | 🟢 P3 | 2h | .github/workflows | 建立 CI 管道 |
 | OP-18 | 🟢 P3 | 8h | tests/unittest/ | 补全核心系统测试 |
+
+---
+
+## v0.3 新增建议（2026-05-20）
+
+> 关联：[ARCHITECTURE_CRITIQUE.md § v0.3](ARCHITECTURE_CRITIQUE.md)（C21–C31）。  
+> 编号接续 OP-18，本次共新增 **9 条**（P0×3 / P1×2 / P2×3 / P3×1）。
+
+### P0 — 立即修复
+
+#### 🔴 OP-19 — TextInputSystem 用事件驱动替代 `static s_current` 路由
+
+**关联**：C21  
+**文件**：[src/systems/TextInputSystem.hpp:42-44](../src/systems/TextInputSystem.hpp#L42-L44), [src/systems/TextInputSystem.hpp:94](../src/systems/TextInputSystem.hpp#L94)；调用方 [src/core/TaskChain.hpp:121](../src/core/TaskChain.hpp#L121)
+
+**问题**：`static void processKeyRepeat()` 入口靠 `static inline TextInputSystem* s_current` 指向"最后一个注册的实例"。多 UiRuntime 注册时后者覆盖前者，前一个运行时的键盘重复永远不会触发——把 v0.2 C4 的"状态串台"换成了"路由丢失"。
+
+**改法**：废弃 `processKeyRepeat()` 静态入口与 `s_current`，改为订阅一个 `events::TickKeyRepeat`：
+
+```cpp
+// Events.hpp
+struct TickKeyRepeat { /* 空事件 */ };
+
+// TextInputSystem.hpp
+void registerHandlersImpl() {
+    Dispatcher::Sink<events::TickKeyRepeat>().connect<&TextInputSystem::doProcessKeyRepeat>(*this);
+    // ... 其他订阅保持
+}
+// 移除 s_current / processKeyRepeat()
+
+// TaskChain.hpp - InputTask
+void operator()(uint32_t delta) {
+    if (remainingTime > delta) { remainingTime -= delta; return; }
+    remainingTime = delayTime;
+    InteractionSystem::pollSdlEvents();
+    Dispatcher::Trigger<events::TickKeyRepeat>();   // 替代静态调用
+}
+```
+
+**验收**：新增 `test_TextInputSystem_MultiRuntime.cpp`，构造两个 UiRuntime 各自注册 TextInputSystem，分别在两个 scope 内推送 RawKeyInput + TickKeyRepeat，断言各自的 `m_heldKey` / 重复行为彼此独立。
+
+---
+
+#### 🔴 OP-20 — `Registry::current()` / `Dispatcher::current()` 增加 Release 防护
+
+**关联**：C22  
+**文件**：[src/singleton/Registry.hpp:38-43](../src/singleton/Registry.hpp#L38-L43), [src/singleton/Dispatcher.hpp:42-47](../src/singleton/Dispatcher.hpp#L42-L47)
+
+**问题**：仅 `assert()` 防御，Release 下空指针解引用产生 UB；调用栈 inline 后难以诊断。
+
+**改法**：
+
+```cpp
+// Registry.hpp
+static Registry& current() {
+    auto* instance = activeInstance();
+    if (instance == nullptr) [[unlikely]] {
+        // 既要在 Release 也生效，又要保留调用位置信息
+        ui::Logger::error("[Registry] current() called outside UiRuntimeScope (at {})",
+                          std::source_location::current());
+        std::terminate();
+    }
+    return *instance;
+}
+// Dispatcher 同步修改
+```
+
+或者改抛 `std::logic_error`，由更上层的 `Application::exec()` 统一捕获并打印诊断后退出。
+
+**验收**：补 `test_RegistryCurrent_NoActive.cpp`，用 `EXPECT_DEATH(Registry::current(), "outside UiRuntimeScope")` 校验 Release 路径也会终止。
+
+---
+
+#### 🔴 OP-21 — `pollSdlEvents` / `processKeyRepeat` 由 runtime 实例驱动
+
+**关联**：C23（与 OP-19 协同推进）  
+**文件**：[src/systems/InteractionSystem.hpp:75](../src/systems/InteractionSystem.hpp#L75), [src/core/TaskChain.hpp:119-126](../src/core/TaskChain.hpp#L119-L126)
+
+**问题**：`TaskChain::InputTask` 直接调用 `InteractionSystem::pollSdlEvents()` / `TextInputSystem::processKeyRepeat()` 两个 `static` 入口；SDL 事件归属完全依赖"当前 thread_local 激活的 runtime"，多 runtime 同帧调度会错配。
+
+**改法（最小落地）**：
+
+1. `InteractionSystem::pollSdlEvents()` 改为成员方法，`SystemManager::pollInput()` 转发到实例方法。
+2. `TaskChain::InputTask` 不再持有静态调用，改为持有 `SystemManager*`：
+
+```cpp
+struct InputTask {
+    using is_task_tag = void;
+    SystemManager* systems;          // 注入
+    uint32_t remainingTime = 0;
+    uint32_t delayTime = 32;
+
+    void operator()(uint32_t delta) {
+        if (remainingTime > delta) { remainingTime -= delta; return; }
+        remainingTime = delayTime;
+        systems->pollInput();        // 由具体 runtime 路由
+    }
+};
+```
+
+3. `SystemManager::pollInput()` 在内部按已注册顺序找到 `InteractionSystem` / `TextInputSystem` 实例并调用。
+
+**验收**：双 runtime 测试中各自 emplace 一个 Button，向窗口 A 模拟点击，断言只有 runtime A 触发 ClickEvent。
+
+---
+
+### P1 — 重要改进
+
+#### 🟠 OP-22 — `SystemManager` 引入显式 Phase
+
+**关联**：C24  
+**文件**：[src/core/SystemManager.hpp:64](../src/core/SystemManager.hpp#L64), [src/interface/Isystem.hpp](../src/interface/Isystem.hpp)
+
+**问题**：系统执行顺序由 `addSystem` 调用顺序隐式决定，新增系统插错位置会破坏帧管线。
+
+**改法**：在 `ISystem` polymorphic 接口上加 `getPhase()`，`SystemManager` 内部按 phase 分桶后再追加：
+
+```cpp
+enum class SystemPhase : uint8_t {
+    Input = 0, Logic = 1, Animation = 2, Layout = 3, Render = 4, Frame = 5
+};
+
+// ISystem concept
+struct ISystem {
+    virtual SystemPhase getPhase() const noexcept = 0;
+    // ... 其余
+};
+
+// SystemManager
+template <typename T> void addSystem(T&& system) {
+    m_systems.emplace_back(std::forward<T>(system));
+    std::ranges::stable_sort(m_systems, {}, &ISystem::getPhase);
+}
+```
+
+**验收**：把 `RenderSystem.addSystem` 调用挪到 `LayoutSystem` 之前，单测 `test_SystemPhaseOrder.cpp` 仍能验证 `RenderSystem` 在 `LayoutSystem` 后被执行。
+
+---
+
+#### 🟠 OP-23 — `EventLoop::quit()` 改为优雅 drain
+
+**关联**：C28  
+**文件**：[src/core/EventLoop.cpp:46-53](../src/core/EventLoop.cpp#L46-L53)
+
+**问题**：`io_context::stop()` 立即丢弃未消费 handler，可能留下半提交的 GPU 帧。
+
+**改法**：
+
+```cpp
+void EventLoop::quit() {
+    if (!m_running.exchange(false)) return;
+
+    // 1) 取消定时器，让最后一次 endFrame 任务消费完成
+    m_frameTimer.cancel();
+    // 2) 释放 work guard 后 io_context 自然 return；不再调用 stop()
+    m_workGuard.reset();
+    // 注意：调用方在 exec() 之后已经退出 run()，无需 stop()
+}
+```
+
+并在 `Application::exec()` 退出后追加 `m_eventLoop /*natural drain done*/;` 注释。
+
+**验收**：覆盖 `test_EventLoopQuitDrain.cpp`，断言 `quit()` 后 `m_ioContext->run()` 自然返回，且最后一次 `EndFrame` handler 被执行。
+
+---
+
+### P2 — 中等优化
+
+#### 🟡 OP-24 — `ActionSystem` 统一走 `Dispatcher::Sink<>()`
+
+**关联**：C25  
+**文件**：[src/systems/ActionSystem.hpp:38-60](../src/systems/ActionSystem.hpp#L38-L60)
+
+**问题**：唯一直访 `RuntimeFacade::current().enttDispatcher().sink<>()` 的系统，与全仓风格不一致，绕过 `traits::Events` 约束。
+
+**改法**：
+
+```cpp
+void registerHandlersImpl() {
+    Dispatcher::Sink<events::ClickEvent>().connect<&ActionSystem::onClickEvent>(*this);
+    Dispatcher::Sink<events::HoverEvent>().connect<&ActionSystem::onHoverEvent>(*this);
+    // ...
+}
+```
+
+`unregisterHandlersImpl()` 镜像替换。
+
+**验收**：编译期 `traits::Events` concept 通过；测试运行中 ClickEvent 仍正常触发动画。
+
+---
+
+#### 🟡 OP-25 — `Components.hpp` 按域拆分
+
+**关联**：C26  
+**文件**：[src/common/Components.hpp](../src/common/Components.hpp)（740+ 行）
+
+**改法**：保留 `Components.hpp` 作为聚合 include，新增：
+
+```
+src/common/components/
+  Visual.hpp      // Scale / RenderOffset / Alpha / Background / Image
+  Layout.hpp      // Size / Position / Margin / Padding / LayoutInfo / Spacer
+  Interaction.hpp // Clickable / Hoverable / Drag / ScrollArea / ScrollBarInteractionState
+  Data.hpp        // TableInfo / TableCell / ListArea / TextEdit / SliderInfo / CheckBoxInfo
+  Window.hpp      // Window / WindowTag / DialogTag / Geometry
+```
+
+`common/Components.hpp` 只剩：
+
+```cpp
+#pragma once
+#include "components/Visual.hpp"
+#include "components/Layout.hpp"
+#include "components/Interaction.hpp"
+#include "components/Data.hpp"
+#include "components/Window.hpp"
+```
+
+**验收**：`cmake --build` 全绿；`tests` 90 用例不变。可顺便比对 PCH 增量编译时间。
+
+---
+
+#### 🟡 OP-26 — `TimerSystem` 用 `unordered_map` + slot/generation 句柄
+
+**关联**：C29  
+**文件**：[src/systems/TimerSystem.cpp:42-75](../src/systems/TimerSystem.cpp#L42-L75)
+
+**改法**：
+
+```cpp
+// GlobalContext.hpp
+struct TimerContext {
+    std::unordered_map<uint32_t, TimerTask> tasks;
+    uint32_t nextTaskId = 1;
+};
+
+// TimerSystem::cancelTask -> O(1) erase
+void TimerSystem::cancelTask(uint32_t handle) {
+    auto& ctx = RuntimeFacade::current().ensureContext<globalcontext::TimerContext>();
+    ctx.tasks.erase(handle);
+}
+
+// update() 内：遍历 tasks，singleShot 触发后直接 erase；ID wrap 保护见下
+```
+
+可选：句柄打包 `uint32_t handle = (slot << 16) | generation`，过期 cancel 不再撞车。
+
+**验收**：补 `test_TimerSystem_Cancel.cpp`，断言 cancel 后 `tasks.size()` 立刻收缩、`addTask + cancelTask` 1 万次循环不再持续增长。
+
+---
+
+### P3 — 长期重构
+
+#### ✅ OP-27 — `RenderSystem.cpp` 拆分为 3 个子组件（已完成）
+
+**关联**：C27  
+**文件**：[src/systems/RenderSystem.cpp](../src/systems/RenderSystem.cpp)（720+ 行）
+
+**改法**：
+
+```
+src/systems/render/
+  RenderBackend.cpp     // ensureInitialized / Fallback / DeviceManager 装配
+  RenderResources.cpp   // 白纹理、字体/图标缓存初始化、清理
+  RenderFrame.cpp       // update() / collectRenderData() / 每帧 collect→batch→submit
+```
+
+`RenderSystem` 保留为外观类，转发到三个内部协作者；接口、对外测试用例不变。
+
+**验收**：所有 90 个单测继续绿；新增 `test_RenderBackend_FallbackFlag.cpp` 单独覆盖后端选择分支。
+
+---
+
+#### 🟢 OP-28 — 组件层剩余 `on_event<>` 全部迁移到事件总线
+
+**关联**：C31  
+**文件**：[src/common/Components.hpp:32, 294-735](../src/common/Components.hpp#L32)（13 处使用）
+
+**改法**：参考 OP-13 模板，逐个迁移 `TextEdit::onSubmit` → `events::TextEditSubmit`，`Button::onClick` → `events::ButtonClicked`，`Slider::onValueChanged` → `events::SliderValueChanged`，等等。删除 `on_event` 别名。
+
+**验收**：`Components.hpp` 内 `move_only_function` 出现次数从 13 降到 0；组件全部可拷贝；entt snapshot 测试可启用。
+
+---
+
+### v0.3 改动优先级汇总（接续）
+
+| ID | 优先级 | 预期工作量 | 文件 | 描述 |
+|----|--------|-----------|------|------|
+| OP-19 | 🔴 P0 | 2h | TextInputSystem + Events + TaskChain | 事件驱动替代 `static s_current` | ✅ 已完成 |
+| OP-20 | 🔴 P0 | 0.5h | Registry / Dispatcher | `current()` 增加 Release 防护 | ✅ 已完成 |
+| OP-21 | 🔴 P0 | 2h | InteractionSystem + TaskChain + SystemManager | static 入口实例化 | ✅ 已完成 |
+| OP-22 | 🟠 P1 | 2h | SystemManager + ISystem | 显式 Phase 排序 | ✅ 已完成 |
+| OP-23 | 🟠 P1 | 1h | EventLoop | `quit()` 改为自然 drain | ✅ 已完成 |
+| OP-24 | 🟡 P2 | 0.5h | ActionSystem | 统一 `Dispatcher::Sink<>()` | ✅ 已完成 |
+| OP-25 | 🟡 P2 | 3h | common/components/ | `Components.hpp` 按域拆分 | ✅ 已完成 |
+| OP-26 | 🟡 P2 | 2h | TimerSystem | `unordered_map` + O(1) cancel | ✅ 已完成 |
+| OP-27 | 🟢 P3 | 6h | systems/render/ | `RenderSystem.cpp` 拆 3 子组件 |
+| OP-28 | 🟢 P3 | 8h | Components + Events | 剩余 `on_event<>` 全迁移 |

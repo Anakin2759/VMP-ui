@@ -57,6 +57,8 @@ public:
      */
     void unregisterHandlersImpl();
 
+    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Frame; }
+
     /**
      * @brief 添加定时任务
      * @param interval 间隔时间（毫秒）

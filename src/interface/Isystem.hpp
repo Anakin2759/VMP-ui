@@ -19,8 +19,22 @@
 
 namespace ui::interface
 {
+
 /**
- * @brief 系统接口 - 定义注册和注销事件处理器的方法
+ * @brief 系统执行阶段枚举，用于 SystemManager 按正确顺序注册事件处理器
+ */
+enum class SystemPhase : uint8_t
+{
+    Input = 0,     ///< 平台/输入层 (PlatformWindow / Interaction / TextInput)
+    Logic = 1,     ///< 业务逻辑层 (HitTest / State / Action / Shortcut)
+    Animation = 2, ///< 动画层 (Tween)
+    Layout = 3,    ///< 布局层 (Layout)
+    Render = 4,    ///< 渲染层 (Render)
+    Frame = 5,     ///< 帧尾层 (Timer)
+};
+
+/**
+ * @brief 系统接口 - 定义注册/注销事件处理器、输入轮询和阶段查询方法
  */
 struct ISystem : entt::type_list<>
 {
@@ -29,10 +43,12 @@ struct ISystem : entt::type_list<>
     {
         void registerHandlers() { entt::poly_call<0>(*this); }
         void unregisterHandlers() { entt::poly_call<1>(*this); }
+        void pollInput() { entt::poly_call<2>(*this); }
+        SystemPhase getPhase() { return entt::poly_call<3>(*this); }
     };
 
     template <typename T>
-    using impl = entt::value_list<&T::registerHandlers, &T::unregisterHandlers>;
+    using impl = entt::value_list<&T::registerHandlers, &T::unregisterHandlers, &T::pollInput, &T::getPhase>;
 };
 
 /**
@@ -41,13 +57,13 @@ struct ISystem : entt::type_list<>
 template <typename Derived>
 struct EnableRegister
 {
-    /**
-     * @brief 注册事件处理器
-     */
     void registerHandlers() { static_cast<Derived*>(this)->registerHandlersImpl(); }
-    /**
-     * @brief 注销事件处理器
-     */
     void unregisterHandlers() { static_cast<Derived*>(this)->unregisterHandlersImpl(); }
+
+    /// 默认 no-op：只有需要主动轮询的系统（如 InteractionSystem）才重写
+    void pollInput() {}
+
+    /// 默认阶段为 Logic；Input/Animation/Layout/Render/Frame 系统应重写
+    SystemPhase getPhase() { return SystemPhase::Logic; }
 };
 } // namespace ui::interface

@@ -139,7 +139,9 @@ set(UI_SOURCES
     core/RuntimeFacade.cpp
     core/SystemManager.cpp
     systems/LayoutSystem.cpp
-    systems/RenderSystem.cpp
+    systems/render/RenderBackend.cpp
+    systems/render/RenderResources.cpp
+    systems/render/RenderFrame.cpp
     systems/TimerSystem.cpp
     systems/ShortcutSystem.cpp
     managers/FontManager.cpp

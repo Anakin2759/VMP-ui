@@ -296,7 +296,7 @@ struct RawPointerMove
 {
     using is_event_tag = void;
     Vec2 position; // SDL window coordinates; HitTest consumes this same space.
-    Vec2 delta; // 相对位移
+    Vec2 delta;    // 相对位移
     uint32_t windowID;
 };
 
@@ -371,6 +371,17 @@ struct HitPointerWheel
     using is_event_tag = void;
     RawPointerWheel raw;
     entt::entity hitEntity = entt::null; // 滚轮发生位置的实体 (可能为 null)
+};
+
+/**
+ * @brief 键盘重复驱动事件
+ * [IMMEDIATE] 由 TaskChain::InputTask 在每个输入周期末尾触发，
+ * TextInputSystem 订阅后执行 doProcessKeyRepeat()，
+ * 替代原有 static s_current 路由，支持多 UiRuntime 独立实例。
+ */
+struct TickKeyRepeat
+{
+    using is_event_tag = void;
 };
 
 } // namespace ui::events

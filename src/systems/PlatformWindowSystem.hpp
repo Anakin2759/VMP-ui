@@ -31,6 +31,8 @@ public:
 
     void unregisterHandlersImpl() { SDL_RemoveEventWatch(&PlatformWindowSystem::platformEventWatch, nullptr); }
 
+    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Input; }
+
 private:
     static bool SDLCALL platformEventWatch(void* userdata, SDL_Event* event)
     {
@@ -43,16 +45,16 @@ private:
 
     static bool isRelevantPlatformWindowEvent(Uint32 eventType)
     {
-        return eventType == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED || eventType == SDL_EVENT_WINDOW_MOVED ||
-               eventType == SDL_EVENT_WINDOW_EXPOSED || eventType == SDL_EVENT_WINDOW_SHOWN ||
-               eventType == SDL_EVENT_WINDOW_HIDDEN;
+        return eventType == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED || eventType == SDL_EVENT_WINDOW_MOVED
+            || eventType == SDL_EVENT_WINDOW_EXPOSED || eventType == SDL_EVENT_WINDOW_SHOWN
+            || eventType == SDL_EVENT_WINDOW_HIDDEN;
     }
 
     static bool shouldSyncWindowPropertiesImmediately(Uint32 eventType)
     {
-        return eventType == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED || eventType == SDL_EVENT_WINDOW_MOVED ||
-               eventType == SDL_EVENT_WINDOW_EXPOSED || eventType == SDL_EVENT_WINDOW_SHOWN ||
-               eventType == SDL_EVENT_WINDOW_HIDDEN;
+        return eventType == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED || eventType == SDL_EVENT_WINDOW_MOVED
+            || eventType == SDL_EVENT_WINDOW_EXPOSED || eventType == SDL_EVENT_WINDOW_SHOWN
+            || eventType == SDL_EVENT_WINDOW_HIDDEN;
     }
 
     static bool requiresImmediatePlatformRefresh(Uint32 eventType)
