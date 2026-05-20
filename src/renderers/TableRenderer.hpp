@@ -47,15 +47,10 @@ public:
     [[nodiscard]] int getPriority() const override { return 5; }
 
 private:
-    static Eigen::Vector4f toVec4(const Color& c, float alpha)
+    static Eigen::Vector4f toVec4(const Color& color, float alpha)
     {
-        return {c.red, c.green, c.blue, c.alpha * alpha};
+        return {color.red, color.green, color.blue, color.alpha * alpha};
     }
-
-    /// 将每个含子控件的单元格的 Position/Size 写入对应实体，
-    /// 使其在本帧 RenderSystem 子节点遍历时使用正确的位置。
-    static void updateCellWidgetLayouts(const components::TableInfo& info,
-                                        const std::vector<float>& colWidths);
 
     static std::vector<float> computeColWidths(const components::TableInfo& info, float totalWidth);
 };

@@ -17,6 +17,7 @@
 #include <unordered_map>
 #include <string>
 #include <chrono>
+#include <cstdint>
 #include <cmath>
 #include <algorithm>
 #include <SDL3/SDL_gpu.h>
@@ -92,6 +93,7 @@ public:
     {
         SDL_GPUDevice* device = m_deviceManager.getDevice();
         if (device == nullptr || !m_fontManager.isLoaded()) return nullptr;
+        if (!isR8UnormSampledTextureSupported(device)) return nullptr;
 
         std::string cacheKey = buildCacheKey(text, fontSize);
 
@@ -135,6 +137,31 @@ private:
     std::string buildCacheKey(const std::string& text, float fontSize) const
     {
         return text + "_" + std::to_string(static_cast<int>(fontSize * 10.0F));
+    }
+
+    bool isR8UnormSampledTextureSupported(SDL_GPUDevice* device)
+    {
+        if (m_r8SupportCheckedDevice != device)
+        {
+            m_r8SupportCheckedDevice = device;
+            m_r8UnormSampledSupportState = R8UnormSampledSupportState::UNKNOWN;
+        }
+
+        if (m_r8UnormSampledSupportState == R8UnormSampledSupportState::UNKNOWN)
+        {
+            const bool supported = SDL_GPUTextureSupportsFormat(
+                device, SDL_GPU_TEXTUREFORMAT_R8_UNORM, SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_SAMPLER);
+            m_r8UnormSampledSupportState =
+                supported ? R8UnormSampledSupportState::SUPPORTED : R8UnormSampledSupportState::UNSUPPORTED;
+
+            if (!supported)
+            {
+                Logger::warn(
+                    "[TextTextureCache] Device does not support sampled R8_UNORM format, skip text texture upload");
+            }
+        }
+
+        return m_r8UnormSampledSupportState == R8UnormSampledSupportState::SUPPORTED;
     }
 
     /**
@@ -383,6 +410,16 @@ private:
     DeviceManager& m_deviceManager;
     FontManager& m_fontManager;
     std::unordered_map<std::string, CacheEntry> m_cache;
+
+    enum class R8UnormSampledSupportState : std::uint8_t
+    {
+        UNKNOWN,
+        SUPPORTED,
+        UNSUPPORTED,
+    };
+
+    SDL_GPUDevice* m_r8SupportCheckedDevice = nullptr;
+    R8UnormSampledSupportState m_r8UnormSampledSupportState = R8UnormSampledSupportState::UNKNOWN;
 
     // 统计信息
     mutable size_t m_hitCount = 0;

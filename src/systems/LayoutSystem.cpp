@@ -608,6 +608,71 @@ void ConfigureLeafAutoSize(entt::entity entity, YGNodeRef node)
     return std::isnan(value) ? 0.0F : value;
 }
 
+[[nodiscard]] std::vector<float> ComputeTableColWidths(const components::TableInfo& info, float totalWidth)
+{
+    const int columnCount = info.columnCount;
+    std::vector<float> widths(static_cast<size_t>(columnCount));
+
+    if (!info.columnWidths.empty() && static_cast<int>(info.columnWidths.size()) == columnCount)
+    {
+        for (int col = 0; col < columnCount; ++col)
+        {
+            widths[static_cast<size_t>(col)] = info.columnWidths[static_cast<size_t>(col)];
+        }
+        return widths;
+    }
+
+    const float fallbackWidth =
+        (columnCount > 0) ? (totalWidth / static_cast<float>(columnCount)) : totalWidth;
+    for (int col = 0; col < columnCount; ++col)
+    {
+        widths[static_cast<size_t>(col)] = fallbackWidth;
+    }
+    return widths;
+}
+
+void UpdateTableCellEntityLayouts(entt::entity tableEntity, YGNodeRef tableNode)
+{
+    const auto* info = Registry::TryGet<components::TableInfo>(tableEntity);
+    if (info == nullptr || info->columnCount <= 0)
+    {
+        return;
+    }
+
+    float totalWidth = NormalizeLayoutValue(YGNodeLayoutGetWidth(tableNode));
+    if (const auto* sizeComp = Registry::TryGet<components::Size>(tableEntity))
+    {
+        totalWidth = sizeComp->size.x();
+    }
+
+    const std::vector<float> colWidths = ComputeTableColWidths(*info, totalWidth);
+    const int rowCount = static_cast<int>(info->cells.size());
+    for (int row = 0; row < rowCount; ++row)
+    {
+        const float cellY = info->headerHeight + (static_cast<float>(row) * info->rowHeight);
+        float cellX = 0.0F;
+        for (int col = 0; col < info->columnCount; ++col)
+        {
+            const float colWidth = colWidths[static_cast<size_t>(col)];
+            const auto& cell = info->cells[static_cast<size_t>(row)][static_cast<size_t>(col)];
+            if (cell.cellEntity != entt::null && Registry::Valid(cell.cellEntity))
+            {
+                if (auto* pos = Registry::TryGet<components::Position>(cell.cellEntity))
+                {
+                    pos->value.x() = cellX;
+                    pos->value.y() = cellY;
+                }
+                if (auto* sizeComp = Registry::TryGet<components::Size>(cell.cellEntity))
+                {
+                    sizeComp->size.x() = colWidth;
+                    sizeComp->size.y() = info->rowHeight;
+                }
+            }
+            cellX += colWidth;
+        }
+    }
+}
+
 void UpdateEntityLayoutFromYoga(entt::entity entity, YGNodeRef node)
 {
     bool isDirty = false;
@@ -1044,6 +1109,10 @@ void LayoutSystem::applyYogaLayout(entt::entity entity, YGNodeRef node)
         }
 
         UpdateEntityLayoutFromYoga(frame.entity, frame.node);
+        if (Registry::AnyOf<components::TableTag>(frame.entity))
+        {
+            UpdateTableCellEntityLayouts(frame.entity, frame.node);
+        }
         traversalStack.push_back({frame.entity, frame.node, true});
 
         const auto* hierarchy = Registry::TryGet<components::Hierarchy>(frame.entity);

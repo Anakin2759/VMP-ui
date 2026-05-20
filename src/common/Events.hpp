@@ -138,6 +138,14 @@ struct ClickEvent
     entt::entity entity;
 };
 
+struct TableCellClicked
+{
+    using is_event_tag = void;
+    entt::entity table;
+    int row;
+    int col;
+};
+
 /**
  * @brief 取消悬浮事件
  * [IMMEDIATE] 使用 trigger

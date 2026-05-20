@@ -166,16 +166,18 @@ void scheduleNextFrame() {
 
 ## 三、P2 — 中等优化（1 周内）
 
-### OP-08 TableRenderer 拆分为 .hpp + .cpp
+### ✅ [已完成] OP-08 TableRenderer 拆分为 .hpp + .cpp
 
 **文件**：`src/renderers/TableRenderer.hpp`（约 380 行纯实现）  
 **问题**：全部实现内联在头文件，每个包含它的 TU 都编译一份，增加编译时间。
 
 **方案**：将 `collect()` 及全部私有方法移入 `src/renderers/TableRenderer.cpp`，`TableRenderer.hpp` 只保留类声明。同步在 `src/CMakeLists.txt` 中添加 `TableRenderer.cpp` 到 `ui` target 的 `SOURCES`。
 
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
 ---
 
-### OP-09 TableRenderer 单元格 Position 写入时机前移
+### ✅ [已完成] OP-09 TableRenderer 单元格 Position 写入时机前移
 
 **文件**：`src/renderers/TableRenderer.hpp:282-316` (`updateCellWidgetLayouts`)  
 **问题**：`updateCellWidgetLayouts` 在**渲染阶段**写入单元格控件坐标，但 `HitTestSystem` 使用**布局阶段**后的坐标，首帧可能点击失效（坐标为 (0,0)）。
@@ -188,9 +190,11 @@ Dispatcher::Sink<events::UpdateLayout>().connect<&TableLayoutSystem::update>(thi
 // update() 中遍历所有 TableTag 实体，调用 updateCellWidgetLayouts
 ```
 
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
 ---
 
-### OP-10 ScrollArea 组件拆分交互状态
+### ✅ [已完成] OP-10 ScrollArea 组件拆分交互状态
 
 **文件**：`src/common/Components.hpp:185-205`  
 **问题**：`scrollbarHovered/scrollbarPressed/trackHovered` 是运行时 UI 状态，不应混入纯数据组件。
@@ -209,9 +213,11 @@ struct ScrollBarInteractionState {
 // ScrollArea 中删除三个 bool 字段
 ```
 
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
 ---
 
-### OP-11 TextTextureCache 添加 GPU 设备 null 保护
+### ✅ [已完成] OP-11 TextTextureCache 添加 GPU 设备 null 保护
 
 **文件**：`src/managers/TextTextureCache.hpp:88`
 
@@ -229,9 +235,11 @@ SDL_GPUTexture* getOrUpload(...) {
 
 实际上已有 `if (device == nullptr) return nullptr` 检查，需确认 Fallback 模式下 `getDevice()` 确实返回 null 而非无效指针。
 
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
 ---
 
-### OP-12 HitTestSystem 信号连接改为 Tag 驱动
+### ✅ [已完成] OP-12 HitTestSystem 信号连接改为 Tag 驱动
 
 **文件**：`src/systems/HitTestSystem.hpp:36-77`  
 **问题**：约 20 对 `connect/disconnect` 信号注册，维护成本高，新增可交互组件必须手动添加信号。
@@ -244,11 +252,13 @@ SDL_GPUTexture* getOrUpload(...) {
 
 减少约 75% 的信号连接代码。
 
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
 ---
 
 ## 四、P3 — 长期重构
 
-### OP-13 TableInfo 回调迁移至事件驱动
+### ✅ [已完成] OP-13 TableInfo 回调迁移至事件驱动
 
 **文件**：`src/common/Components.hpp:543`  
 **问题**：`on_event<int, int> onCellClicked` 使 `TableInfo` 不可拷贝。
@@ -259,6 +269,8 @@ SDL_GPUTexture* getOrUpload(...) {
 2. 用 `Dispatcher::Trigger<events::TableCellClicked>({entity, row, col})` 替代回调调用
 3. 客户端改为 `Dispatcher::Sink<events::TableCellClicked>().connect<&Handler>(this)` 订阅
 4. 从 `TableInfo` 中删除 `onCellClicked` 字段
+
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
 
 ---
 

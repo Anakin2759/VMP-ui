@@ -236,41 +236,6 @@ void TableRenderer::collect(entt::entity entity, core::RenderContext& context)
                 gridCol);
         }
     }
-
-    // ---- 更新单元格控件的 Position / Size ----
-    // RenderSystem 会自动将 ScrollArea 的 contentOffset（-scrollOffset）叠加到子实体坐标，
-    // 因此此处写入的是不含滚动偏移的相对坐标，无需手动减去 scrollOffsetY。
-    updateCellWidgetLayouts(*info, colWidths);
-}
-
-void TableRenderer::updateCellWidgetLayouts(const components::TableInfo& info,
-                                            const std::vector<float>& colWidths)
-{
-    const int rowCount = static_cast<int>(info.cells.size());
-    for (int row = 0; row < rowCount; ++row)
-    {
-        const float cellY = info.headerHeight + (static_cast<float>(row) * info.rowHeight);
-        float cellX = 0.0F;
-        for (int col = 0; col < info.columnCount; ++col)
-        {
-            const float colW = colWidths[static_cast<size_t>(col)];
-            const auto& cell = info.cells[static_cast<size_t>(row)][static_cast<size_t>(col)];
-            if (cell.cellEntity != entt::null && Registry::Valid(cell.cellEntity))
-            {
-                if (auto* pos = Registry::TryGet<components::Position>(cell.cellEntity))
-                {
-                    pos->value.x() = cellX;
-                    pos->value.y() = cellY;
-                }
-                if (auto* sizeComp = Registry::TryGet<components::Size>(cell.cellEntity))
-                {
-                    sizeComp->size.x() = colW;
-                    sizeComp->size.y() = info.rowHeight;
-                }
-            }
-            cellX += colW;
-        }
-    }
 }
 
 std::vector<float> TableRenderer::computeColWidths(const components::TableInfo& info, float totalWidth)

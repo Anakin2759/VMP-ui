@@ -50,37 +50,18 @@ public:
         Dispatcher::Sink<events::RawPointerButton>().connect<&HitTestSystem::onRawPointerButton>(*this);
         Dispatcher::Sink<events::RawPointerWheel>().connect<&HitTestSystem::onRawPointerWheel>(*this);
 
-        // 监听可能导致缓存失效的事件
-        Registry::OnConstruct<components::ZOrderIndex>().connect<&HitTestSystem::onZOrderChanged>(*this);
-        Registry::OnUpdate<components::ZOrderIndex>().connect<&HitTestSystem::onZOrderChanged>(*this);
-        Registry::OnDestroy<components::ZOrderIndex>().connect<&HitTestSystem::onZOrderChanged>(*this);
+        // 监听可能影响命中缓存成员和排序的组件变化，统一打失效标记。
+        connectInvalidateConstructUpdateDestroy<components::ZOrderIndex>();
+        connectInvalidateConstructUpdateDestroy<components::Hierarchy>();
+        connectInvalidateConstructDestroy<components::VisibleTag>();
 
-        Registry::OnConstruct<components::Hierarchy>().connect<&HitTestSystem::onHierarchyChanged>(*this);
-        Registry::OnUpdate<components::Hierarchy>().connect<&HitTestSystem::onHierarchyChanged>(*this);
-        Registry::OnDestroy<components::Hierarchy>().connect<&HitTestSystem::onHierarchyChanged>(*this);
+        connectInvalidateConstructDestroy<components::Clickable>();
+        connectInvalidateConstructDestroy<components::ScrollArea>();
+        connectInvalidateConstructDestroy<components::SliderInfo>();
+        connectInvalidateConstructDestroy<components::TextEditTag>();
+        connectInvalidateConstructDestroy<components::DisabledTag>();
 
-        Registry::OnConstruct<components::VisibleTag>().connect<&HitTestSystem::onVisibilityChanged>(*this);
-        Registry::OnDestroy<components::VisibleTag>().connect<&HitTestSystem::onVisibilityChanged>(*this);
-
-        // 监听会改变“是否可交互”的组件，避免命中缓存保留过期成员
-        Registry::OnConstruct<components::Clickable>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::Clickable>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::ScrollArea>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::ScrollArea>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::SliderInfo>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::SliderInfo>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::TextEditTag>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::TextEditTag>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::DisabledTag>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::DisabledTag>().connect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::TextEdit>().connect<&HitTestSystem::onTextEditChanged>(*this);
-        Registry::OnUpdate<components::TextEdit>().connect<&HitTestSystem::onTextEditChanged>(*this);
-        Registry::OnDestroy<components::TextEdit>().connect<&HitTestSystem::onTextEditChanged>(*this);
+        connectInvalidateConstructUpdateDestroy<components::TextEdit>();
     }
 
     void unregisterHandlersImpl()
@@ -89,36 +70,17 @@ public:
         Dispatcher::Sink<events::RawPointerButton>().disconnect<&HitTestSystem::onRawPointerButton>(*this);
         Dispatcher::Sink<events::RawPointerWheel>().disconnect<&HitTestSystem::onRawPointerWheel>(*this);
 
-        // 断开缓存失效的信号
-        Registry::OnConstruct<components::ZOrderIndex>().disconnect<&HitTestSystem::onZOrderChanged>(*this);
-        Registry::OnUpdate<components::ZOrderIndex>().disconnect<&HitTestSystem::onZOrderChanged>(*this);
-        Registry::OnDestroy<components::ZOrderIndex>().disconnect<&HitTestSystem::onZOrderChanged>(*this);
+        disconnectInvalidateConstructUpdateDestroy<components::ZOrderIndex>();
+        disconnectInvalidateConstructUpdateDestroy<components::Hierarchy>();
+        disconnectInvalidateConstructDestroy<components::VisibleTag>();
 
-        Registry::OnConstruct<components::Hierarchy>().disconnect<&HitTestSystem::onHierarchyChanged>(*this);
-        Registry::OnUpdate<components::Hierarchy>().disconnect<&HitTestSystem::onHierarchyChanged>(*this);
-        Registry::OnDestroy<components::Hierarchy>().disconnect<&HitTestSystem::onHierarchyChanged>(*this);
+        disconnectInvalidateConstructDestroy<components::Clickable>();
+        disconnectInvalidateConstructDestroy<components::ScrollArea>();
+        disconnectInvalidateConstructDestroy<components::SliderInfo>();
+        disconnectInvalidateConstructDestroy<components::TextEditTag>();
+        disconnectInvalidateConstructDestroy<components::DisabledTag>();
 
-        Registry::OnConstruct<components::VisibleTag>().disconnect<&HitTestSystem::onVisibilityChanged>(*this);
-        Registry::OnDestroy<components::VisibleTag>().disconnect<&HitTestSystem::onVisibilityChanged>(*this);
-
-        Registry::OnConstruct<components::Clickable>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::Clickable>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::ScrollArea>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::ScrollArea>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::SliderInfo>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::SliderInfo>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::TextEditTag>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::TextEditTag>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::DisabledTag>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-        Registry::OnDestroy<components::DisabledTag>().disconnect<&HitTestSystem::onInteractivityChanged>(*this);
-
-        Registry::OnConstruct<components::TextEdit>().disconnect<&HitTestSystem::onTextEditChanged>(*this);
-        Registry::OnUpdate<components::TextEdit>().disconnect<&HitTestSystem::onTextEditChanged>(*this);
-        Registry::OnDestroy<components::TextEdit>().disconnect<&HitTestSystem::onTextEditChanged>(*this);
+        disconnectInvalidateConstructUpdateDestroy<components::TextEdit>();
     }
 
     /**
@@ -176,6 +138,8 @@ public:
      */
     std::vector<entt::entity> getZOrderedInteractables(entt::entity topWindow)
     {
+        processPendingCacheInvalidationTags();
+
         if (auto iterator = m_zOrderCache.find(topWindow); iterator != m_zOrderCache.end() && !iterator->second.dirty)
         {
             return iterator->second.entities;
@@ -247,6 +211,36 @@ public:
     }
 
 private:
+    template <typename Component>
+    void connectInvalidateConstructDestroy()
+    {
+        Registry::OnConstruct<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+        Registry::OnDestroy<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+    }
+
+    template <typename Component>
+    void disconnectInvalidateConstructDestroy()
+    {
+        Registry::OnConstruct<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+        Registry::OnDestroy<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+    }
+
+    template <typename Component>
+    void connectInvalidateConstructUpdateDestroy()
+    {
+        Registry::OnConstruct<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+        Registry::OnUpdate<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+        Registry::OnDestroy<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+    }
+
+    template <typename Component>
+    void disconnectInvalidateConstructUpdateDestroy()
+    {
+        Registry::OnConstruct<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+        Registry::OnUpdate<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+        Registry::OnDestroy<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+    }
+
     /**
      * @brief Z-Order 缓存结构
      */
@@ -259,6 +253,8 @@ private:
     // 按窗口维护的 Z-Order 缓存
     std::unordered_map<entt::entity, ZOrderCache> m_zOrderCache;
 
+    entt::entity m_cacheInvalidationMarker = entt::null;
+
     /**
      * @brief 使所有窗口的缓存失效
      */
@@ -270,15 +266,52 @@ private:
         }
     }
 
-    /**
-     * @brief 使指定窗口的缓存失效
-     */
-    void invalidateWindowCache(entt::entity window)
+    void markGlobalHitCacheDirty()
     {
-        auto iterator = m_zOrderCache.find(window);
-        if (iterator != m_zOrderCache.end())
+        if (m_cacheInvalidationMarker == entt::null || !Registry::Valid(m_cacheInvalidationMarker))
         {
-            iterator->second.dirty = true;
+            m_cacheInvalidationMarker = Registry::Create();
+        }
+        Registry::EmplaceOrReplace<components::HitCacheInvalidateTag>(m_cacheInvalidationMarker);
+    }
+
+    /**
+     * @brief 统一缓存脏标记回调
+     */
+    void markHitCacheDirty(entt::entity entity)
+    {
+        if (Registry::Valid(entity))
+        {
+            Registry::EmplaceOrReplace<components::HitCacheInvalidateTag>(entity);
+            return;
+        }
+
+        // Destroy 场景下兜底为全局标记，避免漏失效。
+        markGlobalHitCacheDirty();
+    }
+
+    void processPendingCacheInvalidationTags()
+    {
+        auto taggedView = Registry::View<components::HitCacheInvalidateTag>();
+        if (taggedView.begin() == taggedView.end())
+        {
+            return;
+        }
+
+        invalidateAllCaches();
+
+        std::vector<entt::entity> taggedEntities;
+        for (auto entity : taggedView)
+        {
+            taggedEntities.push_back(entity);
+        }
+
+        for (auto entity : taggedEntities)
+        {
+            if (Registry::Valid(entity) && Registry::AnyOf<components::HitCacheInvalidateTag>(entity))
+            {
+                Registry::Remove<components::HitCacheInvalidateTag>(entity);
+            }
         }
     }
 
@@ -327,58 +360,6 @@ private:
             depth++;
         }
         return depth;
-    }
-
-    /**
-     * @brief ZOrderIndex 组件变化回调
-     */
-    void onZOrderChanged(entt::entity entity)
-    {
-        entt::entity window = findRootWindow(entity);
-        invalidateWindowCache(window);
-    }
-
-    /**
-     * @brief 层级关系变化回调
-     */
-    void onHierarchyChanged([[maybe_unused]] entt::entity entity)
-    {
-        // 层级变化可能影响多个窗口，为简化处理，使所有缓存失效
-        invalidateAllCaches();
-    }
-
-    /**
-     * @brief 可见性变化回调
-     */
-    void onVisibilityChanged([[maybe_unused]] entt::entity entity)
-    {
-        entt::entity window = findRootWindow(entity);
-        invalidateWindowCache(window);
-    }
-
-    /**
-     * @brief 交互资格变化回调
-     *
-     * 命中缓存保存的是“当前窗口内哪些实体需要参与命中测试”。
-     * Clickable / ScrollArea / SliderInfo / TextEditTag / DisabledTag 的变化
-     * 都会改变这个集合，因此必须使对应窗口缓存失效。
-     */
-    void onInteractivityChanged(entt::entity entity)
-    {
-        entt::entity window = findRootWindow(entity);
-        invalidateWindowCache(window);
-    }
-
-    /**
-     * @brief TextEdit 组件变化回调
-     *
-     * 当前命中系统会根据 TextEdit 的 ReadOnly 标志决定输入框是否参与交互。
-     * 因此 TextEdit 更新也必须使窗口缓存失效。
-     */
-    void onTextEditChanged(entt::entity entity)
-    {
-        entt::entity window = findRootWindow(entity);
-        invalidateWindowCache(window);
     }
 
     /**

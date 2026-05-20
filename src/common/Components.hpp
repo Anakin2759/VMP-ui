@@ -545,7 +545,6 @@ struct TableInfo
     std::vector<std::string> headers;           // 表头，size == columnCount
     std::vector<std::vector<TableCell>> cells;  // cells[row][col]
     int selectedRow = -1;                       // -1 = 无选中
-    on_event<int, int> onCellClicked;
     Color headerBgColor{0.2F, 0.4F, 0.8F, 1.0F};
     Color headerTextColor{1.0F, 1.0F, 1.0F, 1.0F}; // 表头文字颜色
     Color rowBgColor{1.0F, 1.0F, 1.0F, 1.0F};

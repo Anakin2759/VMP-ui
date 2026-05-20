@@ -633,6 +633,11 @@ private:
                 state.stopScrollbarDrag();
             }
 
+            if (!suppressClick)
+            {
+                tryEmitTableCellClicked(event.hitEntity, event.raw.position);
+            }
+
             if (!suppressClick && releasedEntity != entt::null && releasedEntity == event.hitEntity)
             {
                 if (Registry::TryGet<components::Clickable>(releasedEntity) != nullptr)
@@ -671,6 +676,83 @@ private:
             {
                 Dispatcher::Trigger<events::MouseReleaseEvent>(events::MouseReleaseEvent{releasedEntity});
             }
+        }
+
+        static void tryEmitTableCellClicked(entt::entity hitEntity, const Vec2& pointerPosition)
+        {
+            if (!Registry::Valid(hitEntity) || !Registry::AnyOf<components::TableTag>(hitEntity))
+            {
+                return;
+            }
+
+            const auto* info = Registry::TryGet<components::TableInfo>(hitEntity);
+            const auto* sizeComp = Registry::TryGet<components::Size>(hitEntity);
+            if (info == nullptr || sizeComp == nullptr || info->columnCount <= 0 || info->rowHeight <= 0.0F)
+            {
+                return;
+            }
+
+            const Vec2 absPos = HitTestSystem::getAbsolutePosition(hitEntity);
+            const float localX = pointerPosition.x() - absPos.x();
+            const float localY = pointerPosition.y() - absPos.y();
+            const float tableWidth = sizeComp->size.x();
+            const float tableHeight = sizeComp->size.y();
+            if (localX < 0.0F || localY < 0.0F || localX >= tableWidth || localY >= tableHeight)
+            {
+                return;
+            }
+
+            if (localY < info->headerHeight)
+            {
+                return;
+            }
+
+            float bodyY = localY - info->headerHeight;
+            if (const auto* scroll = Registry::TryGet<components::ScrollArea>(hitEntity))
+            {
+                bodyY += scroll->scrollOffset.y();
+            }
+
+            const int row = static_cast<int>(bodyY / info->rowHeight);
+            const int rowCount = static_cast<int>(info->cells.size());
+            if (row < 0 || row >= rowCount)
+            {
+                return;
+            }
+
+            int col = -1;
+            if (!info->columnWidths.empty() && static_cast<int>(info->columnWidths.size()) == info->columnCount)
+            {
+                float xCursor = 0.0F;
+                for (int i = 0; i < info->columnCount; ++i)
+                {
+                    const float width = info->columnWidths[static_cast<size_t>(i)];
+                    const float xEnd = xCursor + width;
+                    if ((localX >= xCursor && localX < xEnd) ||
+                        (i == info->columnCount - 1 && localX <= xEnd))
+                    {
+                        col = i;
+                        break;
+                    }
+                    xCursor = xEnd;
+                }
+            }
+            else
+            {
+                const float fallbackWidth = tableWidth / static_cast<float>(info->columnCount);
+                if (fallbackWidth <= 0.0F)
+                {
+                    return;
+                }
+                col = static_cast<int>(localX / fallbackWidth);
+            }
+
+            if (col < 0 || col >= info->columnCount)
+            {
+                return;
+            }
+
+            Dispatcher::Trigger<events::TableCellClicked>(events::TableCellClicked{hitEntity, row, col});
         }
     };
 

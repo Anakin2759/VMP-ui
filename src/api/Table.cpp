@@ -71,12 +71,6 @@ void SetSelectedRow(entt::entity entity, int row)
     info.selectedRow = row;
 }
 
-void SetOnCellClicked(entt::entity entity, std::move_only_function<void(int, int)> callback)
-{
-    auto& info = Registry::GetOrEmplace<components::TableInfo>(entity);
-    info.onCellClicked = std::move(callback);
-}
-
 void SetHeaderTextColor(entt::entity entity, Color color)
 {
     auto& info = Registry::GetOrEmplace<components::TableInfo>(entity);

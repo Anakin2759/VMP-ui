@@ -228,6 +228,11 @@ struct RenderDirtyTag
     using is_tags_tag = void;
 };
 
+struct HitCacheInvalidateTag
+{
+    using is_tags_tag = void;
+};
+
 struct AnimatingTag
 {
     using is_tags_tag = void;

@@ -17,8 +17,6 @@
 #include <entt/entt.hpp>
 #include <string>
 #include <vector>
-#include <functional>
-#include "../common/Components.hpp"
 #include "../common/Types.hpp"
 #include "Chains.hpp"
 
@@ -80,12 +78,6 @@ void ClearRows(entt::entity entity);
  * @brief 设置选中行，-1 为无选中
  */
 void SetSelectedRow(entt::entity entity, int row);
-
-/**
- * @brief 注册单元格点击回调
- * @param callback 回调参数：(row, col)
- */
-void SetOnCellClicked(entt::entity entity, std::move_only_function<void(int, int)> callback);
 
 /**
  * @brief 设置表头文字颜色
@@ -164,20 +156,6 @@ inline auto TableHeaderTextColor(Color color)
 inline auto TableSelectedRow(int row)
 {
     return ui::actions::table::SET_SELECTED_ROW_ACTION.bind(row);
-}
-
-/**
- * @brief Chain DSL：注册单元格点击回调
- *
- * 示例：entity | TableOnCellClicked([](int row, int col){ ... });
- */
-inline auto TableOnCellClicked(std::move_only_function<void(int, int)> callback)
-{
-    auto cb = std::make_shared<std::move_only_function<void(int, int)>>(std::move(callback));
-    return Chain{[cb](entt::entity entity) mutable
-    {
-        ui::table::SetOnCellClicked(entity, [cb](int r, int c) { (*cb)(r, c); });
-    }};
 }
 
 /**
