@@ -12,6 +12,8 @@ option(UI_ENABLE_STD_EMBED_EXPERIMENTAL "Enable the experimental std::embed reso
 option(UI_ENABLE_ASAN "Enable AddressSanitizer for UI module" OFF)
 # CPU 渲染选项：跳过所有 GPU 后端，直接使用 SDL_Renderer software 后端（用于无 GPU 环境或调试）
 option(UI_FORCE_CPU_RENDER "Force CPU-only software rendering (skip all GPU backends)" OFF)
+# 线程池：默认单线程，开启后启用 worker 线程做异步任务（图片解码等 CPU 热点）
+option(UI_ENABLE_MULTITHREAD "Enable worker threads in ui::utils::ThreadPool (default OFF, runs all tasks inline)" OFF)
 # DXC 着色器编译选项
 # AUTO：构建时自动检测 DXC；若找到则编译，否则回退到预编译二进制
 # ON  ：强制要求 DXC，找不到则报错
@@ -157,8 +159,11 @@ set(UI_SOURCES
     api/Canvas.cpp
     api/Table.cpp
     api/Shortcut.cpp
+    api/Log.cpp
     managers/ImageManager.cpp
     core/PlatformWindow.cpp
+    renderers/TableRenderer.cpp
+    common/ErrorCodes.cpp
 )
 set(UI_HEADERS
     # Components
@@ -170,7 +175,9 @@ set(UI_HEADERS
     common/Types.hpp
     common/WindowSync.hpp
     common/RenderTypes.hpp
-    common/UiErrors.hpp
+    common/Result.hpp
+    common/ErrorCodes.hpp
+    common/ThreadPool.hpp
     
     # Systems
     systems/InteractionSystem.hpp
@@ -221,7 +228,6 @@ set(UI_HEADERS
 
 
     singleton/Registry.hpp
-    singleton/SingletonBase.hpp
     singleton/Logger.hpp
     singleton/Dispatcher.hpp
     
@@ -451,6 +457,14 @@ target_compile_definitions(ui PRIVATE UI_ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}
 if(UI_FORCE_CPU_RENDER)
     target_compile_definitions(ui PRIVATE UI_FORCE_CPU_RENDER=1)
     message(STATUS "[UI] UI_FORCE_CPU_RENDER=ON: GPU backends disabled, using SDL_Renderer software fallback.")
+endif()
+
+if(UI_ENABLE_MULTITHREAD)
+    target_compile_definitions(ui PUBLIC UI_ENABLE_MULTITHREAD=1)
+    message(STATUS "[UI] UI_ENABLE_MULTITHREAD=ON: ThreadPool will spawn worker threads.")
+else()
+    target_compile_definitions(ui PUBLIC UI_ENABLE_MULTITHREAD=0)
+    message(STATUS "[UI] UI_ENABLE_MULTITHREAD=OFF: ThreadPool runs all tasks inline (default).")
 endif()
 
 # Windows 平台链接 DWM + comctl32（用于无边框窗口透明合成 + 子类化）

@@ -34,12 +34,11 @@
 #include <string_view>
 #include <unordered_map>
 #include <memory>
-#include <expected>
-#include <system_error>
 #include <cstdint>
 #include <cmath>
 #include "../singleton/Logger.hpp"
-#include "../common/UiErrors.hpp"
+#include "../common/ErrorCodes.hpp"
+#include "../common/Result.hpp"
 
 namespace ui::managers
 {
@@ -122,18 +121,18 @@ public:
      * @param fontSize 字体大小（像素）
      * @return 加载成功返回 true
      */
-    std::expected<void, std::error_code> loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
+    Result<void> loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
     {
         if (m_ftLibrary == nullptr)
         {
             Logger::error("[FontManager] FreeType not initialized");
-            return std::unexpected(errors::make_error_code(errors::FontErrc::FreeTypeNotInitialized));
+            return MakeError(ui_errc::device_unavailable);
         }
 
         if (fontData == nullptr || dataSize == 0)
         {
             Logger::error("[FontManager] Invalid font data");
-            return std::unexpected(errors::make_error_code(errors::FontErrc::InvalidFontData));
+            return MakeError(ui_errc::invalid_argument);
         }
 
         // 复制字体数据（FreeType 需要持久内存）
@@ -146,7 +145,7 @@ public:
         if (error)
         {
             Logger::error("[FontManager] Failed to load font face: error {}", error);
-            return std::unexpected(errors::make_error_code(errors::FontErrc::LoadFaceFailed));
+            return MakeError(ui_errc::asset_load_failed);
         }
 
         // 设置像素大小
@@ -156,7 +155,7 @@ public:
             FT_Done_Face(m_ftFace);
             m_ftFace = nullptr;
             Logger::error("[FontManager] Failed to set pixel size: error {}", error);
-            return std::unexpected(errors::make_error_code(errors::FontErrc::SetPixelSizeFailed));
+            return MakeError(ui_errc::asset_load_failed);
         }
 
         m_fontSize = fontSize;
@@ -166,7 +165,7 @@ public:
         createHarfBuzzFont();
 
         Logger::info("[FontManager] Font loaded: {} at {}px", m_ftFace->family_name, fontSize);
-        return {};
+        return Ok();
     }
 
     /**

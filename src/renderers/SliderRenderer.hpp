@@ -32,66 +32,87 @@ public:
     void collect(entt::entity entity, core::RenderContext& context) override
     {
         if (context.batchManager == nullptr || context.deviceManager == nullptr || context.whiteTexture == nullptr)
+        {
             return;
-
-        const auto* s = Registry::TryGet<components::SliderInfo>(entity);
-        if (!s) return;
-
-        // draw track (background)
-        Eigen::Vector4f trackColor{0.28F, 0.28F, 0.28F, 1.0F};
-        Eigen::Vector2f trackPos = context.position;
-        Eigen::Vector2f trackSize = context.size;
-
-        // make track thinner in the minor axis
-        if (s->vertical == policies::Orientation::Vertical)
-        {
-            trackSize.x() = std::max(8.0F, trackSize.x());
-        }
-        else
-        {
-            trackSize.y() = std::max(8.0F, trackSize.y());
         }
 
-        render::UiPushConstants pc{};
-        pc.screen_size[0] = context.screenWidth;
-        pc.screen_size[1] = context.screenHeight;
-        pc.rect_size[0] = trackSize.x();
-        pc.rect_size[1] = trackSize.y();
-        pc.radius[0] = 6.0F;
-        pc.radius[1] = 6.0F;
-        pc.radius[2] = 6.0F;
-        pc.radius[3] = 6.0F;
-        pc.opacity = context.alpha;
+        const auto* sliderPtr = Registry::TryGet<components::SliderInfo>(entity);
+        if (sliderPtr == nullptr) { return; }
+        const auto& info = *sliderPtr;
 
-        context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pc);
-        context.batchManager->addRect(trackPos, trackSize, trackColor);
+        const bool isVertical = (info.vertical == policies::Orientation::Vertical);
+        const float trackW = context.size.x();
+        const float trackH = context.size.y();
+        const Eigen::Vector2f trackPos = context.position;
 
-        // draw fill/thumb
+        const float thickness = info.trackThickness;
+
+        // ---- 辅助 lambda：提交一个圆角矩形批次 ----
+        auto submitRect = [&](const Eigen::Vector2f& pos, const Eigen::Vector2f& size,
+                              const Color& color, float radiusVal)
+        {
+            render::UiPushConstants pushConst{};
+            pushConst.screen_size[0] = context.screenWidth;
+            pushConst.screen_size[1] = context.screenHeight;
+            pushConst.rect_size[0]   = size.x();
+            pushConst.rect_size[1]   = size.y();
+            pushConst.radius[0] = pushConst.radius[1] = pushConst.radius[2] = pushConst.radius[3] = radiusVal;
+            pushConst.opacity   = context.alpha;
+            context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConst);
+            const Eigen::Vector4f col{color.red, color.green, color.blue, color.alpha * context.alpha};
+            context.batchManager->addRect(pos, size, col);
+        };
+
+        // ---- 进度比 ----
         float progress = 0.0F;
-        if (s->maxValue > s->minValue)
-            progress = std::clamp((s->currentValue - s->minValue) / (s->maxValue - s->minValue), 0.0F, 1.0F);
-
-        Eigen::Vector4f thumbColor{0.2F, 0.6F, 1.0F, 1.0F};
-
-        if (s->vertical == policies::Orientation::Vertical)
+        if (info.maxValue > info.minValue)
         {
-            float fillH = trackSize.y() * progress;
-            Eigen::Vector2f fillPos(trackPos.x(), trackPos.y() + trackSize.y() - fillH);
-            Eigen::Vector2f fillSize(trackSize.x(), fillH);
-            pc.rect_size[0] = fillSize.x();
-            pc.rect_size[1] = fillSize.y();
-            context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pc);
-            context.batchManager->addRect(fillPos, fillSize, thumbColor);
+            progress = std::clamp((info.currentValue - info.minValue) / (info.maxValue - info.minValue), 0.0F, 1.0F);
+        }
+
+        if (isVertical)
+        {
+            // 轨道：水平居中，全高
+            const float trkX = trackPos.x() + ((trackW - thickness) * 0.5F);
+            submitRect({trkX, trackPos.y()}, {thickness, trackH},
+                       info.trackColor, thickness * 0.5F);
+
+            // 填充（从底部往上）
+            const float fillH = trackH * progress;
+            if (fillH > 0.001F)
+            {
+                submitRect({trkX, trackPos.y() + trackH - fillH}, {thickness, fillH},
+                           info.fillColor, thickness * 0.5F);
+            }
+
+            // 滑块圆形
+            const float thumbDia    = info.thumbSize;
+            const float thumbRad    = info.thumbRadius;
+            const float thumbX = trackPos.x() + ((trackW - thumbDia) * 0.5F);
+            const float thumbY = (trackPos.y() + (trackH * (1.0F - progress))) - (thumbDia * 0.5F);
+            submitRect({thumbX, thumbY}, {thumbDia, thumbDia}, info.thumbColor, thumbRad);
         }
         else
         {
-            float fillW = trackSize.x() * progress;
-            Eigen::Vector2f fillPos(trackPos.x(), trackPos.y());
-            Eigen::Vector2f fillSize(fillW, trackSize.y());
-            pc.rect_size[0] = fillSize.x();
-            pc.rect_size[1] = fillSize.y();
-            context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pc);
-            context.batchManager->addRect(fillPos, fillSize, thumbColor);
+            // 轨道：垂直居中，全宽
+            const float trkY = trackPos.y() + ((trackH - thickness) * 0.5F);
+            submitRect({trackPos.x(), trkY}, {trackW, thickness},
+                       info.trackColor, thickness * 0.5F);
+
+            // 填充（从左往右）
+            const float fillW = trackW * progress;
+            if (fillW > 0.001F)
+            {
+                submitRect({trackPos.x(), trkY}, {fillW, thickness},
+                           info.fillColor, thickness * 0.5F);
+            }
+
+            // 滑块圆形
+            const float thumbDia    = info.thumbSize;
+            const float thumbRad    = info.thumbRadius;
+            const float thumbX = (trackPos.x() + (trackW * progress)) - (thumbDia * 0.5F);
+            const float thumbY = trackPos.y() + ((trackH - thumbDia) * 0.5F);
+            submitRect({thumbX, thumbY}, {thumbDia, thumbDia}, info.thumbColor, thumbRad);
         }
     }
 

@@ -23,7 +23,7 @@ TEST(UiCoverageTest, DefaultResourceProviderLoadsEmbeddedFont)
     EXPECT_TRUE(provider->exists("assets/fonts/NotoSansSC-VariableFont_wght.ttf"));
 
     const auto resource = provider->loadBinary("assets/fonts/NotoSansSC-VariableFont_wght.ttf");
-    ASSERT_TRUE(resource.has_value()) << resource.error();
+    ASSERT_TRUE(resource.has_value()) << resource.error().message();
     EXPECT_TRUE(static_cast<bool>(resource.value()));
     EXPECT_GT(resource->size(), 0U);
     EXPECT_NE(resource->data(), nullptr);
@@ -37,7 +37,7 @@ TEST(UiCoverageTest, DefaultResourceProviderLoadsEmbeddedIconCodepoints)
     EXPECT_TRUE(provider->exists("assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints"));
 
     const auto resource = provider->loadBinary("assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints");
-    ASSERT_TRUE(resource.has_value()) << resource.error();
+    ASSERT_TRUE(resource.has_value()) << resource.error().message();
     EXPECT_GT(resource->size(), 0U);
 }
 
@@ -50,7 +50,8 @@ TEST(UiCoverageTest, DefaultResourceProviderReportsMissingResource)
 
     const auto resource = provider->loadBinary("assets/does-not-exist.bin");
     ASSERT_FALSE(resource.has_value());
-    EXPECT_FALSE(resource.error().empty());
+    EXPECT_TRUE(static_cast<bool>(resource.error()));
+    EXPECT_FALSE(resource.error().message().empty());
 }
 
 } // namespace ui::tests

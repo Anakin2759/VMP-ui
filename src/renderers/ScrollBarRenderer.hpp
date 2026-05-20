@@ -99,9 +99,12 @@ private:
 
             // 根据交互状态调整轨道颜色
             Eigen::Vector4f trackColor = {0.2F, 0.2F, 0.2F, 0.3F}; // 默认半透明深色
-            if (scrollArea.trackHovered || scrollArea.scrollbarHovered || scrollArea.scrollbarPressed)
+            if (const auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(entity))
             {
-                trackColor = {0.25F, 0.25F, 0.25F, 0.5F}; // 悬停时更明显
+                if (ist->trackHovered || ist->scrollbarHovered || ist->scrollbarPressed)
+                {
+                    trackColor = {0.25F, 0.25F, 0.25F, 0.5F}; // 悬停时更明显
+                }
             }
 
             // 绘制轨道背景
@@ -128,13 +131,16 @@ private:
 
             // 根据交互状态调整滑块颜色
             Eigen::Vector4f thumbColor = {0.6F, 0.6F, 0.6F, 0.7F}; // 默认中灰色
-            if (scrollArea.scrollbarPressed)
+            if (const auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(entity))
             {
-                thumbColor = {0.5F, 0.5F, 0.5F, 0.95F}; // 按下时更暗更不透明
-            }
-            else if (scrollArea.scrollbarHovered)
-            {
-                thumbColor = {0.7F, 0.7F, 0.7F, 0.85F}; // 悬停时更亮
+                if (ist->scrollbarPressed)
+                {
+                    thumbColor = {0.5F, 0.5F, 0.5F, 0.95F}; // 按下时更暗更不透明
+                }
+                else if (ist->scrollbarHovered)
+                {
+                    thumbColor = {0.7F, 0.7F, 0.7F, 0.85F}; // 悬停时更亮
+                }
             }
 
             // 绘制滑块

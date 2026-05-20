@@ -11,12 +11,19 @@
 namespace ui::managers
 {
 
-SDL_GPUTexture* ImageManager::loadTexture(const std::string& path, SDL_GPUDevice* device)
+ui::Result<SDL_GPUTexture*> ImageManager::loadTexture(const std::string& path)
 {
+    if (path.empty())
+    {
+        Logger::error("[ImageManager] loadTexture: empty path");
+        return ui::MakeError(ui::ui_errc::invalid_argument);
+    }
+
+    SDL_GPUDevice* device = (m_deviceManager != nullptr) ? m_deviceManager->getDevice() : nullptr;
     if (device == nullptr)
     {
         Logger::error("[ImageManager] loadTexture: device is null, path={}", path);
-        return nullptr;
+        return ui::MakeError(ui::ui_errc::device_unavailable);
     }
 
     // 缓存命中
@@ -55,18 +62,24 @@ SDL_GPUTexture* ImageManager::loadTexture(const std::string& path, SDL_GPUDevice
     {
         m_cache[path] = tex;
         Logger::info("[ImageManager] Loaded texture: {}", path);
-    }
-    else
-    {
-        Logger::error("[ImageManager] Failed to load texture: {}", path);
+        return tex;
     }
 
-    return tex;
+    Logger::error("[ImageManager] Failed to load texture: {}", path);
+    return ui::MakeError(ui::ui_errc::asset_decode_failed);
 }
 
-void ImageManager::releaseAll(SDL_GPUDevice* device)
+void ImageManager::releaseAll()
 {
-    if (device == nullptr) return;
+    if (m_cache.empty()) return;
+    SDL_GPUDevice* device = (m_deviceManager != nullptr) ? m_deviceManager->getDevice() : nullptr;
+    if (device == nullptr)
+    {
+        // 设备已经销毁，只能丢弃缓存；上层应保证 ImageManager 早于 device 析构
+        Logger::warn("[ImageManager] releaseAll: device already gone, leaking {} cached textures", m_cache.size());
+        m_cache.clear();
+        return;
+    }
     for (auto& [path, tex] : m_cache)
     {
         if (tex != nullptr)

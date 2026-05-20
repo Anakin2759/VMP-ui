@@ -33,6 +33,7 @@
 #include "../interface/Isystem.hpp"
 #include "../managers/FontManager.hpp"
 #include "../managers/IconManager.hpp"
+#include "../managers/ImageManager.hpp"
 #include "../managers/DeviceManager.hpp"
 #include "../common/GPUWrappers.hpp"
 #include "../managers/PipelineCache.hpp"
@@ -144,7 +145,7 @@ public:
 
 private:
     void ensureInitialized();
-    bool tryInitializeFallback(SDL_Window* window);
+    ui::Result<void> tryInitializeFallback(SDL_Window* window);
     void initializeRenderers();
 
     /**
@@ -162,6 +163,7 @@ private:
     std::unique_ptr<managers::DeviceManager> m_deviceManager;
     std::unique_ptr<managers::FontManager> m_fontManager;
     std::unique_ptr<managers::IconManager> m_iconManager;
+    std::unique_ptr<managers::ImageManager> m_imageManager;
     std::unique_ptr<managers::PipelineCache> m_pipelineCache;
     std::unique_ptr<managers::TextTextureCache> m_textTextureCache;
     std::unique_ptr<managers::BatchManager> m_batchManager;
@@ -182,6 +184,7 @@ private:
     bool m_useFallback = false;
     bool m_forceFallback = false;
     bool m_backendSelectionLogged = false;
+    bool m_firstUpdate = true;
 
     float m_screenWidth = 0.0F;
     float m_screenHeight = 0.0F;

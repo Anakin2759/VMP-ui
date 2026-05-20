@@ -1,4 +1,4 @@
-name: CMake Windows Build
+name: CMake Multi-Platform Build
 
 on:
   push:
@@ -7,24 +7,133 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
-    runs-on: windows-latest
-
+  # ─────────────────────────────────────────────────────────────
+  # Job 1 · clang-format 格式检查
+  # ─────────────────────────────────────────────────────────────
+  clang-format:
+    name: ClangFormat Check
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    # ================= CMake 配置 =================
-    - name: Configure CMake
-      shell: pwsh
-      run: cmake -B build -S . -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=Release
+      - name: Install clang-format
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq clang-format
 
-    # ================= Build =================
-    - name: Build
-      shell: pwsh
-      run: cmake --build build --config Release
+      - name: Check formatting
+        run: |
+          find src example tests include \
+            -type f \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
+            | xargs -0 clang-format --dry-run --Werror
 
-    # # ================= Test =================
-    # - name: Test
-    #   shell: pwsh
-    #   working-directory: build
-    #   run: ctest --build-config Release
+  # ─────────────────────────────────────────────────────────────
+  # Job 2 · Windows — MSVC / Clang-CL
+  # ─────────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows · ${{ matrix.compiler }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: MSVC
+            c_compiler: cl
+            cxx_compiler: cl
+          - compiler: Clang-CL
+            c_compiler: clang-cl
+            cxx_compiler: clang-cl
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSVC x64 environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure CMake
+        shell: pwsh
+        run: >
+          cmake -B build -S .
+          -G Ninja
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx_compiler }}
+          -DCMAKE_BUILD_TYPE=Release
+          -DENABLE_LTO=OFF
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 3 · Windows — MinGW GCC (MSYS2 MINGW64)
+  # ─────────────────────────────────────────────────────────────
+  build-mingw:
+    name: Windows · MinGW GCC
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSYS2 MINGW64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Configure CMake
+        shell: msys2 {0}
+        run: >
+          cmake -B build -S .
+          -G Ninja
+          -DCMAKE_C_COMPILER=gcc
+          -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_BUILD_TYPE=Release
+          -DENABLE_LTO=OFF
+
+      - name: Build
+        shell: msys2 {0}
+        run: cmake --build build --config Release --parallel
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 4 · Linux — GCC / Clang
+  # ─────────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux · ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            c_compiler: gcc
+            cxx_compiler: g++
+          - compiler: Clang
+            c_compiler: clang
+            cxx_compiler: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq \
+            ninja-build \
+            libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev \
+            libegl1-mesa-dev libvulkan-dev
+
+      - name: Configure CMake
+        run: >
+          cmake -B build -S .
+          -G Ninja
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx_compiler }}
+          -DCMAKE_BUILD_TYPE=Release
+          -DENABLE_LTO=OFF
+
+      - name: Build
+        run: cmake --build build --config Release --parallel

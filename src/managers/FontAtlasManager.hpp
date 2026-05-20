@@ -23,11 +23,10 @@
 #include "FontManager.hpp"
 #include "TextureAtlas.hpp"
 #include "DeviceManager.hpp"
-#include "../common/UiErrors.hpp"
+#include "../common/ErrorCodes.hpp"
+#include "../common/Result.hpp"
 #include <memory>
 #include <optional>
-#include <expected>
-#include <system_error>
 
 namespace ui::managers
 {
@@ -59,11 +58,11 @@ public:
      * @param fontSize 字体大小（像素）
      * @return 加载成功返回 true
      */
-    std::expected<void, std::error_code> loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
+    Result<void> loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
     {
         if (auto loadResult = m_fontManager->loadFromMemory(fontData, dataSize, fontSize); !loadResult.has_value())
         {
-            return std::unexpected(loadResult.error());
+            return MakeError(loadResult.error());
         }
 
         // 创建纹理图集
@@ -71,12 +70,12 @@ public:
         if (device == nullptr)
         {
             Logger::error("[FontAtlasManager] No GPU device available");
-            return std::unexpected(errors::make_error_code(errors::FontErrc::GpuDeviceUnavailable));
+            return MakeError(ui_errc::device_unavailable);
         }
 
         m_atlas = std::make_unique<TextureAtlas>(device, 2048, 2);
         Logger::info("[FontAtlasManager] Font loaded and atlas created");
-        return {};
+        return Ok();
     }
 
     /**

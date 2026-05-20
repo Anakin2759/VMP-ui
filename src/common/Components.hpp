@@ -18,6 +18,7 @@
 
 #include "Types.hpp"
 #include <string>
+#include <string_view>
 #include <vector>
 #include <functional>
 #include <cfloat>
@@ -195,7 +196,18 @@ struct ScrollArea
     policies::ScrollBar scrollBar = policies::ScrollBar::Draggable;
     policies::ScrollAnchor anchor = policies::ScrollAnchor::Top; // 滚动锚定策略
 
-    // 滚动条交互状态
+};
+
+/**
+ * @brief 滚动条运行时交互状态（独立于纯数据组件 ScrollArea）
+ *
+ * 当滚动条进入交互状态时由 StateSystem 动态 Emplace，
+ * 交互结束后保留（StateSystem 负责更新）。
+ * ScrollBarRenderer 通过 TryGet 读取此组件，缺失时使用默认样式。
+ */
+struct ScrollBarInteractionState
+{
+    using is_component_tag = void;
     bool scrollbarHovered{false}; // 滚动条滑块是否悬停
     bool scrollbarPressed{false}; // 滚动条滑块是否按下
     bool trackHovered{false};     // 滚动条轨道是否悬停
@@ -535,10 +547,12 @@ struct TableInfo
     int selectedRow = -1;                       // -1 = 无选中
     on_event<int, int> onCellClicked;
     Color headerBgColor{0.2F, 0.4F, 0.8F, 1.0F};
+    Color headerTextColor{1.0F, 1.0F, 1.0F, 1.0F}; // 表头文字颜色
     Color rowBgColor{1.0F, 1.0F, 1.0F, 1.0F};
     Color altRowBgColor{0.94F, 0.94F, 0.94F, 1.0F};
     Color selectedRowBgColor{0.2F, 0.5F, 1.0F, 0.3F};
     Color gridColor{0.8F, 0.8F, 0.8F, 1.0F};
+    Color cellTextColor{0.15F, 0.15F, 0.18F, 1.0F}; // 数据单元格文字颜色
     float rowHeight = 28.0F;
     float headerHeight = 32.0F;
     std::vector<float> columnWidths; // 每列宽度，空则均等分
@@ -593,6 +607,14 @@ struct SliderInfo
     policies::Orientation vertical = policies::Orientation::Horizontal; // 是否为垂直滑块
     on_event<float> onValueChanged;                                     // 值变化回调
     policies::Alignment labelAlignment = policies::Alignment::NONE;     // 标签对齐方式
+
+    // ---- 外观配置 ----
+    Color trackColor{0.28F, 0.28F, 0.28F, 1.0F};  // 轨道背景色
+    Color fillColor{0.20F, 0.60F, 1.00F, 1.0F};   // 填充/进度色
+    Color thumbColor{0.40F, 0.75F, 1.00F, 1.0F};  // 滑块圆形色
+    float thumbSize  = 14.0F;                       // 滑块直径（px）
+    float thumbRadius = 7.0F;                       // 滑块圆角（通常 = thumbSize/2 为圆形）
+    float trackThickness = 6.0F;                    // 轨道细轴厚度（px）
 };
 
 /**
@@ -713,10 +735,9 @@ struct DropDown
     Color arrowColor{0.70F, 0.70F, 0.75F, 1.0F};
     on_event<int> onChanged;
 
-    [[nodiscard]] const std::string& selectedText() const
+    [[nodiscard]] std::string_view selectedText() const
     {
-        static const std::string emptyStr;
-        if (options.empty()) return emptyStr;
+        if (options.empty()) return {};
         int idx = std::clamp(selectedIndex, 0, static_cast<int>(options.size()) - 1);
         return options[static_cast<std::size_t>(idx)];
     }
@@ -730,16 +751,21 @@ enum class CanvasDrawType : uint8_t
     RECT,
     FILLED_RECT,
     CIRCLE,
-    FILLED_CIRCLE
+    FILLED_CIRCLE,
+    POLYLINE,         // 折线：points 存储顶点序列，依次连接
+    CUBIC_BEZIER      // 三次贝塞尔曲线：p1=起点, p2=控制点1, p3=控制点2, p4=终点
 };
 
 struct CanvasDrawCommand
 {
     CanvasDrawType type = CanvasDrawType::LINE;
-    Vec2 p1{0.0F, 0.0F}; // 起点 / 矩形左上 / 圆心
-    Vec2 p2{0.0F, 0.0F}; // 终点 / 矩形右下 / (p2.x = 半径)
+    Vec2 p1{0.0F, 0.0F}; // 起点 / 矩形左上 / 圆心 / 贝塞尔起点
+    Vec2 p2{0.0F, 0.0F}; // 终点 / 矩形右下 / (p2.x=半径) / 贝塞尔控制点1
+    Vec2 p3{0.0F, 0.0F}; // 贝塞尔控制点2（仅 CUBIC_BEZIER）
+    Vec2 p4{0.0F, 0.0F}; // 贝塞尔终点（仅 CUBIC_BEZIER）
     Color color{1.0F, 1.0F, 1.0F, 1.0F};
     float lineWidth = 1.0F;
+    std::vector<Vec2> points; // 顶点列表（仅 POLYLINE）
 };
 
 struct CanvasDrawList

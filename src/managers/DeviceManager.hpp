@@ -28,6 +28,8 @@
 #include <filesystem>
 #include <fstream>
 #include <SDL3/SDL.h>
+#include "../common/Result.hpp"
+#include "../common/ErrorCodes.hpp"
 
 // CMRC_DECLARE(ui_swiftshader);
 
@@ -91,9 +93,9 @@ public:
     DeviceManager(DeviceManager&&) noexcept = default;
     DeviceManager& operator=(DeviceManager&&) noexcept = default;
 
-    bool initialize()
+    Result<void> initialize()
     {
-        if (m_gpuDevice != nullptr) return true;
+        if (m_gpuDevice != nullptr) return Ok();
 
         Logger::info("DeviceManager: 开始初始化 GPU 后端 (Strategy: Iterative Configuration)");
 
@@ -101,33 +103,33 @@ public:
         {
             if (createDevice(i))
             {
-                return true;
+                return Ok();
             }
         }
 
         Logger::error("所有 GPU 后端方案均初始化失败！请检查显卡驱动或虚拟机 3D 加速设置。");
-        return false;
+        return MakeError(ui_errc::backend_unavailable);
     }
 
-    bool claimWindow(SDL_Window* sdlWindow)
+    Result<void> claimWindow(SDL_Window* sdlWindow)
     {
         if (m_gpuDevice == nullptr || sdlWindow == nullptr)
         {
             Logger::error("claimWindow: 无效的设备或窗口句柄");
-            return false;
+            return MakeError(ui_errc::invalid_argument);
         }
 
         SDL_WindowID windowID = SDL_GetWindowID(sdlWindow);
         if (m_claimedWindows.contains(windowID))
         {
-            return true;
+            return Ok();
         }
 
         // 尝试声明窗口
         if (SDL_ClaimWindowForGPUDevice(m_gpuDevice.get(), sdlWindow))
         {
             m_claimedWindows.insert(windowID);
-            return true;
+            return Ok();
         }
 
         // 核心修改：如果声明失败（例如 D3D12 在 VM 中无法渲染），尝试回退到其他后端
@@ -147,7 +149,7 @@ public:
                 if (SDL_ClaimWindowForGPUDevice(m_gpuDevice.get(), sdlWindow))
                 {
                     m_claimedWindows.insert(windowID);
-                    return true;
+                    return Ok();
                 }
                 Logger::warn("后端 {} 也无法声明窗口，继续寻找...", m_gpuDriver);
             }
@@ -155,7 +157,7 @@ public:
         }
 
         Logger::error("致命错误: 所有可用后端均无法声明/渲染窗口！");
-        return false;
+        return MakeError(ui_errc::window_claim_failed);
     }
 
     void unclaimWindow(SDL_Window* sdlWindow)

@@ -77,6 +77,12 @@ void SetOnCellClicked(entt::entity entity, std::move_only_function<void(int, int
     info.onCellClicked = std::move(callback);
 }
 
+void SetHeaderTextColor(entt::entity entity, Color color)
+{
+    auto& info = Registry::GetOrEmplace<components::TableInfo>(entity);
+    info.headerTextColor = color;
+}
+
 void SetCellWidget(entt::entity tableEntity, int row, int col, entt::entity widgetEntity)
 {
     auto* info = Registry::TryGet<components::TableInfo>(tableEntity);

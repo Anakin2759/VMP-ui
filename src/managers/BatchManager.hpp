@@ -141,6 +141,78 @@ public:
     }
 
     /**
+     * @brief 获取当前批次已写入的顶点数（用于自定义图元计算 baseIndex）
+     */
+    [[nodiscard]] uint32_t currentVertexCount() const
+    {
+        return m_currentBatch.has_value() ? static_cast<uint32_t>(m_currentBatch->vertices.size()) : 0U;
+    }
+
+    /**
+     * @brief 添加有向四边形（4顶点任意位置，用于旋转线段/胶囊）
+     *
+     * @param v0~v3  四个角的屏幕坐标（顺序：左上、右上、右下、左下，以线段方向为 X 轴）
+     * @param uv0~uv3 对应的 UV 坐标（编码局部坐标，由调用方计算）
+     * @param color  顶点颜色
+     */
+    void addOrientedQuad(const Eigen::Vector2f& vert0, const Eigen::Vector2f& vert1,
+                         const Eigen::Vector2f& vert2, const Eigen::Vector2f& vert3,
+                         const Eigen::Vector2f& uvVert0, const Eigen::Vector2f& uvVert1,
+                         const Eigen::Vector2f& uvVert2, const Eigen::Vector2f& uvVert3,
+                         const Eigen::Vector4f& color)
+    {
+        if (!m_currentBatch.has_value())
+        {
+            return;
+        }
+
+        auto baseIndex = static_cast<uint16_t>(m_currentBatch->vertices.size());
+
+        // 按顺序嵌入四个顶点
+        const std::array<Eigen::Vector2f, 4> positions{vert0, vert1, vert2, vert3};
+        const std::array<Eigen::Vector2f, 4> uvCoords{uvVert0, uvVert1, uvVert2, uvVert3};
+
+        for (std::size_t vIdx = 0; vIdx < 4; ++vIdx)
+        {
+            render::Vertex vtx{};
+            vtx.position[0] = positions.at(vIdx).x(); // NOLINT
+            vtx.position[1] = positions.at(vIdx).y(); // NOLINT
+            vtx.texCoord[0] = uvCoords.at(vIdx).x();  // NOLINT
+            vtx.texCoord[1] = uvCoords.at(vIdx).y();  // NOLINT
+            vtx.color[0] = color.x();
+            vtx.color[1] = color.y();
+            vtx.color[2] = color.z();
+            vtx.color[3] = color.w();
+            vtx.rect_size[0]     = m_pendingQuadParams.rect_size[0];
+            vtx.rect_size[1]     = m_pendingQuadParams.rect_size[1];
+            vtx.radius[0]        = m_pendingQuadParams.radius[0];
+            vtx.radius[1]        = m_pendingQuadParams.radius[1];
+            vtx.radius[2]        = m_pendingQuadParams.radius[2];
+            vtx.radius[3]        = m_pendingQuadParams.radius[3];
+            vtx.shadow_params[0] = m_pendingQuadParams.shadow_soft;
+            vtx.shadow_params[1] = m_pendingQuadParams.shadow_offset_x;
+            vtx.shadow_params[2] = m_pendingQuadParams.shadow_offset_y;
+            vtx.shadow_params[3] = m_pendingQuadParams.opacity;
+            vtx.mode_params[0]   = m_pendingQuadParams.padding_flag;
+            vtx.mode_params[1]   = m_pendingQuadParams.stroke_width;
+            vtx.mode_params[2]   = m_pendingQuadParams.draw_mode;
+            vtx.mode_params[3]   = 0.0F;
+            m_currentBatch->vertices.push_back(vtx);
+        }
+
+        std::array<uint16_t, 6> indices = {baseIndex,
+                                           static_cast<uint16_t>(baseIndex + 1),
+                                           static_cast<uint16_t>(baseIndex + 2),
+                                           baseIndex,
+                                           static_cast<uint16_t>(baseIndex + 2),
+                                           static_cast<uint16_t>(baseIndex + 3)};
+        for (const auto& idx : indices)
+        {
+            m_currentBatch->indices.push_back(idx);
+        }
+    }
+
+    /**
      * @brief 添加矩形（4个顶点 + 6个索引）
      */
     void addRect(const Eigen::Vector2f& pos,

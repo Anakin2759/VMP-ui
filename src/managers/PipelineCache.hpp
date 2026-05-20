@@ -21,6 +21,8 @@
 #include "../common/GPUWrappers.hpp"
 #include "DeviceManager.hpp"
 #include "ResourceProvider.hpp"
+#include "../common/Result.hpp"
+#include "../common/ErrorCodes.hpp"
 
 namespace ui::managers
 {
@@ -73,17 +75,21 @@ public:
         }
     }
 
-    void createPipeline(SDL_Window* sdlWindow)
+    Result<void> createPipeline(SDL_Window* sdlWindow)
     {
         SDL_GPUDevice* device = m_deviceManager->getDevice();
         if (device == nullptr || m_vertexShader == nullptr || m_fragmentShader == nullptr)
         {
-            return;
+            return MakeError(ui_errc::device_unavailable);
         }
 
-        if (m_pipeline != nullptr || m_creationFailed)
+        if (m_pipeline != nullptr)
         {
-            return;
+            return Ok();
+        }
+        if (m_creationFailed)
+        {
+            return MakeError(ui_errc::pipeline_unavailable);
         }
 
         // 顶点属性描述
@@ -209,7 +215,7 @@ public:
         {
             Logger::error("图形管线创建失败: {}", SDL_GetError());
             m_creationFailed = true; // 标记失败，阻止后续重试
-            return; // 管线失败则不创建采样器，避免下次 guard 失效导致重复重试
+            return MakeError(ui_errc::pipeline_unavailable); // 管线失败则不创建采样器，避免下次 guard 失效导致重复重试
         }
 
         // 创建采样器
@@ -221,6 +227,7 @@ public:
         samplerInfo.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
 
         m_sampler = wrappers::MakeGpuResource<wrappers::UniqueGPUSampler>(device, SDL_CreateGPUSampler, &samplerInfo);
+        return Ok();
     }
 
     void cleanup()
@@ -249,7 +256,7 @@ private:
         auto resourceResult = ui::cpo::load_binary_resource(*m_resourceProvider, resourcePath);
         if (!resourceResult.has_value())
         {
-            Logger::error("着色器资源加载失败: {} ({})", resourcePath, resourceResult.error());
+            Logger::error("着色器资源加载失败: {} ({})", resourcePath, resourceResult.error().message());
             return nullptr;
         }
 

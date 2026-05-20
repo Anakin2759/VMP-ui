@@ -45,6 +45,15 @@ struct TimerTask
 };
 
 /**
+ * @brief 定时器上下文（每个 UiRuntime 独立，存入 registry.ctx()）
+ */
+struct TimerContext
+{
+    std::vector<TimerTask> tasks;
+    uint32_t nextTaskId = 1;
+};
+
+/**
  * @brief 全局 UI 状态（从 StateSystem 提取）
  */
 struct StateContext

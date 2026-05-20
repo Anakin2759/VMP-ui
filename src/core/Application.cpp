@@ -12,11 +12,21 @@
 #include "RuntimeFacade.hpp"
 #include "TaskChain.hpp"
 
+#include "../api/Factory.hpp"
 #include "../common/GlobalContext.hpp"
 #include "../singleton/Logger.hpp"
 
 static constexpr uint32_t MAX_FRAME_TIME_MS = 250; // 防止卡顿时长时间更新
 static constexpr uint32_t LOOP_DELAY_MS = 1;       // 主循环延迟，防止100% CPU占用
+
+namespace
+{
+void onDropDownCloseRequested(const ui::events::DropDownCloseRequested& e)
+{
+    ui::factory::CloseDropDownPopup(e.entity);
+}
+} // namespace
+
 namespace ui
 {
 Application::Application(std::span<char*> arg) // NOLINT
@@ -59,11 +69,13 @@ Application::Application(std::span<char*> arg) // NOLINT
         });
 
     runtime.sink<ui::events::QuitRequested>().connect<&Application::onQuitRequested>(*this);
+    Dispatcher::Sink<events::DropDownCloseRequested>().connect<&onDropDownCloseRequested>();
 }
 
 Application::~Application()
 {
     RuntimeFacade::current().sink<ui::events::QuitRequested>().disconnect<&Application::onQuitRequested>(*this);
+    Dispatcher::Sink<events::DropDownCloseRequested>().disconnect<&onDropDownCloseRequested>();
     m_systems.unregisterAllHandlers();
     SDL_Quit();
 }

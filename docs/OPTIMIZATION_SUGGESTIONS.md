@@ -1,0 +1,384 @@
+# PmkUi 优化与修改建议
+
+> 版本：v0.2 · 日期：2026-05-19  
+> 关联文档：[ARCHITECTURE_CRITIQUE.md](ARCHITECTURE_CRITIQUE.md)（问题来源）
+
+---
+
+## 优先级说明
+
+| 标记 | 含义 |
+|------|------|
+| 🔴 **P0** | 正确性 Bug，应立即修复（影响功能/稳定性） |
+| 🟠 **P1** | 重要改进，影响多实例/多线程场景（1~2 天内） |
+| 🟡 **P2** | 中等优化，影响可维护性（1 周内） |
+| 🟢 **P3** | 长期重构，需规划（视排期） |
+
+---
+
+## 一、P0 — 立即修复
+
+### ✅ [已完成] OP-01 修复 IconRenderer 字体图标判断逻辑
+
+**文件**：`src/renderers/IconRenderer.hpp:90`  
+**问题**：`~policies::IconFlag::Texture` 是位运算取反，不等于逻辑非，几乎对所有非零 type 都返回 true，导致字体图标/纹理图标分支选择混乱，`type == Default` 时两个分支都不进入。
+
+```cpp
+// ❌ 当前（错误）
+else if (HasFlag(iconComp->type, ~policies::IconFlag::Texture))
+
+// ✅ 正确
+else if (!HasFlag(iconComp->type, policies::IconFlag::Texture))
+```
+
+**验收**：补充回归测试 `test_IconRenderer.cpp`，覆盖 `type=Texture`、`type=Default`、`type=Font` 三个分支。
+
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
+---
+
+### ✅ [已完成] OP-02 修复 TableInfo 缺失 headerTextColor 字段
+
+**文件**：`src/renderers/TableRenderer.hpp:108`、`src/common/Components.hpp`  
+**问题**：表头文字颜色硬编码为白色，无法通过 API 或主题控制。
+
+```cpp
+// Components.hpp — TableInfo 中添加
+Color headerTextColor{1.0F, 1.0F, 1.0F, 1.0F}; // 默认白色，可通过 TableHeaderTextColor() Chain 修改
+
+// TableRenderer.hpp — 使用字段替代硬编码
+const Eigen::Vector4f headerTextColor = toVec4(info->headerTextColor, 1.0F);
+```
+
+同步在 `src/api/Table.hpp` 中添加 `TableHeaderTextColor(const Color&)` Chain Action。
+
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
+---
+
+## 二、P1 — 重要改进（1~2 天）
+
+### ✅ [已完成] OP-03 TextInputSystem 静态键盘状态改为实例成员
+
+**文件**：`src/systems/TextInputSystem.hpp:85-87`  
+**问题**：`inline static` 键盘状态在多 UiRuntime 间共享，多窗口场景下键盘重复串台。
+
+```cpp
+// ❌ 当前
+inline static SDL_Keycode heldKey     = SDLK_UNKNOWN;
+inline static uint64_t   keyPressTime = 0;
+inline static uint64_t   lastRepeatTime = 0;
+
+// ✅ 改为普通成员变量
+SDL_Keycode m_heldKey      = SDLK_UNKNOWN;
+uint64_t    m_keyPressTime = 0;
+uint64_t    m_lastRepeatTime = 0;
+```
+
+**影响范围**：只需修改 `TextInputSystem.hpp`，不涉及其他文件。
+
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
+---
+
+### ✅ [已完成] OP-04 TimerSystem 任务表迁移到 registry.ctx()
+
+**文件**：`src/systems/TimerSystem.hpp:83`、`TimerSystem.cpp:30`  
+**问题**：类静态 `tasks` 和 `nextTaskId` 跨所有 UiRuntime 实例共享，多运行时场景下 timer ID 冲突、回调在错误 registry 上下文中触发。
+
+**方案**：将 `TimerTask` 列表和 `nextTaskId` 存入 `registry.ctx<GlobalContext>()` 或独立的 `TimerContext`（类似 `FrameContext` 的存储方式）。
+
+```cpp
+// 移除类静态
+// static std::vector<globalcontext::TimerTask> tasks;
+// static uint32_t nextTaskId;
+
+// 替换为 registry.ctx() 访问
+auto& timerCtx = Registry::Ref().ctx().get_or_emplace<globalcontext::TimerContext>();
+timerCtx.tasks.push_back(...);
+```
+
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
+---
+
+### ✅ [已完成] OP-05 RenderSystem firstUpdate 改为实例成员
+
+**文件**：`src/systems/RenderSystem.cpp:351`  
+**问题**：`static bool firstUpdate = true` 函数级静态，所有 UiRuntime 共享，第二个运行时跳过首帧初始化。
+
+```cpp
+// ❌ 当前
+static bool firstUpdate = true;
+
+// ✅ 在 RenderSystem.hpp 中添加成员
+bool m_firstUpdate = true;
+```
+
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
+---
+
+### ✅ [已完成] OP-06 StateSystem 去除 factory 层反向依赖
+
+**文件**：`src/systems/StateSystem.hpp:44`  
+**问题**：系统层直接调用 `ui::factory::CloseDropDownPopup()`，破坏分层约束。
+
+**方案**：
+
+1. 在 `src/common/Events.hpp` 添加 `DropDownCloseRequested { entt::entity entity; }`
+2. `StateSystem` 改为触发该事件：`Dispatcher::Trigger<events::DropDownCloseRequested>({entity})`
+3. DropDown 相关系统（或 Factory 在初始化时注册的监听器）响应该事件执行关闭逻辑
+
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
+---
+
+### ✅ [已完成] OP-07 EventLoop 减少 CPU 空转
+
+**文件**：`src/core/EventLoop.cpp`  
+**问题**：当前 `run_for(1ms)` 每毫秒强制唤醒，帧率受 `RenderTask::delayTime=16ms` 控制，中间 15 次唤醒毫无意义，主线程 CPU 接近满载。
+
+**方案 A（最小改动）**：使用 `SDL_WaitEventTimeout` 替代 `SDL_PollEvent` 等待 SDL 事件，同时通过 `asio::post` 打断等待：
+
+```cpp
+// InteractionSystem 中改为 SDL_WaitEventTimeout(1) — 最多等 1ms
+// EventLoop 仍保持 run_for，但 run_for 时间拉长到 1ms（已有），
+// 下一帧触发时由 asio::post(loopFunc) 打断等待，实现事件驱动唤醒
+```
+
+**方案 B（推荐）**：将帧管线提交改为 `asio::post` + `steady_timer`，`io_context` 用 `run()` 替代 `run_for` 轮询，让 ASIO 自己管理睡眠：
+
+```cpp
+void scheduleNextFrame() {
+    m_frameTimer.expires_after(std::chrono::milliseconds(16));
+    m_frameTimer.async_wait([this](const asio::error_code&) {
+        m_defaultHandler();
+        scheduleNextFrame();
+    });
+}
+// exec() 改为 m_ioContext->run()（阻塞，由 timer 驱动唤醒）
+```
+
+> **2026-05-20 已在代码中落地，文档更新为已完成状态。**
+
+---
+
+## 三、P2 — 中等优化（1 周内）
+
+### OP-08 TableRenderer 拆分为 .hpp + .cpp
+
+**文件**：`src/renderers/TableRenderer.hpp`（约 380 行纯实现）  
+**问题**：全部实现内联在头文件，每个包含它的 TU 都编译一份，增加编译时间。
+
+**方案**：将 `collect()` 及全部私有方法移入 `src/renderers/TableRenderer.cpp`，`TableRenderer.hpp` 只保留类声明。同步在 `src/CMakeLists.txt` 中添加 `TableRenderer.cpp` 到 `ui` target 的 `SOURCES`。
+
+---
+
+### OP-09 TableRenderer 单元格 Position 写入时机前移
+
+**文件**：`src/renderers/TableRenderer.hpp:282-316` (`updateCellWidgetLayouts`)  
+**问题**：`updateCellWidgetLayouts` 在**渲染阶段**写入单元格控件坐标，但 `HitTestSystem` 使用**布局阶段**后的坐标，首帧可能点击失效（坐标为 (0,0)）。
+
+**方案**：提取为独立方法，监听 `UpdateLayout` 事件，在 `LayoutSystem::update()` 之后、`RenderSystem::update()` 之前执行：
+
+```cpp
+// 新增 TableLayoutSystem（或在 LayoutSystem 中集成）
+Dispatcher::Sink<events::UpdateLayout>().connect<&TableLayoutSystem::update>(this);
+// update() 中遍历所有 TableTag 实体，调用 updateCellWidgetLayouts
+```
+
+---
+
+### OP-10 ScrollArea 组件拆分交互状态
+
+**文件**：`src/common/Components.hpp:185-205`  
+**问题**：`scrollbarHovered/scrollbarPressed/trackHovered` 是运行时 UI 状态，不应混入纯数据组件。
+
+**方案**：拆出 `ScrollBarInteractionState` 组件（放 `Tags.hpp` 或独立结构体），仅当有交互时 `EmplaceOrReplace`：
+
+```cpp
+// 新增
+struct ScrollBarInteractionState {
+    using is_component_tag = void;
+    bool scrollbarHovered = false;
+    bool scrollbarPressed = false;
+    bool trackHovered     = false;
+};
+
+// ScrollArea 中删除三个 bool 字段
+```
+
+---
+
+### OP-11 TextTextureCache 添加 GPU 设备 null 保护
+
+**文件**：`src/managers/TextTextureCache.hpp:88`
+
+```cpp
+SDL_GPUTexture* getOrUpload(...) {
+    SDL_GPUDevice* device = m_deviceManager.getDevice();
+    if (device == nullptr || !m_fontManager.isLoaded()) return nullptr; // ✅ 已有检查
+
+    // ✅ 新增：Fallback 模式下 SDL GPU 设备不可用，直接返回 null
+    if (!SDL_GPUDeviceSupportsTextureFormat(device, SDL_GPU_TEXTUREFORMAT_R8_UNORM, ...))
+        return nullptr;
+    ...
+}
+```
+
+实际上已有 `if (device == nullptr) return nullptr` 检查，需确认 Fallback 模式下 `getDevice()` 确实返回 null 而非无效指针。
+
+---
+
+### OP-12 HitTestSystem 信号连接改为 Tag 驱动
+
+**文件**：`src/systems/HitTestSystem.hpp:36-77`  
+**问题**：约 20 对 `connect/disconnect` 信号注册，维护成本高，新增可交互组件必须手动添加信号。
+
+**方案**：
+
+1. 添加 `HitCacheInvalidateTag`（空 Tag）
+2. 任何影响命中结果的组件变更时（`Clickable`、`VisibleTag`、`DisabledTag` 的 Construct/Destroy），自动打 `HitCacheInvalidateTag` 到对应实体
+3. `HitTestSystem::update()` 开头检查 `Registry::View<HitCacheInvalidateTag>()` 是否非空，非空则重建缓存，然后批量移除 Tag
+
+减少约 75% 的信号连接代码。
+
+---
+
+## 四、P3 — 长期重构
+
+### OP-13 TableInfo 回调迁移至事件驱动
+
+**文件**：`src/common/Components.hpp:543`  
+**问题**：`on_event<int, int> onCellClicked` 使 `TableInfo` 不可拷贝。
+
+**方案**：
+
+1. 在 `Events.hpp` 添加 `TableCellClicked { entt::entity table; int row; int col; }`
+2. 用 `Dispatcher::Trigger<events::TableCellClicked>({entity, row, col})` 替代回调调用
+3. 客户端改为 `Dispatcher::Sink<events::TableCellClicked>().connect<&Handler>(this)` 订阅
+4. 从 `TableInfo` 中删除 `onCellClicked` 字段
+
+---
+
+### OP-14 Image::textureId 改为类型化 RAII 句柄
+
+**文件**：`src/common/Components.hpp:345`  
+**问题**：`void* textureId` 无类型、无生命周期管理。
+
+**方案**：
+
+```cpp
+// 新增类型别名
+using ImageHandle = std::shared_ptr<wrappers::UniqueGPUTexture>;
+
+// Image 组件
+struct Image {
+    using is_component_tag = void;
+    ImageHandle textureHandle; // 替代 void* textureId
+    // ...
+};
+```
+
+`ImageManager` 返回 `ImageHandle`，通过引用计数管理纹理生命周期。
+
+---
+
+### OP-15 FontManager FreeType/HarfBuzz 资源 RAII 化
+
+**文件**：`src/managers/FontManager.hpp:62-82`
+
+```cpp
+// 当前裸指针
+FT_Library m_ftLibrary = nullptr;
+FT_Face    m_ftFace    = nullptr;
+hb_font_t* m_hbFont   = nullptr;
+
+// ✅ 改为 unique_ptr + 自定义 deleter
+struct FtLibraryDeleter  { void operator()(FT_Library p) const { FT_Done_FreeType(p); } };
+struct FtFaceDeleter     { void operator()(FT_Face    p) const { FT_Done_Face(p); } };
+struct HbFontDeleter     { void operator()(hb_font_t* p) const { hb_font_destroy(p); } };
+
+std::unique_ptr<std::remove_pointer_t<FT_Library>, FtLibraryDeleter> m_ftLibrary;
+std::unique_ptr<std::remove_pointer_t<FT_Face>,    FtFaceDeleter>    m_ftFace;
+std::unique_ptr<hb_font_t, HbFontDeleter>                            m_hbFont;
+```
+
+---
+
+### OP-16 实现 ThemeSystem
+
+**文件**：`src/systems/ThemeSystem.hpp`（当前纯存根）
+
+**方案**：
+
+1. 在 `registry.ctx()` 中存储 `ThemeData`（一组颜色 token，如 `primary/accent/background/text`）
+2. `ThemeSystem` 监听 `ThemeChangedEvent`，收到后遍历相关实体批量 `EmplaceOrReplace<Background>(entity, theme.backgroundColor)`
+3. 在 `src/api/` 层添加 `ui::theme::SetTheme(const ThemeData&)` 入口
+
+---
+
+### OP-17 建立 CI 管道
+
+**当前状态**：无任何自动化构建/测试管道，所有验证依赖手动触发。
+
+**建议**（`.github/workflows/ci.yml`）：
+
+```yaml
+# 最小可行 CI
+on: [push, pull_request]
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4 --recursive
+      - name: Configure
+        run: cmake -G Ninja -B build -DENABLE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build -V --output-on-failure
+```
+
+---
+
+### OP-18 补全核心系统测试覆盖
+
+按优先级排序需补充的测试：
+
+| 优先级 | 测试文件（新增） | 关键测试场景 |
+|--------|----------------|-------------|
+| 高 | `test_HitTestSystem.cpp` | Z-Order 排序、ScrollArea 偏移后命中坐标、禁用实体跳过 |
+| 高 | `test_LayoutSystem.cpp` | Yoga Flexbox 计算、HFill/VFixed、嵌套布局 |
+| 高 | `test_TableRenderer.cpp` | `computeColWidths`、`updateCellWidgetLayouts` 坐标计算 |
+| 中 | `test_TimerSystem.cpp` | 单次/循环触发、取消、多任务竞争 |
+| 中 | `test_StateSystem.cpp` | 焦点转移、hover 状态机、滚动条拖拽 |
+| 中 | `test_IconRenderer.cpp` | Texture/Font/Default 三分支（回归 OP-01） |
+| 低 | `test_TextInputSystem.cpp` | 键盘重复 delay/interval、多实例独立性 |
+| 低 | `test_InteractionSystem.cpp` | SDL 事件 → Dispatcher 分发路径 |
+
+---
+
+## 改动优先级汇总
+
+| ID | 优先级 | 预期工作量 | 文件 | 描述 |
+|----|--------|-----------|------|------|
+| OP-01 | 🔴 P0 | 0.5h | IconRenderer.hpp | 修复 `~Texture` 位运算 Bug |
+| OP-02 | 🔴 P0 | 1h | Components.hpp + TableRenderer.hpp | 补 headerTextColor 字段 |
+| OP-03 | 🟠 P1 | 0.5h | TextInputSystem.hpp | 静态键盘状态改为成员 |
+| OP-04 | 🟠 P1 | 2h | TimerSystem | 任务表迁移到 registry.ctx() |
+| OP-05 | 🟠 P1 | 0.5h | RenderSystem.cpp | firstUpdate 改为成员变量 |
+| OP-06 | 🟠 P1 | 1h | StateSystem + Events.hpp | 去除 factory 反向依赖 |
+| OP-07 | 🟠 P1 | 2h | EventLoop | 减少 CPU 空转（方案 B） |
+| OP-08 | 🟡 P2 | 1h | TableRenderer | 拆分 .hpp → .hpp + .cpp |
+| OP-09 | 🟡 P2 | 2h | TableRenderer / LayoutSystem | 单元格坐标写入时机前移 |
+| OP-10 | 🟡 P2 | 1h | Components.hpp | ScrollArea 拆分交互状态 |
+| OP-11 | 🟡 P2 | 0.5h | TextTextureCache | Fallback 模式 null 保护 |
+| OP-12 | 🟡 P2 | 3h | HitTestSystem | 信号连接改为 Tag 驱动 |
+| OP-13 | 🟢 P3 | 3h | TableInfo + Events | 回调迁移至事件驱动 |
+| OP-14 | 🟢 P3 | 2h | Image / ImageManager | textureId 改为 RAII 句柄 |
+| OP-15 | 🟢 P3 | 1h | FontManager | FreeType/HarfBuzz RAII 化 |
+| OP-16 | 🟢 P3 | 4h | ThemeSystem | 主题系统实现 |
+| OP-17 | 🟢 P3 | 2h | .github/workflows | 建立 CI 管道 |
+| OP-18 | 🟢 P3 | 8h | tests/unittest/ | 补全核心系统测试 |

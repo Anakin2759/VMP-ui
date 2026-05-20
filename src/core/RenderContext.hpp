@@ -25,6 +25,7 @@ namespace ui::managers
 class DeviceManager;
 class FontManager;
 class IconManager;
+class ImageManager;
 class TextTextureCache;
 class BatchManager;
 } // namespace ui::managers
@@ -70,6 +71,7 @@ struct RenderContext
     // 资源管理器引用
     managers::DeviceManager* deviceManager = nullptr;
     managers::FontManager* fontManager = nullptr;
+    managers::ImageManager* imageManager = nullptr;
     managers::TextTextureCache* textTextureCache = nullptr;
     managers::BatchManager* batchManager = nullptr;
     interface::IBackendRenderer* backendRenderer = nullptr;

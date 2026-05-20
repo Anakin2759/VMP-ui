@@ -80,7 +80,5 @@ public:
 
 private:
     void onUpdateTimer(const events::UpdateTimer& event);
-    static std::vector<globalcontext::TimerTask> tasks; // 定时任务列表
-    static uint32_t nextTaskId;                         // 下一个任务ID
 };
 } // namespace ui::systems

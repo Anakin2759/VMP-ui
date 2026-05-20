@@ -17,53 +17,50 @@
 #include <string>
 #include <unordered_map>
 #include <SDL3/SDL_gpu.h>
-#include "../common/GPUWrappers.hpp"
-#include "../singleton/Logger.hpp"
+
+#include "../common/ErrorCodes.hpp"
+#include "../common/Result.hpp"
 
 namespace ui::managers
 {
 
+class DeviceManager;
+
 /**
- * @brief 图像纹理管理器（单例）
+ * @brief 图像纹理管理器（多实例，按渲染上下文持有）
  *
- * 缓存已加载的 GPU 纹理，避免重复上传。
- * 支持 bmp（SDL_LoadBMP）和 png/jpeg（stb_image）格式。
+ * - 持有一个 DeviceManager* 句柄，所有纹理与该 device 绑定
+ * - 缓存 `path -> SDL_GPUTexture*`，避免重复上传
+ * - 析构时自动释放所有缓存纹理，无需调用方显式 releaseAll
+ * - 支持 bmp（SDL_LoadBMP）和 png/jpeg（stb_image）格式
  */
 class ImageManager
 {
 public:
+    explicit ImageManager(DeviceManager* deviceManager) : m_deviceManager(deviceManager) {}
+    ~ImageManager() { releaseAll(); }
+
     ImageManager(const ImageManager&) = delete;
     ImageManager& operator=(const ImageManager&) = delete;
     ImageManager(ImageManager&&) = delete;
     ImageManager& operator=(ImageManager&&) = delete;
 
     /**
-     * @brief 获取全局单例
-     */
-    static ImageManager& instance()
-    {
-        static ImageManager inst;
-        return inst;
-    }
-
-    /**
-     * @brief 加载图像文件并上传到 GPU，返回纹理指针（原始，生命周期由 ImageManager 管理）
+     * @brief 加载图像文件并上传到 GPU。
+     *
+     * 返回的纹理生命周期由本 ImageManager 持有，禁止外部调用 SDL_ReleaseGPUTexture。
+     *
      * @param path  文件路径（bmp / png / jpeg）
-     * @param device SDL_GPUDevice 指针
-     * @return SDL_GPUTexture* 成功时返回纹理指针，失败返回 nullptr
+     * @return Result<SDL_GPUTexture*> 成功时持有非空纹理指针；失败时携带 ui_errc。
      */
-    SDL_GPUTexture* loadTexture(const std::string& path, SDL_GPUDevice* device);
+    [[nodiscard]] ui::Result<SDL_GPUTexture*> loadTexture(const std::string& path);
 
     /**
-     * @brief 释放所有已缓存纹理
-     * @param device SDL_GPUDevice 指针（用于调用 SDL_ReleaseGPUTexture）
+     * @brief 主动释放所有已缓存纹理（析构会自动调用，正常路径下无需手动调用）。
      */
-    void releaseAll(SDL_GPUDevice* device);
+    void releaseAll();
 
 private:
-    ImageManager() = default;
-    ~ImageManager() = default;
-
     /**
      * @brief 通过 stb_image 加载 png/jpeg 并上传
      */
@@ -82,6 +79,7 @@ private:
                                 uint32_t width,
                                 uint32_t height);
 
+    DeviceManager* m_deviceManager = nullptr;
     // 路径 -> 已上传的 GPU 纹理（原始指针，生命周期同 ImageManager）
     std::unordered_map<std::string, SDL_GPUTexture*> m_cache;
 };

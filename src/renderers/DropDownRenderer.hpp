@@ -43,7 +43,8 @@ public:
 
         constexpr float ARROW_W  = 16.0F;
         constexpr float RADIUS   = 4.0F;
-        constexpr float ARROW_H  = 5.0F;   // 箭头矩形高度（视觉近似）
+        constexpr float TRI_W    = 10.0F;  // 下箭头三角形宽度
+        constexpr float TRI_H    = 6.0F;   // 下箭头三角形高度
 
         render::UiPushConstants pushConst{};
         pushConst.screen_size[0] = context.screenWidth;
@@ -69,21 +70,53 @@ public:
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, arrowBgPc);
         context.batchManager->addRect(arrowBgPos, arrowBgSize, arrowBgColor);
 
-        // 用扁矩形近似箭头（▼）
-        const float arrowMidY = context.position.y() + ((context.size.y() - ARROW_H) * 0.5F);
-        const float arrowMidX = arrowX + ((ARROW_W - 8.0F) * 0.5F);
-        const Eigen::Vector2f arrowPos{arrowMidX, arrowMidY};
-        const Eigen::Vector2f arrowSize{8.0F, ARROW_H};
+        // ── 下箭头三角形 (▼) — 由三个顶点组成 ─────────────────
+        const float triX = arrowX + ((ARROW_W - TRI_W) * 0.5F);
+        const float triY = context.position.y() + ((context.size.y() - TRI_H) * 0.5F);
 
-        render::UiPushConstants arrowPc = pushConst;
-        arrowPc.rect_size[0] = arrowSize.x();
-        arrowPc.rect_size[1] = arrowSize.y();
-        arrowPc.radius[0] = arrowPc.radius[1] = arrowPc.radius[2] = arrowPc.radius[3] = 1.0F;
+        render::UiPushConstants triPc = pushConst;
+        triPc.rect_size[0] = TRI_W;
+        triPc.rect_size[1] = TRI_H;
+        triPc.radius[0] = triPc.radius[1] = triPc.radius[2] = triPc.radius[3] = 0.0F;
+        triPc.draw_mode = 0.0F;
 
         const Eigen::Vector4f arrowColor{dropDown->arrowColor.red, dropDown->arrowColor.green,
                                          dropDown->arrowColor.blue, dropDown->arrowColor.alpha};
-        context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, arrowPc);
-        context.batchManager->addRect(arrowPos, arrowSize, arrowColor);
+
+        context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, triPc);
+        const auto baseIndex = static_cast<uint16_t>(context.batchManager->currentVertexCount());
+
+        const auto makeVertex = [&](float posX, float posY, float uvX, float uvY) {
+            render::Vertex vtx{};
+            vtx.position[0] = posX;
+            vtx.position[1] = posY;
+            vtx.texCoord[0] = uvX;
+            vtx.texCoord[1] = uvY;
+            vtx.color[0] = arrowColor.x();
+            vtx.color[1] = arrowColor.y();
+            vtx.color[2] = arrowColor.z();
+            vtx.color[3] = arrowColor.w();
+            // 与 addRect 一致：写入逐顶点 SDF 参数，使 frag shader 视作矩形内部（body_mask≈1）
+            vtx.rect_size[0]     = TRI_W;
+            vtx.rect_size[1]     = TRI_H;
+            vtx.radius[0] = vtx.radius[1] = vtx.radius[2] = vtx.radius[3] = 0.0F;
+            vtx.shadow_params[0] = 0.0F;
+            vtx.shadow_params[1] = 0.0F;
+            vtx.shadow_params[2] = 0.0F;
+            vtx.shadow_params[3] = context.alpha;
+            vtx.mode_params[0]   = 0.0F; // padding_flag = 0 → 走主体 SDF 分支
+            vtx.mode_params[1]   = 0.0F;
+            vtx.mode_params[2]   = 0.0F; // draw_mode = 填充
+            vtx.mode_params[3]   = 0.0F;
+            return vtx;
+        };
+
+        context.batchManager->addVertex(makeVertex(triX,                triY,         0.0F, 0.0F)); // 左上
+        context.batchManager->addVertex(makeVertex(triX + TRI_W,        triY,         1.0F, 0.0F)); // 右上
+        context.batchManager->addVertex(makeVertex(triX + (TRI_W * 0.5F), triY + TRI_H, 0.5F, 1.0F)); // 下中
+        context.batchManager->addIndex(baseIndex);
+        context.batchManager->addIndex(static_cast<uint16_t>(baseIndex + 1));
+        context.batchManager->addIndex(static_cast<uint16_t>(baseIndex + 2));
     }
 
     int getPriority() const override { return 8; }

@@ -22,8 +22,11 @@
 #include "src/common/Policies.hpp"
 #include "src/common/Tags.hpp"
 #include "src/common/Types.hpp"
+#include "src/common/Result.hpp"
+#include "src/common/ErrorCodes.hpp"
 
 #include "src/api/Utils.hpp"
+#include "src/api/Log.hpp"
 #include "src/api/Size.hpp"
 #include "src/api/Layout.hpp"
 #include "src/api/Text.hpp"

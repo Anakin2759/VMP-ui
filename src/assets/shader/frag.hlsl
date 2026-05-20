@@ -76,6 +76,33 @@ float4 main_ps(PSInput input) : SV_Target
     edge = max(edge, 0.0001); // 避免除零或无穷小
     float outer_mask = 1.0 - smoothstep(-edge, edge, dist);
 
+    // 胶囊线段路径（draw_mode == 2）：rect_size.x = 2*half_length + 2*radius, rect_size.y = 2*radius
+    // texcoord 为归一化 UV（[0,1]），通过 rect_size 还原局部坐标
+    if (draw_mode > 1.5)
+    {
+        // 胶囊 SDF：p 已在矩形中心为原点的局部坐标中
+        // half_length = half_size.x - half_size.y（去掉两端半圆后的半长）
+        float half_r = half_size.y;
+        float half_l = half_size.x - half_r;
+        half_l = max(half_l, 0.0);
+
+        // capsule SDF = length(max(|p| - (half_l, 0), 0)) - half_r
+        float2 clamped = max(abs(p) - float2(half_l, 0.0), 0.0);
+        float dist_cap = length(clamped) - half_r;
+
+        float edge_cap = fwidth(dist_cap);
+        edge_cap = max(edge_cap, 0.0001);
+        float mask_cap = 1.0 - smoothstep(-edge_cap, edge_cap, dist_cap);
+
+        float out_alpha = color.a * mask_cap * opacity;
+        float3 out_rgb = color.rgb * color.a * mask_cap * opacity;
+
+        if (out_alpha < 0.001)
+            discard;
+
+        return float4(out_rgb, out_alpha);
+    }
+
     // 描边路径：绘制圆角环形区域（内缩描边）
     if (draw_mode > 0.5)
     {

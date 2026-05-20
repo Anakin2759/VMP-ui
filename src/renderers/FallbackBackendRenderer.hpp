@@ -47,17 +47,17 @@ public:
     FallbackBackendRenderer(FallbackBackendRenderer&&) = delete;
     FallbackBackendRenderer& operator=(FallbackBackendRenderer&&) = delete;
 
-    bool initialize(SDL_Window* window) override
+    ui::Result<void> initialize(SDL_Window* window) override
     {
         if (window == nullptr)
         {
-            return false;
+            return ui::MakeError(ui::ui_errc::invalid_argument);
         }
 
         SDL_WindowID windowID = SDL_GetWindowID(window);
         if (m_renderer != nullptr && m_windowID == windowID)
         {
-            return true;
+            return ui::Ok();
         }
 
         cleanup();
@@ -81,12 +81,12 @@ public:
                 SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
                 m_windowID = windowID;
                 Logger::warn("[FallbackBackendRenderer] using SDL_Renderer driver: {}", driver);
-                return true;
+                return ui::Ok();
             }
         }
 
         Logger::error("[FallbackBackendRenderer] create renderer failed: {}", SDL_GetError());
-        return false;
+        return ui::MakeError(ui::ui_errc::backend_unavailable);
     }
 
     void cleanup() override
@@ -108,17 +108,17 @@ public:
         m_windowID = 0;
     }
 
-    bool beginFrame(const SDL_FColor& clearColor) override
+    ui::Result<void> beginFrame(const SDL_FColor& clearColor) override
     {
         if (m_renderer == nullptr)
         {
-            return false;
+            return ui::MakeError(ui::ui_errc::backend_unavailable);
         }
 
         SDL_SetRenderClipRect(m_renderer, nullptr);
         SDL_SetRenderDrawColorFloat(m_renderer, clearColor.r, clearColor.g, clearColor.b, clearColor.a);
         SDL_RenderClear(m_renderer);
-        return true;
+        return ui::Ok();
     }
 
     void drawBatch(const render::RenderBatch& batch, SDL_GPUTexture* whiteTextureTag) override
@@ -179,23 +179,23 @@ public:
         }
     }
 
-    bool drawCachedBitmap(std::string_view cacheKey,
-                          std::span<const std::uint8_t> rgbaPixels,
-                          int bitmapWidth,
-                          int bitmapHeight,
-                          const SDL_FRect& destinationRect,
-                          const std::optional<SDL_Rect>& scissorRect,
-                          std::uint8_t alphaMod) override
+    ui::Result<void> drawCachedBitmap(std::string_view cacheKey,
+                                      std::span<const std::uint8_t> rgbaPixels,
+                                      int bitmapWidth,
+                                      int bitmapHeight,
+                                      const SDL_FRect& destinationRect,
+                                      const std::optional<SDL_Rect>& scissorRect,
+                                      std::uint8_t alphaMod) override
     {
         if (m_renderer == nullptr || bitmapWidth <= 0 || bitmapHeight <= 0 || rgbaPixels.empty())
         {
-            return false;
+            return ui::MakeError(ui::ui_errc::invalid_argument);
         }
 
         CachedBitmapTexture* cachedTexture = getOrCreateBitmapTexture(cacheKey, rgbaPixels, bitmapWidth, bitmapHeight);
         if (cachedTexture == nullptr || cachedTexture->texture == nullptr)
         {
-            return false;
+            return ui::MakeError(ui::ui_errc::asset_upload_failed);
         }
 
         if (scissorRect.has_value())
@@ -208,7 +208,11 @@ public:
         }
 
         SDL_SetTextureAlphaMod(cachedTexture->texture, alphaMod);
-        return SDL_RenderTexture(m_renderer, cachedTexture->texture, nullptr, &destinationRect);
+        if (!SDL_RenderTexture(m_renderer, cachedTexture->texture, nullptr, &destinationRect))
+        {
+            return ui::MakeError(ui::ui_errc::asset_upload_failed);
+        }
+        return ui::Ok();
     }
 
     void endFrame() override

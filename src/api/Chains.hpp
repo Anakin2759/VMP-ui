@@ -55,7 +55,7 @@ concept Action = std::invocable<T, ::entt::entity>;
 template <typename F>
 struct Chain
 {
-    mutable F func;
+    F func;
 
     constexpr explicit Chain(F&& callable) : func(std::move(callable)) {}
 
@@ -63,7 +63,7 @@ struct Chain
     // 允许将多个设置组合成一个可复用的样式/配置块
     template <typename Self, typename Next>
     auto operator|(this Self&& self, Next&& next)
-        requires Action<Next>
+        requires Action<std::remove_cvref_t<Next>>
     {
         auto combined = [currentAction = std::forward<Self>(self).func,
                          nextAction = std::forward<Next>(next)](::entt::entity entity) mutable
@@ -74,18 +74,39 @@ struct Chain
         return Chain<decltype(combined)>{std::move(combined)};
     }
 
-    // 执行动作
-    void operator()(::entt::entity entity) const { std::invoke(func, entity); }
+    // 执行动作：deducing-this 覆盖所有值类别，const/非const/rvalue 均正确分发
+    void operator()(this auto&& self, ::entt::entity entity)
+    {
+        std::invoke(std::forward<decltype(self)>(self).func, entity);
+    }
 };
+
+// CTAD：防止 Chain{lvalue} 推导出 Chain<F&> 导致悬垂引用
+template <typename F>
+Chain(F&&) -> Chain<std::decay_t<F>>;
 
 /**
  * @brief 管道操作符: Entity | Chain -> Entity
  * 应用动作到实体，并返回实体以继续链式调用
  */
 template <typename F>
+::entt::entity operator|(::entt::entity entity, Chain<F>& chain)
+{
+    chain(entity);
+    return entity;
+}
+
+template <typename F>
 ::entt::entity operator|(::entt::entity entity, const Chain<F>& chain)
 {
     chain(entity);
+    return entity;
+}
+
+template <typename F>
+::entt::entity operator|(::entt::entity entity, Chain<F>&& chain)
+{
+    std::move(chain)(entity);
     return entity;
 }
 

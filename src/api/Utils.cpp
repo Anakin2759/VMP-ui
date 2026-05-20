@@ -113,6 +113,18 @@ Vec2 GetAbsolutePosition(::entt::entity entity)
         {
             position += positionComp->value;
         }
+
+        // 若当前祖先节点（非目标实体本身）是滚动容器，
+        // 其子内容被 RenderSystem 整体偏移 -scrollOffset，命中测试需同步扣除。
+        if (currentEntity != entity)
+        {
+            const auto* scrollArea = Registry::TryGet<components::ScrollArea>(currentEntity);
+            if (scrollArea != nullptr)
+            {
+                position.x() -= scrollArea->scrollOffset.x();
+                position.y() -= scrollArea->scrollOffset.y();
+            }
+        }
     }
 
     return position;

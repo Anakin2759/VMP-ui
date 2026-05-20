@@ -1,22 +1,18 @@
-# PestManKill — Copilot 指引
+# PmkUi — Copilot 指引
 
 ## 项目概览
 
-C++23 多人卡牌游戏（害虫杀），采用 Client/Server 架构，基于自研 ECS UI 框架 + KCP 可靠 UDP 网络层。使用 CMake 4.0 构建，MSVC / Clang-cl 编译，静态链接所有依赖。
+C++23 自研 ECS UI 静态库（从 PestManKill 独立），基于 EnTT + SDL3 GPU + Yoga Flexbox 布局。使用 CMake 4.0 构建，MSVC / Clang-cl 编译，静态链接所有依赖。
 
 ## 架构与模块边界
 
 ```
-src/
-  client/   → 可执行文件 PestManKillClient（View 层 + 网络集成）
-  server/   → 可执行文件 PestManKillServer（游戏逻辑 ECS）
-  ui/       → 静态库，自研 ECS UI 框架（EnTT + SDL3 GPU + Yoga 布局）
-  net/      → 静态库，KCP 可靠 UDP 传输层（ASIO + KCP）
-  shared/   → INTERFACE 头文件库，消息协议定义（MessageBase CRTP）
-  utils/    → INTERFACE 头文件库，Logger / Registry / ThreadPool 等工具
+src/          → UI 静态库（ui）源码
+example/      → example_ui_demo 可执行示例
+tests/        → ui_tests 单元测试
 ```
 
-**关键设计差异**：UI 模块使用 `Registry` 全局单例访问 `entt::registry`；Server 模块使用 `GameContext&` 上下文注入。两侧 system 均使用 `EnableRegister<Derived>` CRTP，但接口方法名不同（UI: `registerHandlersImpl`，Server: `registerEventsImpl`）。
+**设计要点**：UI 模块使用 `Registry` 全局单例访问 `entt::registry`；System 均使用 `EnableRegister<Derived>` CRTP，接口方法名为 `registerHandlersImpl`。事件循环基于 ASIO `io_context`（`src/core/EventLoop.hpp`）。
 
 ## 构建命令
 
@@ -37,7 +33,7 @@ VS Code 任务 `build Debug (CMake)` 可直接运行构建。
 
 ### 管道 DSL（UI 构建）
 
-UI 实体通过 `operator|` 链式配置，定义在 `src/ui/api/Chains.hpp`：
+UI 实体通过 `operator|` 链式配置，定义在 `src/api/Chains.hpp`：
 
 ```cpp
 using namespace ui::chains;
@@ -74,18 +70,39 @@ parent | AddChild(btn);
 
 | 类别 | 规则 | 示例 |
 |------|------|------|
-| 文件名 | PascalCase；UI/shared 用 `.hpp`，server/net 用 `.h` | `Components.hpp`, `KcpSession.h` |
-| 类/结构体 | PascalCase | `LayoutSystem`, `KcpSession` |
+| 文件名 | PascalCase；`.hpp` 扩展名 | `Components.hpp`, `RenderSystem.hpp` |
+| 类/结构体 | PascalCase | `LayoutSystem`, `RenderSystem` |
 | 命名空间 | 小写 | `ui::factory`, `ui::chains` |
 | 公共函数 | PascalCase | `CreateButton()`, `EmplaceOrReplace()` |
 | 私有/实现函数 | camelCase | `registerHandlersImpl()` |
 | 成员变量 | `m_` 前缀 + camelCase | `m_registry`, `m_yogaConfig` |
 | 常量 | `static constexpr` UPPER_SNAKE | `CMD_ID`, `MAX_LOG_FILE_SIZE` |
 
+## 错误处理约定
+
+UI 层使用统一 `Result<T>` 基础设施（`src/common/Result.hpp` + `src/common/ErrorCodes.hpp/.cpp`）：
+
+```cpp
+// 别名
+template <typename T>
+using Result = std::expected<T, std::error_code>;   // Result<void> 直接使用
+
+// 错误枚举（ui_errc，20 个码，段位预留 100）
+enum class ui_errc : int { success = 0, invalid_argument = 1, device_unavailable = 2, ... };
+
+// 工厂函数
+MakeError(ui_errc::xxx)   // → std::unexpected<std::error_code>
+Ok()                      // → Result<void> 成功值
+make_error_code(ui_errc)  // ADL 路由至 UiErrorCategory 单例（.cpp 中，非 inline）
+```
+
+- `std::formatter<ui_errc>` 已落地，可直接 `std::format("{}", ec)`。
+- 旧 `src/common/UiErrors.hpp`（`FontErrc/IconErrc`）过渡期并存，待 WP-A3 迁移。
+
 ## C++23 特性使用
 
 项目广泛使用现代 C++ 特性，生成代码时应优先：
-- `std::expected<T, E>` 替代异常做错误处理（网络层）
+- `std::expected<T, E>` 替代异常做错误处理（UI 层统一用 `ui::Result<T>`）
 - `std::move_only_function` 替代 `std::function`（事件回调）
 - Concepts 做模板约束（`Component`, `UiTag`, `Action`）
 - `std::source_location` 自动捕获日志调用位置
@@ -99,11 +116,10 @@ parent | AddChild(btn);
 | SDL3 | GPU 渲染 + 窗口 | **SDL3 API**（非 SDL2），无 `SDL_setenv` 等旧接口 |
 | EnTT | ECS 框架 | `entt::registry` + `entt::dispatcher` + `entt::poly` |
 | Yoga | Flexbox 布局 | 通过 `YGNodeRef` 管理布局树 |
-| ASIO | 异步 I/O | Standalone 模式（`ASIO_STANDALONE`），非 Boost |
-| KCP | 可靠 UDP | Pimpl 模式封装在 `KcpSession` 中 |
+| ASIO | 事件循环异步 I/O | Standalone 模式（`ASIO_STANDALONE`），非 Boost；用于 `EventLoop` |
 | spdlog | 日志 | Header-only 模式 |
 | Eigen | 线性代数 | `Vec2 = Eigen::Vector2f` 用于 UI 数学类型 |
 
 ## 测试
 
-Google Test 框架，测试位于 `tests/unittest/`，需 `-DENABLE_BUILD_TESTS=ON`。网络层有 Mock（`MockUdpTransport.h`），使用 `TEST_F` fixture 模式。
+Google Test 框架，测试位于 `tests/unittest/`，需 `-DENABLE_BUILD_TESTS=ON`。使用 `TEST_F` fixture 模式。

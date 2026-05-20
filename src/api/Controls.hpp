@@ -27,6 +27,11 @@ void SetSliderValue(::entt::entity entity, float value);
 void SetSliderStep(::entt::entity entity, float step);
 void SetSliderOrientation(::entt::entity entity, policies::Orientation orientation);
 void SetSliderOnValueChanged(::entt::entity entity, components::on_event<float> callback);
+void SetSliderTrackColor(::entt::entity entity, const Color& color);
+void SetSliderFillColor(::entt::entity entity, const Color& color);
+void SetSliderThumbColor(::entt::entity entity, const Color& color);
+void SetSliderThumbSize(::entt::entity entity, float size);
+void SetSliderTrackThickness(::entt::entity entity, float thickness);
 
 void SetProgressValue(::entt::entity entity, float progress);
 void SetProgressFillColor(::entt::entity entity, const Color& color);
@@ -44,7 +49,7 @@ void SetCheckBoxChecked(::entt::entity entity, bool checked);
 void SetCheckBoxOnChanged(::entt::entity entity, components::on_event<bool> callback);
 
 // DropDown
-void SetDropDownOptions(::entt::entity entity, const std::vector<std::string>& options);
+void SetDropDownOptions(::entt::entity entity, std::vector<std::string> options);
 void SetDropDownSelected(::entt::entity entity, int index);
 void SetDropDownOnChanged(::entt::entity entity, components::on_event<int> callback);
 } // namespace ui::controls
@@ -58,6 +63,11 @@ inline constexpr EntityAction<&ui::controls::SetSliderValue> SET_SLIDER_VALUE_AC
 inline constexpr EntityAction<&ui::controls::SetSliderStep> SET_SLIDER_STEP_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetSliderOrientation> SET_SLIDER_ORIENTATION_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetSliderOnValueChanged> SET_SLIDER_ON_VALUE_CHANGED_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetSliderTrackColor> SET_SLIDER_TRACK_COLOR_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetSliderFillColor> SET_SLIDER_FILL_COLOR_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetSliderThumbColor> SET_SLIDER_THUMB_COLOR_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetSliderThumbSize> SET_SLIDER_THUMB_SIZE_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetSliderTrackThickness> SET_SLIDER_TRACK_THICKNESS_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetProgressValue> SET_PROGRESS_VALUE_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetProgressFillColor> SET_PROGRESS_FILL_COLOR_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetProgressBackgroundColor> SET_PROGRESS_BACKGROUND_COLOR_ACTION{};
@@ -100,6 +110,31 @@ inline auto SliderOrientation(ui::policies::Orientation orientation)
 inline auto OnSliderValueChanged(ui::components::on_event<float> callback)
 {
     return ui::actions::controls::SET_SLIDER_ON_VALUE_CHANGED_ACTION.bind(std::move(callback));
+}
+
+inline auto SliderTrackColor(const Color& color)
+{
+    return ui::actions::controls::SET_SLIDER_TRACK_COLOR_ACTION.bind(color);
+}
+
+inline auto SliderFillColor(const Color& color)
+{
+    return ui::actions::controls::SET_SLIDER_FILL_COLOR_ACTION.bind(color);
+}
+
+inline auto SliderThumbColor(const Color& color)
+{
+    return ui::actions::controls::SET_SLIDER_THUMB_COLOR_ACTION.bind(color);
+}
+
+inline auto SliderThumbSize(float size)
+{
+    return ui::actions::controls::SET_SLIDER_THUMB_SIZE_ACTION.bind(size);
+}
+
+inline auto SliderTrackThickness(float thickness)
+{
+    return ui::actions::controls::SET_SLIDER_TRACK_THICKNESS_ACTION.bind(thickness);
 }
 
 inline auto ProgressValue(float value)
@@ -159,9 +194,9 @@ inline auto OnCheckBoxChanged(ui::components::on_event<bool> callback)
 }
 
 // DropDown DSL
-inline auto DropDownOptions(const std::vector<std::string>& options)
+inline auto DropDownOptions(std::vector<std::string> options)
 {
-    return ui::actions::controls::SET_DROPDOWN_OPTIONS_ACTION.bind(options);
+    return ui::actions::controls::SET_DROPDOWN_OPTIONS_ACTION.bind(std::move(options));
 }
 
 inline auto DropDownSelected(int index)

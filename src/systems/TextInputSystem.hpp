@@ -26,27 +26,21 @@ class TextInputSystem : public ui::interface::EnableRegister<TextInputSystem>
 public:
     void registerHandlersImpl()
     {
+        s_current = this;
         Dispatcher::Sink<events::RawTextInput>().connect<&TextInputSystem::onRawTextInput>(*this);
         Dispatcher::Sink<events::RawKeyInput>().connect<&TextInputSystem::onRawKeyInput>(*this);
     }
 
     void unregisterHandlersImpl()
     {
+        if (s_current == this) s_current = nullptr;
         Dispatcher::Sink<events::RawTextInput>().disconnect<&TextInputSystem::onRawTextInput>(*this);
         Dispatcher::Sink<events::RawKeyInput>().disconnect<&TextInputSystem::onRawKeyInput>(*this);
     }
 
     static void processKeyRepeat()
     {
-        if (heldKey == SDLK_UNKNOWN) return;
-
-        uint64_t now = SDL_GetTicks();
-        if (now < keyPressTime + KEY_REPEAT_DELAY) return;
-        if (now < lastRepeatTime + KEY_REPEAT_INTERVAL) return;
-
-        lastRepeatTime = now;
-        core::TextEditingService::handleKeyDown(heldKey, SDL_GetModState());
-        Dispatcher::Trigger<ui::events::UpdateRendering>(ui::events::UpdateRendering{});
+        if (s_current != nullptr) s_current->doProcessKeyRepeat();
     }
 
 private:
@@ -66,25 +60,39 @@ private:
         handleKeyUp(key);
     }
 
-    static void beginKeyRepeat(SDL_Keycode key)
+    void doProcessKeyRepeat()
     {
-        heldKey = key;
-        keyPressTime = SDL_GetTicks();
-        lastRepeatTime = keyPressTime;
+        if (m_heldKey == SDLK_UNKNOWN) return;
+
+        uint64_t now = SDL_GetTicks();
+        if (now < m_keyPressTime + KEY_REPEAT_DELAY) return;
+        if (now < m_lastRepeatTime + KEY_REPEAT_INTERVAL) return;
+
+        m_lastRepeatTime = now;
+        core::TextEditingService::handleKeyDown(m_heldKey, SDL_GetModState());
+        Dispatcher::Trigger<ui::events::UpdateRendering>(ui::events::UpdateRendering{});
     }
 
-    static void handleKeyUp(SDL_Keycode key)
+    void beginKeyRepeat(SDL_Keycode key)
     {
-        if (key != heldKey) return;
-
-        heldKey = SDLK_UNKNOWN;
-        keyPressTime = 0;
-        lastRepeatTime = 0;
+        m_heldKey = key;
+        m_keyPressTime = SDL_GetTicks();
+        m_lastRepeatTime = m_keyPressTime;
     }
 
-    inline static SDL_Keycode heldKey = SDLK_UNKNOWN;
-    inline static uint64_t keyPressTime = 0;
-    inline static uint64_t lastRepeatTime = 0;
+    void handleKeyUp(SDL_Keycode key)
+    {
+        if (key != m_heldKey) return;
+
+        m_heldKey = SDLK_UNKNOWN;
+        m_keyPressTime = 0;
+        m_lastRepeatTime = 0;
+    }
+
+    SDL_Keycode m_heldKey = SDLK_UNKNOWN;
+    uint64_t m_keyPressTime = 0;
+    uint64_t m_lastRepeatTime = 0;
+    static inline TextInputSystem* s_current = nullptr;
     static constexpr uint64_t KEY_REPEAT_DELAY = 500;
     static constexpr uint64_t KEY_REPEAT_INTERVAL = 50;
 };

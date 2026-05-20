@@ -14,6 +14,8 @@
  */
 
 #include "ResourceProvider.hpp"
+#include "../common/ErrorCodes.hpp"
+#include "../singleton/Logger.hpp"
 
 #if defined(UI_RESOURCE_BACKEND_CMRC)
 #include <cmrc/cmrc.hpp>
@@ -38,13 +40,14 @@ public:
         return fileSystem.exists(std::string(path));
     }
 
-    [[nodiscard]] std::expected<BinaryResource, std::string> loadBinary(std::string_view path) const override
+    [[nodiscard]] ui::Result<BinaryResource> loadBinary(std::string_view path) const override
     {
         const auto fileSystem = cmrc::ui_fonts::get_filesystem();
         const std::string normalizedPath(path);
         if (!fileSystem.exists(normalizedPath))
         {
-            return std::unexpected("resource not found: " + normalizedPath);
+            ui::Logger::error("[ResourceProvider/cmrc] resource not found: {}", normalizedPath);
+            return ui::MakeError(ui::ui_errc::asset_not_found);
         }
 
         auto file = std::make_shared<cmrc::file>(fileSystem.open(normalizedPath));
@@ -63,12 +66,13 @@ class StdEmbedResourceProvider final : public IResourceProvider
 public:
     [[nodiscard]] bool exists(std::string_view path) const override { return FindStdEmbedResource(path) != nullptr; }
 
-    [[nodiscard]] std::expected<BinaryResource, std::string> loadBinary(std::string_view path) const override
+    [[nodiscard]] ui::Result<BinaryResource> loadBinary(std::string_view path) const override
     {
         const StdEmbedResourceEntry* entry = FindStdEmbedResource(path);
         if (entry == nullptr)
         {
-            return std::unexpected("std::embed resource not found in generated table: " + std::string(path));
+            ui::Logger::error("[ResourceProvider/std_embed] resource not found: {}", path);
+            return ui::MakeError(ui::ui_errc::asset_not_found);
         }
 
         BinaryResource resource{};
@@ -88,10 +92,11 @@ public:
         return false;
     }
 
-    [[nodiscard]] std::expected<BinaryResource, std::string> loadBinary(std::string_view path) const override
+    [[nodiscard]] ui::Result<BinaryResource> loadBinary(std::string_view path) const override
     {
-        return std::unexpected("no UI resource backend selected at compile time for provider request: " +
-                               std::string(path));
+        ui::Logger::error("[ResourceProvider] no UI resource backend selected at compile time for: {}", path);
+        static_cast<void>(path);
+        return ui::MakeError(ui::ui_errc::backend_unavailable);
     }
 };
 #endif

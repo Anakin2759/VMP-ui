@@ -24,7 +24,11 @@
 
 namespace ui::layout
 {
-
+/**
+ * @brief 设置布局方向
+ * @param entity 目标实体
+ * @param direction 布局方向（水平或垂直）
+ */
 void SetLayoutDirection(::entt::entity entity, policies::LayoutDirection direction);
 void SetLayoutSpacing(::entt::entity entity, float spacing);
 void SetPadding(::entt::entity entity, float left, float top, float right, float bottom);

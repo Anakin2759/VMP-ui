@@ -83,28 +83,28 @@ bool IconManager::loadIconFont(const std::string& name,
     return true;
 }
 
-std::expected<void, std::error_code> IconManager::loadIconFontFromMemory(const std::string& name,
-                                                                         const void* fontData,
-                                                                         size_t fontLength,
-                                                                         const void* codepointsData,
-                                                                         size_t codepointsLength,
-                                                                         int fontSize)
+Result<void> IconManager::loadIconFontFromMemory(const std::string& name,
+                                                 const void* fontData,
+                                                 size_t fontLength,
+                                                 const void* codepointsData,
+                                                 size_t codepointsLength,
+                                                 int fontSize)
 {
     if (m_ftLibrary == nullptr)
     {
         Logger::error("[IconManager] FreeType not initialized");
-        return std::unexpected(errors::make_error_code(errors::IconErrc::FreeTypeNotInitialized));
+        return MakeError(ui_errc::device_unavailable);
     }
 
     if (fontData == nullptr || fontLength == 0)
     {
         Logger::error("[IconManager] Invalid font data");
-        return std::unexpected(errors::make_error_code(errors::IconErrc::InvalidFontData));
+        return MakeError(ui_errc::invalid_argument);
     }
     if (codepointsData == nullptr || codepointsLength == 0)
     {
         Logger::error("[IconManager] Invalid codepoints data");
-        return std::unexpected(errors::make_error_code(errors::IconErrc::InvalidCodepointsData));
+        return MakeError(ui_errc::invalid_argument);
     }
 
     // 复制字体数据（FreeType 需要持久内存）
@@ -118,7 +118,7 @@ std::expected<void, std::error_code> IconManager::loadIconFontFromMemory(const s
     if (error != 0)
     {
         Logger::error("[IconManager] Failed to load font face from memory '{}' (error {})", name, error);
-        return std::unexpected(errors::make_error_code(errors::IconErrc::LoadFaceFailed));
+        return MakeError(ui_errc::asset_load_failed);
     }
 
     // 设置像素大小
@@ -127,7 +127,7 @@ std::expected<void, std::error_code> IconManager::loadIconFontFromMemory(const s
     {
         FT_Done_Face(face);
         Logger::error("[IconManager] Failed to set pixel size {} (error {})", fontSize, error);
-        return std::unexpected(errors::make_error_code(errors::IconErrc::SetPixelSizeFailed));
+        return MakeError(ui_errc::asset_load_failed);
     }
 
     // 解析 codepoints
@@ -157,14 +157,14 @@ std::expected<void, std::error_code> IconManager::loadIconFontFromMemory(const s
     if (codepoints.empty())
     {
         Logger::warn("No codepoints loaded from memory for: {}", name);
-        return std::unexpected(errors::make_error_code(errors::IconErrc::ParseCodepointsFailed));
+        return MakeError(ui_errc::asset_decode_failed);
     }
 
     m_fonts[name] = FontData{.buffer = std::move(buffer), .face = face, .fontSize = fontSize};
     m_codepoints[name] = std::move(codepoints);
 
     Logger::info("IconFont '{}' loaded from memory: {} icons", name, m_codepoints[name].size());
-    return {};
+    return Ok();
 }
 
 uint32_t IconManager::getCodepoint(std::string_view fontName, std::string_view iconName) const

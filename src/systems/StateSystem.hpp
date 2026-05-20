@@ -245,15 +245,17 @@ private:
             for (auto entity : view)
             {
                 auto& scrollArea = view.get<components::ScrollArea>(entity);
-                const bool wasHovered = scrollArea.scrollbarHovered || scrollArea.trackHovered;
+                const auto* prevState = Registry::TryGet<components::ScrollBarInteractionState>(entity);
+                const bool wasHovered = prevState != nullptr && (prevState->scrollbarHovered || prevState->trackHovered);
 
                 if (state.hasScrollbarDrag() && state.dragScrollEntity == entity)
                 {
                     continue;
                 }
 
-                scrollArea.scrollbarHovered = false;
-                scrollArea.trackHovered = false;
+                auto& interState = Registry::GetOrEmplace<components::ScrollBarInteractionState>(entity);
+                interState.scrollbarHovered = false;
+                interState.trackHovered = false;
 
                 if (policies::HasFlag(scrollArea.scrollBar, policies::ScrollBar::NoVisibility))
                 {
@@ -268,15 +270,15 @@ private:
 
                 if (geometry.trackRect.contains(event.raw.position))
                 {
-                    scrollArea.trackHovered = true;
+                    interState.trackHovered = true;
 
                     if (geometry.thumbRect.contains(event.raw.position))
                     {
-                        scrollArea.scrollbarHovered = true;
+                        interState.scrollbarHovered = true;
                     }
                 }
 
-                if (wasHovered != (scrollArea.scrollbarHovered || scrollArea.trackHovered))
+                if (wasHovered != (interState.scrollbarHovered || interState.trackHovered))
                 {
                     ui::utils::MarkVisualChanged(entity);
                 }
@@ -341,7 +343,7 @@ private:
             auto& scroll = Registry::Get<components::ScrollArea>(scrollEntity);
             if (clickedOnThumb)
             {
-                scroll.scrollbarPressed = true;
+                Registry::GetOrEmplace<components::ScrollBarInteractionState>(scrollEntity).scrollbarPressed = true;
 
                 float trackLength = 0.0F;
                 float thumbSize = 0.0F;
@@ -621,8 +623,10 @@ private:
             {
                 if (Registry::Valid(state.dragScrollEntity))
                 {
-                    auto& scrollArea = Registry::Get<components::ScrollArea>(state.dragScrollEntity);
-                    scrollArea.scrollbarPressed = false;
+                    if (auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(state.dragScrollEntity))
+                    {
+                        ist->scrollbarPressed = false;
+                    }
                     ui::utils::MarkVisualChanged(state.dragScrollEntity);
                 }
 
@@ -880,6 +884,7 @@ private:
 
         if (event.raw.pressed)
         {
+            closeDropDownsOnOutsideClick(event.hitEntity);
             if (ScrollbarStateHelpers::tryHandlePress(event, state))
             {
                 return;
@@ -992,6 +997,35 @@ private:
     void handleEntityPress(const events::HitPointerButton& event)
     {
         PointerStateHelpers::handleEntityPress(event);
+    }
+
+    /// 任意 DropDown 处于展开状态时，若本次点击落在其外部（既非 DropDown 实体本身、也非
+    /// 弹出面板子树），立即关闭该弹出层 — 实现「失焦关闭」语义。
+    static void closeDropDownsOnOutsideClick(entt::entity hitEntity)
+    {
+        auto view = Registry::View<components::DropDown>();
+        for (auto ddEntity : view)
+        {
+            auto& dropDown = view.template get<components::DropDown>(ddEntity);
+            if (!dropDown.open) continue;
+
+            const auto inSubtree = [hitEntity](entt::entity ancestor) -> bool {
+                if (ancestor == entt::null) return false;
+                entt::entity cur = hitEntity;
+                while (cur != entt::null && Registry::Valid(cur))
+                {
+                    if (cur == ancestor) return true;
+                    const auto* hier = Registry::TryGet<components::Hierarchy>(cur);
+                    cur = (hier != nullptr) ? hier->parent : entt::null;
+                }
+                return false;
+            };
+
+            if (inSubtree(ddEntity)) continue;
+            if (inSubtree(dropDown.popupEntity)) continue;
+
+            Dispatcher::Trigger<events::DropDownCloseRequested>({ddEntity});
+        }
     }
     /**
      * @brief 处理实体释放事件

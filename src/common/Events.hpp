@@ -83,6 +83,16 @@ struct QuitRequested
 };
 
 /**
+ * @brief 关闭 DropDown 弹出层请求事件
+ * [IMMEDIATE] 使用 trigger - 由 StateSystem 触发，Factory 层处理
+ */
+struct DropDownCloseRequested
+{
+    using is_event_tag = void;
+    entt::entity entity;
+};
+
+/**
  * @brief 窗口尺寸变化事件
  * [IMMEDIATE] 使用 trigger
  */

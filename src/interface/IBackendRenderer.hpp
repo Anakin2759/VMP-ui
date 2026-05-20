@@ -20,6 +20,8 @@
 #include <string_view>
 #include <SDL3/SDL.h>
 #include "../common/RenderTypes.hpp"
+#include "../common/Result.hpp"
+#include "../common/ErrorCodes.hpp"
 
 namespace ui::interface
 {
@@ -47,10 +49,9 @@ public:
     /**
      * @brief 初始化渲染器
      * @param window 指向 SDL_Window 的指针，用于渲染的目标窗口
-     * @return true 初始化成功
-     * @return false 初始化失败
+     * @return Result<void> 成功返回 Ok()，失败返回 ui_errc 错误码
      */
-    virtual bool initialize(SDL_Window* window) = 0;
+    virtual ui::Result<void> initialize(SDL_Window* window) = 0;
 
     /**
      * @brief 清理渲染器资源，释放占用的内存和 GPU 资源
@@ -59,10 +60,9 @@ public:
     /**
      * @brief 开始渲染一帧
      * @param clearColor 用于清屏的颜色
-     * @return true 开始渲染成功
-     * @return false 开始渲染失败
+     * @return Result<void> 成功返回 Ok()，失败返回 ui_errc::swapchain_unavailable 等
      */
-    virtual bool beginFrame(const SDL_FColor& clearColor) = 0;
+    virtual ui::Result<void> beginFrame(const SDL_FColor& clearColor) = 0;
 
     /**
      * @brief 绘制一个渲染批次
@@ -71,13 +71,13 @@ public:
      */
     virtual void drawBatch(const render::RenderBatch& batch, SDL_GPUTexture* whiteTextureTag) = 0;
 
-    virtual bool drawCachedBitmap(std::string_view cacheKey,
-                                  std::span<const std::uint8_t> rgbaPixels,
-                                  int bitmapWidth,
-                                  int bitmapHeight,
-                                  const SDL_FRect& destinationRect,
-                                  const std::optional<SDL_Rect>& scissorRect,
-                                  std::uint8_t alphaMod)
+    virtual ui::Result<void> drawCachedBitmap(std::string_view cacheKey,
+                                              std::span<const std::uint8_t> rgbaPixels,
+                                              int bitmapWidth,
+                                              int bitmapHeight,
+                                              const SDL_FRect& destinationRect,
+                                              const std::optional<SDL_Rect>& scissorRect,
+                                              std::uint8_t alphaMod)
     {
         static_cast<void>(cacheKey);
         static_cast<void>(rgbaPixels);
@@ -86,7 +86,7 @@ public:
         static_cast<void>(destinationRect);
         static_cast<void>(scissorRect);
         static_cast<void>(alphaMod);
-        return false;
+        return ui::MakeError(ui::ui_errc::not_implemented);
     }
 
     /**

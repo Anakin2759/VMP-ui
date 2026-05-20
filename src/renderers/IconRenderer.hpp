@@ -87,7 +87,7 @@ public:
                 return; // 纹理不存在
             }
         }
-        else if (HasFlag(iconComp->type, ~policies::IconFlag::Texture))
+        else if (!HasFlag(iconComp->type, policies::IconFlag::Texture))
         {
             // 字体图标
             // fontHandle 暂时存储为字体名称字符串指针，或者为空则使用默认

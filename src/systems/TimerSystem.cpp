@@ -27,9 +27,6 @@
 namespace ui::systems
 {
 
-std::vector<globalcontext::TimerTask> TimerSystem::tasks;
-uint32_t TimerSystem::nextTaskId = 1;
-
 void TimerSystem::registerHandlersImpl()
 {
     Dispatcher::Sink<events::UpdateTimer>().connect<&TimerSystem::onUpdateTimer>(*this);
@@ -43,8 +40,9 @@ void TimerSystem::unregisterHandlersImpl()
 uint32_t TimerSystem::addTask(uint32_t interval, VoidCallback func, bool singleShot)
 {
     auto& frameCtx = RuntimeFacade::current().frame();
+    auto& timerCtx = RuntimeFacade::current().ensureContext<globalcontext::TimerContext>();
 
-    uint32_t taskId = nextTaskId++;
+    uint32_t taskId = timerCtx.nextTaskId++;
 
     globalcontext::TimerTask task;
     task.id = taskId;
@@ -55,7 +53,7 @@ uint32_t TimerSystem::addTask(uint32_t interval, VoidCallback func, bool singleS
     task.frameSlot = frameCtx.frameSlot;
     task.cancelled = false;
 
-    tasks.push_back(std::move(task));
+    timerCtx.tasks.push_back(std::move(task));
 
     Logger::info("TimerSystem: Added task {} with interval {}ms (singleShot={})", taskId, interval, singleShot);
     return taskId;
@@ -63,7 +61,8 @@ uint32_t TimerSystem::addTask(uint32_t interval, VoidCallback func, bool singleS
 
 void TimerSystem::cancelTask(uint32_t handle)
 {
-    for (auto& task : tasks)
+    auto& timerCtx = RuntimeFacade::current().ensureContext<globalcontext::TimerContext>();
+    for (auto& task : timerCtx.tasks)
     {
         if (task.id == handle)
         {
@@ -77,9 +76,10 @@ void TimerSystem::cancelTask(uint32_t handle)
 void TimerSystem::update(uint32_t deltaMs)
 {
     auto& frameCtx = RuntimeFacade::current().frame();
+    auto& timerCtx = RuntimeFacade::current().ensureContext<globalcontext::TimerContext>();
 
     // 处理所有任务
-    for (auto& task : tasks)
+    for (auto& task : timerCtx.tasks)
     {
         if (task.cancelled)
         {
@@ -119,9 +119,9 @@ void TimerSystem::update(uint32_t deltaMs)
     }
 
     // 清理已取消的任务
-    tasks.erase(
-        std::remove_if(tasks.begin(), tasks.end(), [](const globalcontext::TimerTask& task) { return task.cancelled; }),
-        tasks.end());
+    timerCtx.tasks.erase(
+        std::remove_if(timerCtx.tasks.begin(), timerCtx.tasks.end(), [](const globalcontext::TimerTask& task) { return task.cancelled; }),
+        timerCtx.tasks.end());
 
     // 驱动所有获焦 TextEdit 的 Caret 闪烁（固定时间间隔，点击后立即显示）
     const float deltaSec = static_cast<float>(deltaMs) / 1000.0F;

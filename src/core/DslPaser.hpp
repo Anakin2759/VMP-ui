@@ -15,3 +15,7 @@
  * For study and research only, no reprinting.
  * ************************************************************************
  */
+#pragma once
+// TODO: JS DSL 解析器尚未实现。
+// 此文件是功能规划存根，暂不提供任何接口。
+// 参见 docs/ideas/ 获取设计说明。

@@ -19,11 +19,11 @@
 #pragma once
 
 #include <cstddef>
-#include <expected>
 #include <memory>
 #include <span>
 #include <string>
 #include <string_view>
+#include "../common/Result.hpp"
 
 namespace ui::managers
 {
@@ -50,7 +50,7 @@ public:
     IResourceProvider& operator=(IResourceProvider&&) = delete;
 
     [[nodiscard]] virtual bool exists(std::string_view path) const = 0;
-    [[nodiscard]] virtual std::expected<BinaryResource, std::string> loadBinary(std::string_view path) const = 0;
+    [[nodiscard]] virtual ui::Result<BinaryResource> loadBinary(std::string_view path) const = 0;
 };
 
 [[nodiscard]] std::shared_ptr<const IResourceProvider> GetDefaultUiResourceProvider();

@@ -25,6 +25,7 @@ void InitializeConsoleUtf8()
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
+
     InitializeConsoleUtf8();
 
     try
@@ -39,7 +40,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
         auto app = std::move(appResult).value();
 
         example::ui_demo::view::CreateMenuDialog();
-        ui::utils::TimerCallback(5000, []() { std::cout << "定时任务1执行！" << std::endl; });
+        ui::utils::TimerCallback(5000, []() { ui::log::Info("定时任务1执行！"); });
         app->exec();
     }
     catch (const std::exception& e)

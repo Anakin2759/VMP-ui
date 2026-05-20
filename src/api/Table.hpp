@@ -87,6 +87,12 @@ void SetSelectedRow(entt::entity entity, int row);
  */
 void SetOnCellClicked(entt::entity entity, std::move_only_function<void(int, int)> callback);
 
+/**
+ * @brief 设置表头文字颜色
+ * @param color 文字颜色
+ */
+void SetHeaderTextColor(entt::entity entity, Color color);
+
 } // namespace ui::table
 
 // ===================== EntityAction 常量 =====================
@@ -142,6 +148,14 @@ inline auto TableAddRow(std::vector<std::string> texts)
 inline auto TableClearRows()
 {
     return ui::actions::table::CLEAR_ROWS_ACTION.bind();
+}
+
+/**
+ * @brief Chain DSL：设置表头文字颜色
+ */
+inline auto TableHeaderTextColor(Color color)
+{
+    return Chain{[color](entt::entity entity) { ui::table::SetHeaderTextColor(entity, color); }};
 }
 
 /**

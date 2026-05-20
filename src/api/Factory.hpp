@@ -13,14 +13,13 @@
  * ************************************************************************
  */
 #pragma once
-#include <expected>
 #include <memory>
-#include <system_error>
 #include <vector>
 #include <entt/entt.hpp>
 #include <string>
 #include <string_view>
 #include "../core/Application.hpp"
+#include "../common/Result.hpp"
 #ifdef CreateWindow
 #undef CreateWindow
 #endif
@@ -42,7 +41,7 @@ namespace ui::factory
  * @param argv 命令行参数数组
  * @return UI 应用程序实例
  */
-std::expected<std::unique_ptr<Application>, std::error_code> CreateApplication(std::span<char*> argv);
+ui::Result<std::unique_ptr<Application>> CreateApplication(std::span<char*> argv);
 /**
  * @brief 创建一个基础的 UI 组件实体
  * @param alias 组件别名
@@ -99,6 +98,10 @@ entt::entity CreateTextBrowser(std::string_view initialText = "",
  */
 entt::entity CreateCheckBox(const std::string& label, bool checked = false, std::string_view alias = "");
 entt::entity CreateDropDown(const std::vector<std::string>& options, int selectedIndex = 0, std::string_view alias = "");
+
+/// @brief 关闭 DropDown 弹出层（若已打开），下一帧销毁弹出实体
+/// @note StateSystem 在「点击外部」时调用此函数实现失焦自动关闭
+void CloseDropDownPopup(entt::entity ddEntity);
 
 // Slider / ProgressBar
 entt::entity CreateSlider(std::string_view alias = "");

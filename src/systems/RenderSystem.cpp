@@ -68,12 +68,13 @@ std::shared_ptr<const ui::managers::IResourceProvider> GetUiResourceProvider()
     return RESOURCE_PROVIDER;
 }
 
-std::expected<ui::managers::BinaryResource, std::string> LoadUiResource(std::string_view resourcePath)
+ui::Result<ui::managers::BinaryResource> LoadUiResource(std::string_view resourcePath)
 {
     const auto resourceProvider = GetUiResourceProvider();
     if (resourceProvider == nullptr)
     {
-        return std::unexpected("UI resource provider unavailable");
+        ui::Logger::error("[RenderSystem] UI resource provider unavailable");
+        return ui::MakeError(ui::ui_errc::backend_unavailable);
     }
 
     return ui::cpo::load_binary_resource(*resourceProvider, resourcePath);
@@ -87,7 +88,9 @@ namespace ui::systems
 RenderSystem::RenderSystem()
     : m_deviceManager(std::make_unique<managers::DeviceManager>()),
       m_fontManager(std::make_unique<managers::FontManager>()),
-      m_iconManager(std::make_unique<managers::IconManager>(m_deviceManager.get())), m_pipelineCache(nullptr),
+      m_iconManager(std::make_unique<managers::IconManager>(m_deviceManager.get())),
+      m_imageManager(std::make_unique<managers::ImageManager>(m_deviceManager.get())),
+      m_pipelineCache(nullptr),
       m_textTextureCache(nullptr), m_batchManager(std::make_unique<managers::BatchManager>()), m_commandBuffer(nullptr),
       m_backendRenderer(nullptr), m_forceFallback(
 #ifdef UI_FORCE_CPU_RENDER
@@ -119,7 +122,8 @@ RenderSystem::~RenderSystem()
 
 RenderSystem::RenderSystem(RenderSystem&& other) noexcept
     : m_deviceManager(std::move(other.m_deviceManager)), m_fontManager(std::move(other.m_fontManager)),
-      m_iconManager(std::move(other.m_iconManager)), m_pipelineCache(std::move(other.m_pipelineCache)),
+      m_iconManager(std::move(other.m_iconManager)), m_imageManager(std::move(other.m_imageManager)),
+      m_pipelineCache(std::move(other.m_pipelineCache)),
       m_textTextureCache(std::move(other.m_textTextureCache)), m_batchManager(std::move(other.m_batchManager)),
       m_commandBuffer(std::move(other.m_commandBuffer)), m_backendRenderer(std::move(other.m_backendRenderer)),
       m_renderers(std::move(other.m_renderers)), m_stats(other.m_stats),
@@ -144,6 +148,7 @@ RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
         m_deviceManager = std::move(other.m_deviceManager);
         m_fontManager = std::move(other.m_fontManager);
         m_iconManager = std::move(other.m_iconManager);
+        m_imageManager = std::move(other.m_imageManager);
         m_pipelineCache = std::move(other.m_pipelineCache);
         m_textTextureCache = std::move(other.m_textTextureCache);
         m_batchManager = std::move(other.m_batchManager);
@@ -195,7 +200,10 @@ void RenderSystem::onWindowsGraphicsContextSet(const events::WindowGraphicsConte
         return;
     }
 
-    m_pipelineCache->createPipeline(sdlWindow);
+    if (auto pipeResult = m_pipelineCache->createPipeline(sdlWindow); !pipeResult.has_value())
+    {
+        Logger::warn("[RenderSystem] 初始化时创建管线失败: {}", pipeResult.error().message());
+    }
     Logger::info("[RenderSystem] 窗口图形上下文设置完成 (Entity: {})", static_cast<uint32_t>(event.entity));
 }
 
@@ -244,6 +252,7 @@ void RenderSystem::cleanup()
         m_textTextureCache.reset();
         m_fontManager.reset();
         m_iconManager.reset();
+        m_imageManager.reset();
         return;
     }
 
@@ -270,6 +279,7 @@ void RenderSystem::cleanup()
     m_textTextureCache.reset();
     m_fontManager.reset();
     m_iconManager.reset();
+    m_imageManager.reset();
 
     Logger::info("[RenderSystem] 清理设备管理器");
     m_deviceManager->cleanup();
@@ -329,7 +339,6 @@ void RenderSystem::createWhiteTexture()
 // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size)
 void RenderSystem::update() noexcept
 {
-    static bool firstUpdate = true;
     auto windowView = Registry::View<components::Window, components::RenderDirtyTag>();
 
     if (windowView.begin() == windowView.end())
@@ -337,10 +346,10 @@ void RenderSystem::update() noexcept
         return;
     }
 
-    if (firstUpdate)
+    if (m_firstUpdate)
     {
         Logger::info("[RenderSystem] update first call");
-        firstUpdate = false;
+        m_firstUpdate = false;
     }
 
     ensureInitialized();
@@ -395,8 +404,14 @@ void RenderSystem::update() noexcept
 
         if (!m_useFallback && m_pipelineCache->getPipeline() == nullptr)
         {
-            m_deviceManager->claimWindow(sdlWindow);
-            m_pipelineCache->createPipeline(sdlWindow);
+            if (auto claimResult = m_deviceManager->claimWindow(sdlWindow); !claimResult.has_value())
+            {
+                Logger::warn("[RenderSystem] claimWindow 失败: {}", claimResult.error().message());
+            }
+            if (auto pipeResult = m_pipelineCache->createPipeline(sdlWindow); !pipeResult.has_value())
+            {
+                Logger::warn("[RenderSystem] 重新创建管线失败: {}", pipeResult.error().message());
+            }
 
             if (m_pipelineCache->getPipeline() == nullptr)
             {
@@ -425,6 +440,7 @@ void RenderSystem::update() noexcept
             rootContext.screenHeight = m_screenHeight;
             rootContext.deviceManager = m_deviceManager.get();
             rootContext.fontManager = m_fontManager.get();
+            rootContext.imageManager = m_imageManager.get();
             rootContext.textTextureCache = m_textTextureCache.get();
             rootContext.batchManager = m_batchManager.get();
             rootContext.backendRenderer = m_useFallback ? m_backendRenderer.get() : nullptr;
@@ -568,7 +584,7 @@ void RenderSystem::ensureInitialized()
         }
         else
         {
-            Logger::error("[RenderSystem] 默认字体资源加载失败: {} ({})", DEFAULT_FONT_RESOURCE, fontResource.error());
+            Logger::error("[RenderSystem] 默认字体资源加载失败: {} ({})", DEFAULT_FONT_RESOURCE, fontResource.error().message());
         }
     }
 
@@ -632,13 +648,13 @@ void RenderSystem::ensureInitialized()
                     if (!fontResource.has_value())
                     {
                         Logger::warn(
-                            "[RenderSystem] 默认图标字体资源不存在: {} ({})", ICON_FONT_RESOURCE, fontResource.error());
+                            "[RenderSystem] 默认图标字体资源不存在: {} ({})", ICON_FONT_RESOURCE, fontResource.error().message());
                     }
                     if (!codepointResource.has_value())
                     {
                         Logger::warn("[RenderSystem] 默认图标码点资源不存在: {} ({})",
                                      ICON_CODEPOINT_RESOURCE,
-                                     codepointResource.error());
+                                     codepointResource.error().message());
                     }
                 }
             }
@@ -661,7 +677,7 @@ void RenderSystem::ensureInitialized()
     }
 }
 
-bool RenderSystem::tryInitializeFallback(SDL_Window* window)
+ui::Result<void> RenderSystem::tryInitializeFallback(SDL_Window* window)
 {
     if (m_backendRenderer == nullptr)
     {
@@ -765,6 +781,16 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
 
             childBaseContext.pushScissor(scissorRect);
             contentOffset = -scrollArea->scrollOffset;
+        }
+        else if (Registry::AnyOf<components::LayoutInfo>(currentEntity))
+        {
+            // 容器裁剪：防止子元素因 Yoga 浮点误差或内容溢出而渲染超出容器边界
+            const SDL_Rect containerScissor{
+                static_cast<int>(absolutePos.x()),
+                static_cast<int>(absolutePos.y()),
+                static_cast<int>(std::max(0.0F, finalSize.x())),
+                static_cast<int>(std::max(0.0F, finalSize.y()))};
+            childBaseContext.pushScissor(containerScissor);
         }
 
         // Determine Z-Order

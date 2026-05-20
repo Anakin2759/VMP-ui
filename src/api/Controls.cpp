@@ -74,6 +74,43 @@ void SetSliderOnValueChanged(::entt::entity entity, components::on_event<float> 
     slider.onValueChanged = std::move(callback);
 }
 
+void SetSliderTrackColor(::entt::entity entity, const Color& color)
+{
+    if (!Registry::Valid(entity)) return;
+    Registry::GetOrEmplace<components::SliderInfo>(entity).trackColor = color;
+    ui::utils::MarkVisualChanged(entity);
+}
+
+void SetSliderFillColor(::entt::entity entity, const Color& color)
+{
+    if (!Registry::Valid(entity)) return;
+    Registry::GetOrEmplace<components::SliderInfo>(entity).fillColor = color;
+    ui::utils::MarkVisualChanged(entity);
+}
+
+void SetSliderThumbColor(::entt::entity entity, const Color& color)
+{
+    if (!Registry::Valid(entity)) return;
+    Registry::GetOrEmplace<components::SliderInfo>(entity).thumbColor = color;
+    ui::utils::MarkVisualChanged(entity);
+}
+
+void SetSliderThumbSize(::entt::entity entity, float size)
+{
+    if (!Registry::Valid(entity)) return;
+    auto& slider = Registry::GetOrEmplace<components::SliderInfo>(entity);
+    slider.thumbSize   = std::max(4.0F, size);
+    slider.thumbRadius = slider.thumbSize * 0.5F; // 保持圆形比例
+    ui::utils::MarkVisualChanged(entity);
+}
+
+void SetSliderTrackThickness(::entt::entity entity, float thickness)
+{
+    if (!Registry::Valid(entity)) return;
+    Registry::GetOrEmplace<components::SliderInfo>(entity).trackThickness = std::max(2.0F, thickness);
+    ui::utils::MarkVisualChanged(entity);
+}
+
 void SetProgressValue(::entt::entity entity, float progress)
 {
     if (!Registry::Valid(entity)) return;
@@ -172,12 +209,12 @@ void SetCheckBoxOnChanged(::entt::entity entity, components::on_event<bool> call
     checkBox->onChanged = std::move(callback);
 }
 
-void SetDropDownOptions(::entt::entity entity, const std::vector<std::string>& options)
+void SetDropDownOptions(::entt::entity entity, std::vector<std::string> options)
 {
     if (!Registry::Valid(entity)) return;
     auto* dropDown = Registry::TryGet<components::DropDown>(entity);
     if (dropDown == nullptr) return;
-    dropDown->options = options;
+    dropDown->options = std::move(options);
     dropDown->selectedIndex = 0;
     if (auto* text = Registry::TryGet<components::Text>(entity))
     {
@@ -191,7 +228,9 @@ void SetDropDownSelected(::entt::entity entity, int index)
     if (!Registry::Valid(entity)) return;
     auto* dropDown = Registry::TryGet<components::DropDown>(entity);
     if (dropDown == nullptr) return;
-    dropDown->selectedIndex = index;
+    dropDown->selectedIndex = dropDown->options.empty()
+        ? 0
+        : std::clamp(index, 0, static_cast<int>(dropDown->options.size()) - 1);
     if (auto* text = Registry::TryGet<components::Text>(entity))
     {
         text->content = dropDown->selectedText();

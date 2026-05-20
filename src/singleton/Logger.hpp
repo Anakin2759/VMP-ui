@@ -33,7 +33,6 @@
 #include <source_location>
 #include <string>
 #include <vector>
-#include "SingletonBase.hpp"
 
 namespace ui
 {
@@ -53,21 +52,24 @@ struct LogLocation
     }
 };
 
-class Logger : public SingletonBase<Logger>
+class Logger
 {
     static constexpr size_t MAX_LOG_FILE_SIZE = 1024 * 1024 * 5; // 5MB
     static constexpr size_t MAX_LOG_FILE_COUNT = 1;
 
-    friend class SingletonBase<Logger>;
-
 public:
+    Logger(const Logger&) = delete;
+    Logger& operator=(const Logger&) = delete;
+    Logger(Logger&&) = delete;
+    Logger& operator=(Logger&&) = delete;
+
     /**
      * @brief 警告日志
      */
     template <typename... Args>
     static void warn(LogLocation msg, Args&&... args)
     {
-        getInstance().log_impl(spdlog::level::warn, msg, std::forward<Args>(args)...);
+        instance().log_impl(spdlog::level::warn, msg, std::forward<Args>(args)...);
     }
 
     /**
@@ -76,7 +78,7 @@ public:
     template <typename... Args>
     static void info(LogLocation msg, Args&&... args)
     {
-        getInstance().log_impl(spdlog::level::info, msg, std::forward<Args>(args)...);
+        instance().log_impl(spdlog::level::info, msg, std::forward<Args>(args)...);
     }
 
     /**
@@ -85,7 +87,7 @@ public:
     template <typename... Args>
     static void error(LogLocation msg, Args&&... args)
     {
-        getInstance().log_impl(spdlog::level::err, msg, std::forward<Args>(args)...);
+        instance().log_impl(spdlog::level::err, msg, std::forward<Args>(args)...);
     }
 
     /**
@@ -94,10 +96,16 @@ public:
     template <typename... Args>
     static void debug(LogLocation msg, Args&&... args)
     {
-        getInstance().log_impl(spdlog::level::debug, msg, std::forward<Args>(args)...);
+        instance().log_impl(spdlog::level::debug, msg, std::forward<Args>(args)...);
     }
 
 private:
+    static Logger& instance()
+    {
+        static Logger singleton;
+        return singleton;
+    }
+
     Logger()
     {
         // 1. 创建控制台 sink

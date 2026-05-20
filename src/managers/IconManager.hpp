@@ -32,15 +32,14 @@
 #include <array>
 #include <chrono>
 #include <algorithm>
-#include <expected>
-#include <system_error>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <SDL3/SDL.h>
 #include <Eigen/Core>
 #include "../singleton/Logger.hpp"
 #include "../common/GPUWrappers.hpp"
-#include "../common/UiErrors.hpp"
+#include "../common/ErrorCodes.hpp"
+#include "../common/Result.hpp"
 
 namespace ui::managers
 {
@@ -128,12 +127,12 @@ public:
      * @param fontSize 字体大小
      * @return 是否加载成功
      */
-    std::expected<void, std::error_code> loadIconFontFromMemory(const std::string& name,
-                                                                const void* fontData,
-                                                                size_t fontLength,
-                                                                const void* codepointsData,
-                                                                size_t codepointsLength,
-                                                                int fontSize = 16);
+    Result<void> loadIconFontFromMemory(const std::string& name,
+                                        const void* fontData,
+                                        size_t fontLength,
+                                        const void* codepointsData,
+                                        size_t codepointsLength,
+                                        int fontSize = 16);
 
     /**
      * @brief 通过图标名称获取 Unicode 码点

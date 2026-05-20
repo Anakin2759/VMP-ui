@@ -2,7 +2,6 @@ add_executable(example_ui_demo
     main.cpp
     View/Mainwindow.h
     View/menu.h
-    View/Logging.hpp
 )
 
 target_compile_features(example_ui_demo PRIVATE cxx_std_23)

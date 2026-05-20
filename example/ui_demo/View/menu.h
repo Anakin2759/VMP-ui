@@ -2,7 +2,6 @@
 
 #include <ui.hpp>
 
-#include "Logging.hpp"
 #include "Mainwindow.h"
 
 namespace example::ui_demo::view
@@ -74,7 +73,7 @@ inline void CreateMenuDialog()
         OnClick(
             []()
             {
-                ::example::ui_demo::LogInfo("退出menu.");
+                ui::log::Info("退出menu.");
                 ui::utils::QuitUiEventLoop();
             });
 
@@ -92,9 +91,9 @@ inline void CreateMenuDialog()
     menuDialog | AddChild(versionLabel);
 
     // 显示菜单对话框
-    ::example::ui_demo::LogInfo("Showing menu dialog...");
+    ui::log::Info("Showing menu dialog...");
     menuDialog | Show();
-    ::example::ui_demo::LogInfo("CreateMenuDialog completed.");
+    ui::log::Info("CreateMenuDialog completed.");
 }
 
 } // namespace example::ui_demo::view

@@ -23,8 +23,6 @@
 
 #include <ui.hpp>
 
-#include "Logging.hpp"
-
 namespace example::ui_demo::view
 {
 using namespace ui::chains; // 引入 DSL
@@ -90,23 +88,23 @@ inline void CreateMainWindow() // NOLINT
         auto primaryBtn = ui::factory::CreateButton("主要", "primaryBtn");
         primaryBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.20F, 0.50F, 0.85F, 1.0F}) | BorderRadius(5.0F)
                    | BorderColor({0.30F, 0.65F, 1.0F, 1.0F}) | BorderThickness(1.0F)
-                   | OnClick([]() { ::example::ui_demo::LogInfo("主要按钮"); });
+                   | OnClick([]() { ui::log::Info("主要按钮"); });
 
         auto warnBtn = ui::factory::CreateButton("警告", "warnBtn");
         warnBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.75F, 0.45F, 0.10F, 1.0F}) | BorderRadius(5.0F)
                 | BorderColor({1.0F, 0.65F, 0.20F, 1.0F}) | BorderThickness(1.0F)
-                | OnClick([]() { ::example::ui_demo::LogInfo("警告按钮"); });
+                | OnClick([]() { ui::log::Info("警告按钮"); });
 
         auto dangerBtn = ui::factory::CreateButton("危险", "dangerBtn");
         dangerBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.65F, 0.18F, 0.18F, 1.0F}) | BorderRadius(5.0F)
                   | BorderColor({0.85F, 0.30F, 0.30F, 1.0F}) | BorderThickness(1.0F)
-                  | OnClick([]() { ::example::ui_demo::LogInfo("危险按钮"); });
+                  | OnClick([]() { ui::log::Info("危险按钮"); });
 
         auto ghostBtn = ui::factory::CreateButton("幽灵", "ghostBtn");
         ghostBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.0F, 0.0F, 0.0F, 0.0F}) | BorderRadius(5.0F)
                  | BorderColor({0.60F, 0.60F, 0.65F, 1.0F}) | BorderThickness(1.5F)
                  | TextColor({0.80F, 0.80F, 0.85F, 1.0F})
-                 | OnClick([]() { ::example::ui_demo::LogInfo("幽灵按钮"); });
+                 | OnClick([]() { ui::log::Info("幽灵按钮"); });
 
         auto disabledBtn = ui::factory::CreateButton("禁用", "disabledBtn");
         disabledBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.25F, 0.25F, 0.28F, 0.6F}) | BorderRadius(5.0F)
@@ -135,7 +133,7 @@ inline void CreateMainWindow() // NOLINT
         lineEdit | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFixed) | Size(0.0F, 30.0F)
                  | BackgroundColor({0.15F, 0.15F, 0.18F, 0.95F}) | BorderRadius(4.0F)
                  | BorderColor({0.35F, 0.35F, 0.42F, 1.0F}) | BorderThickness(1.0F) | Padding(6.0F) | FontSize(13.0F)
-                 | OnTextChanged([](const std::string& /*v*/) { ::example::ui_demo::LogInfo("LineEdit changed"); });
+                 | OnTextChanged([](const std::string& /*v*/) { ui::log::Info("LineEdit changed"); });
         inputPanel | AddChild(lineEdit);
 
         // 密码框
@@ -192,7 +190,7 @@ inline void CreateMainWindow() // NOLINT
         row1 | AddChild(canvasPanel);
 
         canvasPanel | AddChild(detail::MakeSectionTitle(
-            "Canvas 绘图（Line / Rect / FilledRect / Circle）", "canvasTitle"));
+            "Canvas 绘图（Line / Rect / Circle / Polyline / Bézier）", "canvasTitle"));
 
         auto canvas = ui::factory::CreateCanvas(640.0F, 290.0F, "demoCanvas");
         canvas | SizePolicy(ui::policies::Size::HFill | ui::policies::Size::VFill)
@@ -209,9 +207,38 @@ inline void CreateMainWindow() // NOLINT
         // 填充矩形（红色半透明）
         canvas | CanvasDrawFilledRect({410.0F, 10.0F}, {580.0F, 90.0F}, {0.80F, 0.30F, 0.30F, 0.8F});
 
-        // 空心圆 + 填充圆（Chain 未封装，直接调用）
+        // 空心圆 + 填充圆
         ui::canvas::DrawCircle(canvas,       {70.0F,  180.0F}, 55.0F, {0.90F, 0.70F, 0.20F, 1.0F}, 2.5F);
         ui::canvas::DrawFilledCircle(canvas, {230.0F, 180.0F}, 55.0F, {0.40F, 0.30F, 0.80F, 0.85F});
+
+        // ---- 新增：折线（Polyline）— 闪电形 ----
+        ui::canvas::DrawPolyline(canvas,
+            {{320.0F, 110.0F}, {350.0F, 150.0F}, {335.0F, 150.0F},
+             {370.0F, 200.0F}, {340.0F, 200.0F}, {375.0F, 250.0F}},
+            {1.0F, 0.85F, 0.10F, 1.0F}, 2.5F);
+
+        // ---- 新增：三次贝塞尔曲线（Cubic Bézier）— S 形曲线 ----
+        ui::canvas::DrawCubicBezier(canvas,
+            {400.0F, 110.0F},   // 起点
+            {420.0F, 260.0F},   // 控制点1
+            {560.0F, 110.0F},   // 控制点2
+            {580.0F, 250.0F},   // 终点
+            {0.40F, 0.80F, 1.0F, 1.0F}, 2.5F);
+
+        // ---- 新增：Painter 路径 — 心形（底部尖角）----
+        {
+            ui::canvas::Painter painter(canvas);
+            painter.moveTo({490.0F, 143.0F})
+                   // 左上弧：顶部缺口 → 左侧峰
+                   .cubicTo({488.0F, 116.0F}, {456.0F, 114.0F}, {458.0F, 140.0F})
+                   // 左下弧：左侧峰 → 底部尖点（控制点斜向内侧，形成 V 角）
+                   .cubicTo({458.0F, 168.0F}, {484.0F, 208.0F}, {490.0F, 215.0F})
+                   // 右下弧：底部尖点 → 右侧峰（镜像）
+                   .cubicTo({496.0F, 208.0F}, {522.0F, 168.0F}, {522.0F, 140.0F})
+                   // 右上弧：右侧峰 → 顶部缺口
+                   .cubicTo({524.0F, 114.0F}, {492.0F, 116.0F}, {490.0F, 143.0F})
+                   .commit({1.0F, 0.35F, 0.45F, 1.0F}, 2.0F);
+        }
 
         // 坐标轴参考线（灰色）
         canvas | CanvasDrawLine({10.0F, 270.0F}, {610.0F, 270.0F}, {0.45F, 0.45F, 0.50F, 0.7F}, 1.0F)
@@ -253,12 +280,12 @@ inline void CreateMainWindow() // NOLINT
         auto banBtn0 = ui::factory::CreateButton("封禁", "banBtn0");
         banBtn0 | FixedSize(90.0F, 22.0F) | BackgroundColor({0.55F, 0.15F, 0.15F, 1.0F}) | BorderRadius(3.0F)
                 | BorderColor({0.75F, 0.25F, 0.25F, 1.0F}) | BorderThickness(1.0F) | FontSize(11.0F)
-                | OnClick([]() { ::example::ui_demo::LogInfo("封禁: 玩家一"); });
+                | OnClick([]() { ui::log::Info("封禁: 玩家一"); });
 
         auto banBtn1 = ui::factory::CreateButton("封禁", "banBtn1");
         banBtn1 | FixedSize(90.0F, 22.0F) | BackgroundColor({0.55F, 0.15F, 0.15F, 1.0F}) | BorderRadius(3.0F)
                 | BorderColor({0.75F, 0.25F, 0.25F, 1.0F}) | BorderThickness(1.0F) | FontSize(11.0F)
-                | OnClick([]() { ::example::ui_demo::LogInfo("封禁: 玩家二"); });
+                | OnClick([]() { ui::log::Info("封禁: 玩家二"); });
 
         // 第3列 — CheckBox：在线状态
         auto cb0 = ui::factory::CreateCheckBox("", true,  "cb_row0");
@@ -271,8 +298,8 @@ inline void CreateMainWindow() // NOLINT
         {
             cbEnt | FixedSize(100.0F, 22.0F);
         }
-        cb0 | OnCheckBoxChanged([](bool online) { ::example::ui_demo::LogInfo(online ? "玩家一 上线" : "玩家一 下线"); });
-        cb1 | OnCheckBoxChanged([](bool online) { ::example::ui_demo::LogInfo(online ? "玩家二 上线" : "玩家二 下线"); });
+        cb0 | OnCheckBoxChanged([](bool online) { ui::log::Info(online ? "玩家一 上线" : "玩家一 下线"); });
+        cb1 | OnCheckBoxChanged([](bool online) { ui::log::Info(online ? "玩家二 上线" : "玩家二 下线"); });
 
         // 第4列 — DropDown：操作
         const std::vector<std::string> kActions{"选择操作", "封禁", "踢出", "禁言"};
@@ -287,8 +314,8 @@ inline void CreateMainWindow() // NOLINT
             ddEnt | FixedSize(110.0F, 22.0F) | BackgroundColor({0.15F, 0.15F, 0.20F, 0.95F})
                   | BorderRadius(3.0F) | BorderColor({0.35F, 0.35F, 0.45F, 1.0F}) | BorderThickness(1.0F);
         }
-        dd0 | OnDropDownChanged([](int idx) { ::example::ui_demo::LogInfo("玩家一 操作", idx); });
-        dd1 | OnDropDownChanged([](int idx) { ::example::ui_demo::LogInfo("玩家二 操作", idx); });
+        dd0 | OnDropDownChanged([](int idx) { ui::log::Info("玩家一 操作: {}", idx); });
+        dd1 | OnDropDownChanged([](int idx) { ui::log::Info("玩家二 操作: {}", idx); });
 
         dataTable | TableSetCellWidget(0, 3, cb0) | TableSetCellWidget(1, 3, cb1)
                   | TableSetCellWidget(2, 3, cb2) | TableSetCellWidget(3, 3, cb3)
@@ -404,7 +431,7 @@ inline void CreateMainWindow() // NOLINT
 
     // 显示主窗口
     gameWindow | Show();
-    ::example::ui_demo::LogInfo("主窗口已创建（全套控件演示）");
+    ui::log::Info("主窗口已创建（全套控件演示）");
 }
 
 } // namespace example::ui_demo::view

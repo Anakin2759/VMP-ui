@@ -19,7 +19,6 @@
 #include "../common/Components.hpp"
 #include "../common/Tags.hpp"
 #include "../managers/BatchManager.hpp"
-#include "../managers/DeviceManager.hpp"
 #include "../managers/ImageManager.hpp"
 #include <SDL3/SDL_gpu.h>
 
@@ -55,15 +54,18 @@ public:
         {
             if (!src->loaded && !src->loadFailed && !src->path.empty())
             {
-                SDL_GPUDevice* device =
-                    (context.deviceManager != nullptr) ? context.deviceManager->getDevice() : nullptr;
-
-                SDL_GPUTexture* tex = managers::ImageManager::instance().loadTexture(src->path, device);
-                if (tex != nullptr)
+                if (context.imageManager != nullptr)
                 {
-                    auto& img = Registry::GetOrEmplace<components::Image>(entity);
-                    img.textureId = static_cast<void*>(tex);
-                    src->loaded = true;
+                    if (auto r = context.imageManager->loadTexture(src->path); r)
+                    {
+                        auto& img = Registry::GetOrEmplace<components::Image>(entity);
+                        img.textureId = static_cast<void*>(*r);
+                        src->loaded = true;
+                    }
+                    else
+                    {
+                        src->loadFailed = true;
+                    }
                 }
                 else
                 {

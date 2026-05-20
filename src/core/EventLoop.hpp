@@ -81,8 +81,11 @@ public:
     }
 
 private:
+    void scheduleNextFrame();
+
     std::unique_ptr<asio::io_context> m_ioContext;
     asio::executor_work_guard<asio::io_context::executor_type> m_workGuard;
+    asio::steady_timer m_frameTimer;
     std::atomic<bool> m_running;
     std::move_only_function<void()> m_defaultHandler;
 };

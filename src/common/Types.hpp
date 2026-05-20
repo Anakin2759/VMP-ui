@@ -387,6 +387,6 @@ auto MakeCallback(Func&& func)
 }
 
 /// 用于结构体字段/容器的类型擦除无参回调别名（需要异构存储时使用）
-using VoidCallback = std::move_only_function<void()>;
+using VoidCallback = std::function<void()>;
 
 } // namespace ui

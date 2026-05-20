@@ -7,7 +7,7 @@
 #include "../common/Policies.hpp"
 #include "../common/Types.hpp"
 #include "../common/Events.hpp"
-#include "../common/UiErrors.hpp"
+#include "../common/ErrorCodes.hpp"
 #include "../core/RuntimeFacade.hpp"
 #include "../singleton/Logger.hpp"
 #include "../singleton/Registry.hpp"
@@ -216,7 +216,7 @@ void MarkAsRoot(entt::entity entity)
 }
 } // namespace
 
-std::expected<std::unique_ptr<Application>, std::error_code> CreateApplication(std::span<char*> argv)
+ui::Result<std::unique_ptr<Application>> CreateApplication(std::span<char*> argv)
 {
     try
     {
@@ -225,12 +225,12 @@ std::expected<std::unique_ptr<Application>, std::error_code> CreateApplication(s
     catch (const std::exception& e)
     {
         Logger::error("[Factory] UI initialization failed: {}", e.what());
-        return std::unexpected(ui::errors::make_error_code(ui::errors::UiErrc::SdlInitFailed));
+        return ui::MakeError(ui_errc::device_unavailable);
     }
     catch (...)
     {
         Logger::error("[Factory] Unknown UI initialization failure");
-        return std::unexpected(ui::errors::make_error_code(ui::errors::UiErrc::UnknownInitializationFailure));
+        return ui::MakeError(ui_errc::unknown);
     }
 }
 
@@ -666,6 +666,8 @@ entt::entity FindWindowRoot(entt::entity entity)
     return entt::null;
 }
 
+} // namespace (DropDown internal helpers)
+
 /// 关闭并销毁弹出列表（defer 到下一帧执行，避免在 onClick 内部销毁自身实体）
 void CloseDropDownPopup(entt::entity ddEntity)
 {
@@ -722,6 +724,8 @@ void CloseDropDownPopup(entt::entity ddEntity)
 }
 
 /// 打开弹出列表（在 ddEntity 正下方创建悬浮选项面板）
+namespace
+{
 void OpenDropDownPopup(entt::entity ddEntity)
 {
     auto* dropDown = Registry::TryGet<components::DropDown>(ddEntity);
@@ -770,8 +774,8 @@ void OpenDropDownPopup(entt::entity ddEntity)
     const int optCount = static_cast<int>(dropDown->options.size());
     for (int idx = 0; idx < optCount; ++idx)
     {
-        const std::string optText = dropDown->options[static_cast<std::size_t>(idx)];
-        const bool isSelected     = (idx == dropDown->selectedIndex);
+        const std::string& optText = dropDown->options[static_cast<std::size_t>(idx)];
+        const bool isSelected      = (idx == dropDown->selectedIndex);
 
         const auto optBtn = CreateBaseWidget("");
         Registry::Emplace<components::Clickable>(optBtn);
@@ -927,6 +931,16 @@ entt::entity CreateTable(int columns, std::string_view alias)
     info.columnCount = columns;
     auto& size = Registry::Get<components::Size>(entity);
     size.sizePolicy = policies::Size::FillParent;
+
+    // 启用垂直滚动：行数超出可视区域时自动显示滚动条
+    auto& scrollArea = Registry::Emplace<components::ScrollArea>(entity);
+    scrollArea.scroll = policies::Scroll::Vertical;
+    scrollArea.scrollBar = policies::ScrollBar::Draggable | policies::ScrollBar::AutoHide;
+
+    // 顶部内边距 = 表头高度，使 ScrollArea 视口从表头下方开始，确保子控件被正确裁剪
+    auto& padding = Registry::Emplace<components::Padding>(entity);
+    padding.values.x() = components::TableInfo{}.headerHeight; // top = 32.0F
+
     Registry::Emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
     return entity;
