@@ -302,7 +302,10 @@ void IconManager::unloadIconFont(std::string_view fontName)
         }
         m_fonts.erase(iterator);
     }
-    m_codepoints.erase(fontName);
+    if (auto iterator = m_codepoints.find(fontName); iterator != m_codepoints.end())
+    {
+        m_codepoints.erase(iterator);
+    }
     Logger::info("IconFont '{}' unloaded", fontName);
 }
 
