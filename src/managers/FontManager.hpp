@@ -23,12 +23,18 @@
 
 #pragma once
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#include <freetype/freetype.h>
+#include <freetype/ftimage.h>
+#include <freetype/fttypes.h>
 
 #include <hb.h>
 #include <hb-ft.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstring>
+#include <cstdlib>
+#include <span>
 #include <vector>
 #include <string>
 #include <string_view>
@@ -69,6 +75,24 @@ struct ShapedGlyph
     uint32_t cluster = 0;  // 对应的字符簇索引
 };
 
+struct GlyphLayout
+{
+    GlyphInfo glyph;
+    float xPos = 0.0F;
+    float yOffset = 0.0F;
+};
+
+struct TextBlendState
+{
+    int baseline = 0;
+    int outWidth = 0;
+    int outHeight = 0;
+    uint8_t red = 0;
+    uint8_t green = 0;
+    uint8_t blue = 0;
+    uint8_t alpha = 0;
+};
+
 /**
  * @brief 字体管理器，封装 FreeType2 功能
  */
@@ -79,7 +103,7 @@ public:
     {
         FT_Library lib = nullptr;
         FT_Error error = FT_Init_FreeType(&lib);
-        if (error)
+        if (error != 0)
         {
             Logger::error("[FontManager] Failed to initialize FreeType: error {}", error);
         }
@@ -107,7 +131,7 @@ public:
      */
     Result<void> loadFromMemory(const uint8_t* fontData, size_t dataSize, float fontSize)
     {
-        if (!m_ftLibrary)
+        if (m_ftLibrary == nullptr)
         {
             Logger::error("[FontManager] FreeType not initialized");
             return MakeError(ui_errc::device_unavailable);
@@ -126,7 +150,7 @@ public:
         FT_Face face = nullptr;
         FT_Error error =
             FT_New_Memory_Face(m_ftLibrary.get(), m_fontData.data(), static_cast<FT_Long>(dataSize), 0, &face);
-        if (error)
+        if (error != 0)
         {
             Logger::error("[FontManager] Failed to load font face: error {}", error);
             return MakeError(ui_errc::asset_load_failed);
@@ -136,7 +160,7 @@ public:
 
         // 设置像素大小
         error = FT_Set_Pixel_Sizes(m_ftFace.get(), 0, static_cast<FT_UInt>(fontSize));
-        if (error)
+        if (error != 0)
         {
             m_ftFace.reset();
             Logger::error("[FontManager] Failed to set pixel size: error {}", error);
@@ -168,7 +192,7 @@ public:
      */
     [[nodiscard]] int getFontHeight(float fontSize = 0.0F)
     {
-        if (!m_ftFace) return 0;
+        if (m_ftFace == nullptr) return 0;
 
         const float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
         const bool needRestore = (std::abs(targetSize - m_fontSize) > 0.1F);
@@ -193,7 +217,7 @@ public:
      */
     [[nodiscard]] int getBaseline(float fontSize = 0.0F)
     {
-        if (!m_ftFace) return 0;
+        if (m_ftFace == nullptr) return 0;
 
         const float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
         const bool needRestore = (std::abs(targetSize - m_fontSize) > 0.1F);
@@ -222,9 +246,9 @@ public:
      */
     int measureString(const char* text, size_t textLen, int maxWidth, size_t* outMeasuredLength, float fontSize = 0.0F)
     {
-        if (!m_ftFace || text == nullptr || textLen == 0)
+        if (m_ftFace == nullptr || text == nullptr || textLen == 0)
         {
-            if (outMeasuredLength) *outMeasuredLength = 0;
+            if (outMeasuredLength != nullptr) *outMeasuredLength = 0;
             return 0;
         }
 
@@ -244,28 +268,28 @@ public:
             {
                 setPixelSize(oldSize);
             }
-            if (outMeasuredLength) *outMeasuredLength = 0;
+            if (outMeasuredLength != nullptr) *outMeasuredLength = 0;
             return 0;
         }
 
         float totalWidth = 0.0F;
         size_t measuredEnd = textLen; // 默认：测量到文本末尾
 
-        for (size_t idx = 0; idx < shapedGlyphs.size(); ++idx)
+        for (const auto& shapedGlyph : shapedGlyphs)
         {
-            float advance = shapedGlyphs[idx].xAdvance;
+            const float advance = shapedGlyph.xAdvance;
 
             if (maxWidth > 0 && totalWidth + advance > static_cast<float>(maxWidth))
             {
                 // 超出最大宽度，停在当前字形的 cluster 起始处（字节偏移）
-                measuredEnd = shapedGlyphs[idx].cluster;
+                measuredEnd = shapedGlyph.cluster;
                 break;
             }
 
             totalWidth += advance;
         }
 
-        if (outMeasuredLength)
+        if (outMeasuredLength != nullptr)
         {
             *outMeasuredLength = measuredEnd;
         }
@@ -297,31 +321,26 @@ public:
     {
         GlyphInfo info;
 
-        if (!m_ftFace) return info;
+        if (m_ftFace == nullptr) return info;
 
         // 使用指定字体大小或默认大小
-        float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
+        const float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
 
         // 检查缓存（包含字体大小）
-        uint64_t cacheKey = makeGlyphCacheKey(codepoint, targetSize);
-        auto it = m_glyphCache.find(cacheKey);
-        if (it != m_glyphCache.end())
+        const uint64_t cacheKey = makeGlyphCacheKey(codepoint, targetSize);
+        auto glyphIterator = m_glyphCache.find(cacheKey);
+        if (glyphIterator != m_glyphCache.end())
         {
-            return it->second;
+            return glyphIterator->second;
         }
 
         // 临时设置字体大小
-        bool needRestore = (std::abs(targetSize - m_fontSize) > 0.1F);
-        float oldSize = m_fontSize;
-        if (needRestore)
-        {
-            setPixelSize(targetSize);
-        }
+        const FontSizeGuard sizeGuard(*this, targetSize);
 
         // 加载字形
-        FT_UInt glyphIndex = FT_Get_Char_Index(m_ftFace.get(), static_cast<FT_ULong>(codepoint));
+        const FT_UInt glyphIndex = FT_Get_Char_Index(m_ftFace.get(), static_cast<FT_ULong>(codepoint));
         FT_Error error = FT_Load_Glyph(m_ftFace.get(), glyphIndex, FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL);
-        if (error)
+        if (error != 0)
         {
             Logger::warn("[FontManager] Failed to load glyph for codepoint {}: error {}", codepoint, error);
             return info;
@@ -329,14 +348,14 @@ public:
 
         // 渲染为灰度位图
         error = FT_Render_Glyph(m_ftFace->glyph, FT_RENDER_MODE_NORMAL);
-        if (error)
+        if (error != 0)
         {
             Logger::warn("[FontManager] Failed to render glyph for codepoint {}: error {}", codepoint, error);
             return info;
         }
 
         FT_GlyphSlot slot = m_ftFace->glyph;
-        FT_Bitmap& bitmap = slot->bitmap;
+        const FT_Bitmap& bitmap = slot->bitmap;
 
         info.width = static_cast<int>(bitmap.width);
         info.height = static_cast<int>(bitmap.rows);
@@ -344,36 +363,10 @@ public:
         info.bearingY = slot->bitmap_top;
         info.advanceX = static_cast<float>(slot->advance.x >> 6);
 
-        // 复制位图数据
-        if (bitmap.buffer && bitmap.width > 0 && bitmap.rows > 0)
-        {
-            size_t dataSize = bitmap.width * bitmap.rows;
-            info.bitmap.resize(dataSize);
-
-            if (bitmap.pitch == static_cast<int>(bitmap.width))
-            {
-                // 连续内存，直接拷贝
-                std::memcpy(info.bitmap.data(), bitmap.buffer, dataSize);
-            }
-            else
-            {
-                // 不连续，逐行拷贝
-                for (unsigned int row = 0; row < bitmap.rows; ++row)
-                {
-                    std::memcpy(
-                        info.bitmap.data() + row * bitmap.width, bitmap.buffer + row * bitmap.pitch, bitmap.width);
-                }
-            }
-        }
-
-        // 恢复原字体大小
-        if (needRestore)
-        {
-            setPixelSize(oldSize);
-        }
+        info.bitmap = copyBitmapRows(bitmap);
 
         // 缓存字形
-        m_glyphCache[cacheKey] = info;
+        m_glyphCache.insert_or_assign(cacheKey, info);
 
         return info;
     }
@@ -408,82 +401,30 @@ public:
 
         const float logicalSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
         const float rasterSize = logicalSize * TEXT_OVERSAMPLE_SCALE;
-        bool needRestore = (std::abs(rasterSize - m_fontSize) > 0.1F);
-        float oldSize = m_fontSize;
-        if (needRestore)
-        {
-            setPixelSize(rasterSize);
-        }
+        const FontSizeGuard sizeGuard(*this, rasterSize);
 
-        struct GlyphLayout
-        {
-            GlyphInfo glyph;
-            float xPos = 0.0F;
-            float yOffset = 0.0F;
-        };
-        std::vector<GlyphLayout> layouts;
         float cursorX = 0.0F;
-
-        auto shapedGlyphs = shapeText(text.c_str(), text.size());
-        for (const auto& shaped : shapedGlyphs)
-        {
-            GlyphInfo glyph = renderGlyphByIndex(shaped.glyphId, rasterSize);
-            layouts.push_back({glyph, cursorX + shaped.xOffset, shaped.yOffset});
-            cursorX += shaped.xAdvance;
-        }
+        auto layouts = buildGlyphLayouts(text, rasterSize, cursorX);
 
         if (layouts.empty())
         {
-            if (needRestore) setPixelSize(oldSize);
             outWidth = outHeight = 0;
             return result;
         }
 
-        int baseline = getBaseline();
-        int fontHeight = getFontHeight();
+        const int baseline = getBaseline();
+        const int fontHeight = getFontHeight();
         outWidth = static_cast<int>(std::ceil(cursorX));
         outHeight = fontHeight;
 
         if (outWidth <= 0 || outHeight <= 0)
         {
             outWidth = outHeight = 0;
-            if (needRestore) setPixelSize(oldSize);
             return result;
         }
 
         result.resize(static_cast<size_t>(outWidth) * static_cast<size_t>(outHeight), 0);
-
-        for (const auto& layout : layouts)
-        {
-            const auto& glyph = layout.glyph;
-            int xPos = static_cast<int>(std::floor(layout.xPos)) + glyph.bearingX;
-            int yPos = baseline - glyph.bearingY - static_cast<int>(std::round(layout.yOffset));
-
-            for (int yOff = 0; yOff < glyph.height; ++yOff)
-            {
-                for (int xOff = 0; xOff < glyph.width; ++xOff)
-                {
-                    int bx = xPos + xOff;
-                    int by = yPos + yOff;
-                    if (bx < 0 || bx >= outWidth || by < 0 || by >= outHeight) continue;
-
-                    int pixelIndex = by * outWidth + bx;
-                    uint8_t finalAlpha = glyph.bitmap[(yOff * glyph.width) + xOff];
-
-                    if (finalAlpha <= result[pixelIndex])
-                    {
-                        continue;
-                    }
-
-                    result[pixelIndex] = finalAlpha;
-                }
-            }
-        }
-
-        if (needRestore)
-        {
-            setPixelSize(oldSize);
-        }
+        blendAlphaMask(layouts, baseline, outWidth, outHeight, result);
 
         return result;
     }
@@ -518,41 +459,20 @@ public:
         }
 
         // 使用指定字体大小或默认大小
-        float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
-        bool needRestore = (std::abs(targetSize - m_fontSize) > 0.1F);
-        float oldSize = m_fontSize;
-        if (needRestore)
-        {
-            setPixelSize(targetSize);
-        }
+        const float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
+        const FontSizeGuard sizeGuard(*this, targetSize);
 
-        // 使用 HarfBuzz 进行文本成形，获取正确的字形 ID、位置和前进量
-        struct GlyphLayout
-        {
-            GlyphInfo glyph;
-            float xPos = 0.0F;
-            float yOffset = 0.0F;
-        };
-        std::vector<GlyphLayout> layouts;
         float cursorX = 0.0F;
-
-        auto shapedGlyphs = shapeText(text.c_str(), text.size());
-        for (const auto& shaped : shapedGlyphs)
-        {
-            GlyphInfo glyph = renderGlyphByIndex(shaped.glyphId, targetSize);
-            layouts.push_back({glyph, cursorX + shaped.xOffset, shaped.yOffset});
-            cursorX += shaped.xAdvance;
-        }
+        auto layouts = buildGlyphLayouts(text, targetSize, cursorX);
 
         if (layouts.empty())
         {
-            if (needRestore) setPixelSize(oldSize);
             outWidth = outHeight = 0;
             return result;
         }
 
-        int baseline = getBaseline();
-        int fontHeight = getFontHeight();
+        const int baseline = getBaseline();
+        const int fontHeight = getFontHeight();
         outWidth = static_cast<int>(std::ceil(cursorX));
         outHeight = fontHeight;
 
@@ -564,69 +484,15 @@ public:
 
         // 创建 RGBA 位图（初始化为透明）
         result.resize(static_cast<size_t>(outWidth) * static_cast<size_t>(outHeight) * 4, 0);
-
-        // 混合字形
-        for (const auto& layout : layouts)
-        {
-            const auto& glyph = layout.glyph;
-            int xPos = static_cast<int>(std::floor(layout.xPos)) + glyph.bearingX;
-            int yPos = baseline - glyph.bearingY - static_cast<int>(std::round(layout.yOffset));
-
-            for (int yOff = 0; yOff < glyph.height; ++yOff)
-            {
-                for (int xOff = 0; xOff < glyph.width; ++xOff)
-                {
-                    int bx = xPos + xOff;
-                    int by = yPos + yOff;
-                    if (bx < 0 || bx >= outWidth || by < 0 || by >= outHeight) continue;
-
-                    int pixelIndex = (by * outWidth + bx) * 4;
-                    uint8_t srcAlpha = glyph.bitmap[(yOff * glyph.width) + xOff];
-                    auto finalAlpha = static_cast<uint8_t>((srcAlpha * alpha + 127) / 255);
-
-                    if (finalAlpha == 0) continue;
-
-                    // 预乘 Alpha Over 合成（适用于重叠字形）
-                    // C_out = C_src + C_dst × (1 - A_src)
-                    uint8_t dstA = result[pixelIndex + 3];
-                    auto srcR = static_cast<uint8_t>((red * finalAlpha + 127) / 255);
-                    auto srcG = static_cast<uint8_t>((green * finalAlpha + 127) / 255);
-                    auto srcB = static_cast<uint8_t>((blue * finalAlpha + 127) / 255);
-
-                    if (dstA == 0)
-                    {
-                        // 目标像素为空，直接写入
-                        result[pixelIndex + 0] = srcR;
-                        result[pixelIndex + 1] = srcG;
-                        result[pixelIndex + 2] = srcB;
-                        result[pixelIndex + 3] = finalAlpha;
-                    }
-                    else
-                    {
-                        // 预乘 Alpha Over 合成
-                        float srcAf = static_cast<float>(finalAlpha) / 255.0F;
-                        float oneMinusSrcA = 1.0F - srcAf;
-                        result[pixelIndex + 0] = static_cast<uint8_t>(std::lround(std::min(
-                            255.0F,
-                            static_cast<float>(srcR) + (static_cast<float>(result[pixelIndex + 0]) * oneMinusSrcA))));
-                        result[pixelIndex + 1] = static_cast<uint8_t>(std::lround(std::min(
-                            255.0F,
-                            static_cast<float>(srcG) + (static_cast<float>(result[pixelIndex + 1]) * oneMinusSrcA))));
-                        result[pixelIndex + 2] = static_cast<uint8_t>(std::lround(std::min(
-                            255.0F,
-                            static_cast<float>(srcB) + (static_cast<float>(result[pixelIndex + 2]) * oneMinusSrcA))));
-                        result[pixelIndex + 3] = static_cast<uint8_t>(std::lround(std::min(
-                            255.0F, static_cast<float>(finalAlpha) + (static_cast<float>(dstA) * oneMinusSrcA))));
-                    }
-                }
-            }
-        }
-
-        // 恢复原字体大小
-        if (needRestore)
-        {
-            setPixelSize(oldSize);
-        }
+        blendTextBitmap(layouts,
+                {.baseline = baseline,
+                 .outWidth = outWidth,
+                 .outHeight = outHeight,
+                 .red = red,
+                 .green = green,
+                 .blue = blue,
+                 .alpha = alpha},
+                result);
 
         return result;
     }
@@ -641,7 +507,7 @@ public:
     {
         std::vector<ShapedGlyph> result;
 
-        if (!m_hbFont || !text || textLen == 0)
+        if (m_hbFont == nullptr || text == nullptr || textLen == 0)
         {
             return result;
         }
@@ -660,17 +526,21 @@ public:
         unsigned int glyphCount = 0;
         hb_glyph_info_t* glyphInfos = hb_buffer_get_glyph_infos(buf, &glyphCount);
         hb_glyph_position_t* glyphPositions = hb_buffer_get_glyph_positions(buf, &glyphCount);
+        const std::span<const hb_glyph_info_t> glyphInfoSpan(glyphInfos, glyphCount);
+        const std::span<const hb_glyph_position_t> glyphPositionSpan(glyphPositions, glyphCount);
 
         result.reserve(glyphCount);
-        for (unsigned int i = 0; i < glyphCount; ++i)
+        for (size_t glyphIndex = 0; glyphIndex < glyphInfoSpan.size(); ++glyphIndex)
         {
+            const auto& glyphInfo = glyphInfoSpan.subspan(glyphIndex, 1U).front();
+            const auto& glyphPosition = glyphPositionSpan.subspan(glyphIndex, 1U).front();
             ShapedGlyph glyph;
-            glyph.glyphId = glyphInfos[i].codepoint;
-            glyph.cluster = glyphInfos[i].cluster;
-            glyph.xOffset = static_cast<float>(glyphPositions[i].x_offset) / 64.0F;
-            glyph.yOffset = static_cast<float>(glyphPositions[i].y_offset) / 64.0F;
-            glyph.xAdvance = static_cast<float>(glyphPositions[i].x_advance) / 64.0F;
-            glyph.yAdvance = static_cast<float>(glyphPositions[i].y_advance) / 64.0F;
+            glyph.glyphId = glyphInfo.codepoint;
+            glyph.cluster = glyphInfo.cluster;
+            glyph.xOffset = static_cast<float>(glyphPosition.x_offset) / 64.0F;
+            glyph.yOffset = static_cast<float>(glyphPosition.y_offset) / 64.0F;
+            glyph.xAdvance = static_cast<float>(glyphPosition.x_advance) / 64.0F;
+            glyph.yAdvance = static_cast<float>(glyphPosition.y_advance) / 64.0F;
             result.push_back(glyph);
         }
 
@@ -688,30 +558,25 @@ public:
     {
         GlyphInfo info;
 
-        if (!m_ftFace) return info;
+        if (m_ftFace == nullptr) return info;
 
         // 使用指定字体大小或默认大小
-        float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
+        const float targetSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
 
         // 检查缓存（高位标记 glyphId 键，避免与 codepoint 键冲突）
-        uint64_t cacheKey = makeGlyphCacheKey(static_cast<int>(glyphId), targetSize) | (1ULL << 63);
-        auto it = m_glyphCache.find(cacheKey);
-        if (it != m_glyphCache.end())
+        const uint64_t cacheKey = makeGlyphCacheKey(static_cast<int>(glyphId), targetSize) | (1ULL << 63);
+        auto glyphIterator = m_glyphCache.find(cacheKey);
+        if (glyphIterator != m_glyphCache.end())
         {
-            return it->second;
+            return glyphIterator->second;
         }
 
         // 临时设置字体大小
-        bool needRestore = (std::abs(targetSize - m_fontSize) > 0.1F);
-        float oldSize = m_fontSize;
-        if (needRestore)
-        {
-            setPixelSize(targetSize);
-        }
+        const FontSizeGuard sizeGuard(*this, targetSize);
 
         // 加载字形
         FT_Error error = FT_Load_Glyph(m_ftFace.get(), glyphId, FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL);
-        if (error)
+        if (error != 0)
         {
             Logger::warn("[FontManager] Failed to load glyph index {}: error {}", glyphId, error);
             return info;
@@ -719,14 +584,14 @@ public:
 
         // 渲染为灰度位图
         error = FT_Render_Glyph(m_ftFace->glyph, FT_RENDER_MODE_NORMAL);
-        if (error)
+        if (error != 0)
         {
             Logger::warn("[FontManager] Failed to render glyph index {}: error {}", glyphId, error);
             return info;
         }
 
         FT_GlyphSlot slot = m_ftFace->glyph;
-        FT_Bitmap& bitmap = slot->bitmap;
+        const FT_Bitmap& bitmap = slot->bitmap;
 
         info.width = static_cast<int>(bitmap.width);
         info.height = static_cast<int>(bitmap.rows);
@@ -734,34 +599,10 @@ public:
         info.bearingY = slot->bitmap_top;
         info.advanceX = static_cast<float>(slot->advance.x >> 6);
 
-        // 复制位图数据
-        if (bitmap.buffer && bitmap.width > 0 && bitmap.rows > 0)
-        {
-            size_t dataSize = bitmap.width * bitmap.rows;
-            info.bitmap.resize(dataSize);
-
-            if (bitmap.pitch == static_cast<int>(bitmap.width))
-            {
-                std::memcpy(info.bitmap.data(), bitmap.buffer, dataSize);
-            }
-            else
-            {
-                for (unsigned int row = 0; row < bitmap.rows; ++row)
-                {
-                    std::memcpy(
-                        info.bitmap.data() + row * bitmap.width, bitmap.buffer + row * bitmap.pitch, bitmap.width);
-                }
-            }
-        }
-
-        // 恢复原字体大小
-        if (needRestore)
-        {
-            setPixelSize(oldSize);
-        }
+        info.bitmap = copyBitmapRows(bitmap);
 
         // 缓存字形
-        m_glyphCache[cacheKey] = info;
+        m_glyphCache.insert_or_assign(cacheKey, info);
 
         return info;
     }
@@ -834,7 +675,7 @@ private:
     {
         m_hbFont.reset(); // 释放旧实例（如有）
 
-        if (!m_ftFace)
+        if (m_ftFace == nullptr)
         {
             Logger::warn("[FontManager] Cannot create HarfBuzz font: FreeType face not loaded");
             return;
@@ -842,7 +683,7 @@ private:
 
         // 使用 hb-ft 桥接创建 HarfBuzz font
         m_hbFont.reset(hb_ft_font_create(m_ftFace.get(), nullptr));
-        if (!m_hbFont)
+        if (m_hbFont == nullptr)
         {
             Logger::error("[FontManager] Failed to create HarfBuzz font");
             return;
@@ -856,13 +697,13 @@ private:
      */
     void setPixelSize(float size)
     {
-        if (!m_ftFace || size <= 0.0F) return;
-        FT_Error error = FT_Set_Pixel_Sizes(m_ftFace.get(), 0, static_cast<FT_UInt>(size));
+        if (m_ftFace == nullptr || size <= 0.0F) return;
+        const FT_Error error = FT_Set_Pixel_Sizes(m_ftFace.get(), 0, static_cast<FT_UInt>(size));
         if (error == 0)
         {
             m_fontSize = size;
             // 更新 HarfBuzz font 的缩放
-            if (m_hbFont)
+            if (m_hbFont != nullptr)
             {
                 hb_ft_font_changed(m_hbFont.get());
             }
@@ -875,8 +716,208 @@ private:
     static uint64_t makeGlyphCacheKey(int codepoint, float fontSize)
     {
         // 将字体大小转换为整数（精度 0.1px）
-        uint32_t sizeKey = static_cast<uint32_t>(fontSize * 10.0F);
+        auto sizeKey = static_cast<uint32_t>(fontSize * 10.0F);
         return (static_cast<uint64_t>(sizeKey) << 32) | static_cast<uint32_t>(codepoint);
+    }
+
+    class FontSizeGuard
+    {
+    public:
+        FontSizeGuard(FontManager& manager, float targetSize)
+            : m_manager(manager), m_oldSize(manager.m_fontSize), m_needRestore(std::abs(targetSize - manager.m_fontSize) > 0.1F)
+        {
+            if (m_needRestore)
+            {
+                m_manager.setPixelSize(targetSize);
+            }
+        }
+
+        ~FontSizeGuard()
+        {
+            if (m_needRestore)
+            {
+                m_manager.setPixelSize(m_oldSize);
+            }
+        }
+
+        FontSizeGuard(const FontSizeGuard&) = delete;
+        FontSizeGuard& operator=(const FontSizeGuard&) = delete;
+        FontSizeGuard(FontSizeGuard&&) = delete;
+        FontSizeGuard& operator=(FontSizeGuard&&) = delete;
+
+    private:
+        FontManager& m_manager;
+        float m_oldSize;
+        bool m_needRestore;
+    };
+
+    static std::vector<uint8_t> copyBitmapRows(const FT_Bitmap& bitmap)
+    {
+        if (bitmap.buffer == nullptr || bitmap.width == 0 || bitmap.rows == 0)
+        {
+            return {};
+        }
+
+        const size_t width = bitmap.width;
+        const size_t rows = bitmap.rows;
+        const auto pitch = static_cast<size_t>(std::abs(bitmap.pitch));
+        const size_t dataSize = width * rows;
+        std::vector<uint8_t> bitmapCopy(dataSize);
+
+        const std::span<const uint8_t> source(bitmap.buffer, pitch * rows);
+        for (size_t row = 0; row < rows; ++row)
+        {
+            const auto sourceRow = source.subspan(row * pitch, width);
+            auto destinationRow = std::span<uint8_t>(bitmapCopy).subspan(row * width, width);
+            std::ranges::copy(sourceRow, destinationRow.begin());
+        }
+        return bitmapCopy;
+    }
+
+    std::vector<GlyphLayout> buildGlyphLayouts(const std::string& text, float fontSize, float& cursorX)
+    {
+        std::vector<GlyphLayout> layouts;
+        auto shapedGlyphs = shapeText(text.c_str(), text.size());
+        layouts.reserve(shapedGlyphs.size());
+        for (const auto& shaped : shapedGlyphs)
+        {
+            layouts.push_back({.glyph = renderGlyphByIndex(shaped.glyphId, fontSize),
+                               .xPos = cursorX + shaped.xOffset,
+                               .yOffset = shaped.yOffset});
+            cursorX += shaped.xAdvance;
+        }
+        return layouts;
+    }
+
+    static bool isInsideBitmap(int xPos, int yPos, int outWidth, int outHeight)
+    {
+        return xPos >= 0 && xPos < outWidth && yPos >= 0 && yPos < outHeight;
+    }
+
+    static uint8_t glyphAlphaAt(const GlyphInfo& glyph, int xOffset, int yOffset)
+    {
+        const auto pixelIndex = (static_cast<size_t>(yOffset) * static_cast<size_t>(glyph.width)) + static_cast<size_t>(xOffset);
+        return glyph.bitmap.at(pixelIndex);
+    }
+
+    static void blendAlphaMask(const std::vector<GlyphLayout>& layouts,
+                               int baseline,
+                               int outWidth,
+                               int outHeight,
+                               std::vector<uint8_t>& result)
+    {
+        for (const auto& layout : layouts)
+        {
+            blendAlphaGlyph(layout, baseline, outWidth, outHeight, result);
+        }
+    }
+
+    static void blendAlphaGlyph(const GlyphLayout& layout,
+                                int baseline,
+                                int outWidth,
+                                int outHeight,
+                                std::vector<uint8_t>& result)
+    {
+        const auto& glyph = layout.glyph;
+        const int xPos = static_cast<int>(std::floor(layout.xPos)) + glyph.bearingX;
+        const int yPos = baseline - glyph.bearingY - static_cast<int>(std::round(layout.yOffset));
+
+        for (int yOffset = 0; yOffset < glyph.height; ++yOffset)
+        {
+            for (int xOffset = 0; xOffset < glyph.width; ++xOffset)
+            {
+                const int bitmapX = xPos + xOffset;
+                const int bitmapY = yPos + yOffset;
+                if (!isInsideBitmap(bitmapX, bitmapY, outWidth, outHeight)) continue;
+
+                const auto pixelIndex = (static_cast<size_t>(bitmapY) * static_cast<size_t>(outWidth)) + static_cast<size_t>(bitmapX);
+                const uint8_t finalAlpha = glyphAlphaAt(glyph, xOffset, yOffset);
+                result.at(pixelIndex) = std::max(result.at(pixelIndex), finalAlpha);
+            }
+        }
+    }
+
+    static void blendTextBitmap(const std::vector<GlyphLayout>& layouts,
+                                const TextBlendState& blendState,
+                                std::vector<uint8_t>& result)
+    {
+        for (const auto& layout : layouts)
+        {
+            blendTextGlyph(layout, blendState, result);
+        }
+    }
+
+    static uint8_t premultiplyColor(uint8_t color, uint8_t alpha)
+    {
+        return static_cast<uint8_t>(((static_cast<uint16_t>(color) * alpha) + 127U) / 255U);
+    }
+
+    static void writeSourcePixel(std::vector<uint8_t>& result,
+                                 size_t pixelIndex,
+                                 uint8_t red,
+                                 uint8_t green,
+                                 uint8_t blue,
+                                 uint8_t alpha)
+    {
+        result.at(pixelIndex) = red;
+        result.at(pixelIndex + 1U) = green;
+        result.at(pixelIndex + 2U) = blue;
+        result.at(pixelIndex + 3U) = alpha;
+    }
+
+    static void blendSourceOver(std::vector<uint8_t>& result,
+                                size_t pixelIndex,
+                                uint8_t red,
+                                uint8_t green,
+                                uint8_t blue,
+                                uint8_t alpha)
+    {
+        const float sourceAlpha = static_cast<float>(alpha) / 255.0F;
+        const float oneMinusSourceAlpha = 1.0F - sourceAlpha;
+        result.at(pixelIndex) = static_cast<uint8_t>(std::lround(
+            std::min(255.0F, static_cast<float>(red) + (static_cast<float>(result.at(pixelIndex)) * oneMinusSourceAlpha))));
+        result.at(pixelIndex + 1U) = static_cast<uint8_t>(std::lround(std::min(
+            255.0F, static_cast<float>(green) + (static_cast<float>(result.at(pixelIndex + 1U)) * oneMinusSourceAlpha))));
+        result.at(pixelIndex + 2U) = static_cast<uint8_t>(std::lround(std::min(
+            255.0F, static_cast<float>(blue) + (static_cast<float>(result.at(pixelIndex + 2U)) * oneMinusSourceAlpha))));
+        result.at(pixelIndex + 3U) = static_cast<uint8_t>(std::lround(std::min(
+            255.0F, static_cast<float>(alpha) + (static_cast<float>(result.at(pixelIndex + 3U)) * oneMinusSourceAlpha))));
+    }
+
+    static void blendTextGlyph(const GlyphLayout& layout,
+                               const TextBlendState& blendState,
+                               std::vector<uint8_t>& result)
+    {
+        const auto& glyph = layout.glyph;
+        const int xPos = static_cast<int>(std::floor(layout.xPos)) + glyph.bearingX;
+        const int yPos = blendState.baseline - glyph.bearingY - static_cast<int>(std::round(layout.yOffset));
+
+        for (int yOffset = 0; yOffset < glyph.height; ++yOffset)
+        {
+            for (int xOffset = 0; xOffset < glyph.width; ++xOffset)
+            {
+                const int bitmapX = xPos + xOffset;
+                const int bitmapY = yPos + yOffset;
+                if (!isInsideBitmap(bitmapX, bitmapY, blendState.outWidth, blendState.outHeight)) continue;
+
+                const auto pixelIndex = ((static_cast<size_t>(bitmapY) * static_cast<size_t>(blendState.outWidth)) +
+                                         static_cast<size_t>(bitmapX)) * 4U;
+                const auto finalAlpha = premultiplyColor(glyphAlphaAt(glyph, xOffset, yOffset), blendState.alpha);
+                if (finalAlpha == 0) continue;
+
+                const auto sourceRed = premultiplyColor(blendState.red, finalAlpha);
+                const auto sourceGreen = premultiplyColor(blendState.green, finalAlpha);
+                const auto sourceBlue = premultiplyColor(blendState.blue, finalAlpha);
+                if (result.at(pixelIndex + 3U) == 0)
+                {
+                    writeSourcePixel(result, pixelIndex, sourceRed, sourceGreen, sourceBlue, finalAlpha);
+                }
+                else
+                {
+                    blendSourceOver(result, pixelIndex, sourceRed, sourceGreen, sourceBlue, finalAlpha);
+                }
+            }
+        }
     }
 
     bool m_loaded = false;
@@ -887,15 +928,15 @@ private:
     // RAII 包装器：负责在析构时自动释放 FreeType/HarfBuzz 资源
     struct FtLibraryDeleter
     {
-        void operator()(std::remove_pointer_t<FT_Library>* p) const noexcept { FT_Done_FreeType(p); }
+        void operator()(std::remove_pointer_t<FT_Library>* library) const noexcept { FT_Done_FreeType(library); }
     };
     struct FtFaceDeleter
     {
-        void operator()(std::remove_pointer_t<FT_Face>* p) const noexcept { FT_Done_Face(p); }
+        void operator()(std::remove_pointer_t<FT_Face>* face) const noexcept { FT_Done_Face(face); }
     };
     struct HbFontDeleter
     {
-        void operator()(hb_font_t* p) const noexcept { hb_font_destroy(p); }
+        void operator()(hb_font_t* font) const noexcept { hb_font_destroy(font); }
     };
 
     // 成员销毁顺序为声明逆序：m_hbFont → m_ftFace → m_ftLibrary（正确清理顺序）

@@ -25,7 +25,7 @@ struct AnimationTime
     float elapsed = 0.0F;
     policies::Easing easing = policies::Easing::LINEAR;
     policies::Play mode = policies::Play::ONCE;
-    policies::AnimationState state = policies::AnimationState::Playing;
+    policies::AnimationState state = policies::AnimationState::PLAYING;
     bool autoCleanup = true;
 };
 

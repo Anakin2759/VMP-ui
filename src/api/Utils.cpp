@@ -1,10 +1,23 @@
 #include "Utils.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <vector>
+#include <ranges>
+#include <utility>
+#include <string>
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
-#include "../common/Components.hpp"
 #include "../systems/TimerSystem.hpp"
+#include "entt/entity/fwd.hpp"
+#include "entt/entity/entity.hpp"
+#include "common/Tags.hpp"
+#include "common/components/Layout.hpp"
+#include "common/Policies.hpp"
+#include "common/components/Window.hpp"
+#include "common/Events.hpp"
+#include "common/Types.hpp"
+#include "common/components/Interaction.hpp"
+#include "common/components/Data.hpp"
 namespace ui::utils
 {
 void MarkLayoutChanged(::entt::entity entity)
@@ -100,9 +113,8 @@ Vec2 GetAbsolutePosition(::entt::entity entity)
     }
 
     Vec2 position(0.0F, 0.0F);
-    for (auto iterator = path.rbegin(); iterator != path.rend(); ++iterator)
+    for (auto currentEntity : std::views::reverse(path))
     {
-        const entt::entity currentEntity = *iterator;
         if (Registry::AnyOf<components::WindowTag, components::DialogTag>(currentEntity))
         {
             continue;
@@ -200,7 +212,7 @@ components::VerticalScrollbarGeometry GetVerticalScrollbarGeometry(::entt::entit
     }
 
     const bool hasVerticalScroll =
-        scrollArea->scroll == policies::Scroll::Vertical || scrollArea->scroll == policies::Scroll::Both;
+        scrollArea->scroll == policies::Scroll::VERTICAL || scrollArea->scroll == policies::Scroll::BOTH;
     if (!hasVerticalScroll)
     {
         return geometry;

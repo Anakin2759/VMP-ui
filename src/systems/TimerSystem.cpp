@@ -19,10 +19,13 @@
 #include "../singleton/Logger.hpp"
 #include "../singleton/Registry.hpp"
 #include "../common/GlobalContext.hpp"
-#include "../common/Components.hpp"
 #include "../common/Tags.hpp"
 #include "../api/Utils.hpp"
-#include <algorithm>
+#include "common/Events.hpp"
+#include "common/Types.hpp"
+#include "common/components/Data.hpp"
+#include <cstdint>
+#include <utility>
 
 namespace ui::systems
 {
@@ -62,10 +65,10 @@ uint32_t TimerSystem::addTask(uint32_t interval, VoidCallback func, bool singleS
 void TimerSystem::cancelTask(uint32_t handle)
 {
     auto& timerCtx = RuntimeFacade::current().ensureContext<globalcontext::TimerContext>();
-    auto it = timerCtx.tasks.find(handle);
-    if (it != timerCtx.tasks.end())
+    auto taskIterator = timerCtx.tasks.find(handle);
+    if (taskIterator != timerCtx.tasks.end())
     {
-        it->second.cancelled = true;
+        taskIterator->second.cancelled = true;
         Logger::info("TimerSystem: Cancelled task {}", handle);
     }
 }
@@ -76,7 +79,7 @@ void TimerSystem::update(uint32_t deltaMs)
     auto& timerCtx = RuntimeFacade::current().ensureContext<globalcontext::TimerContext>();
 
     // 处理所有任务
-    for (auto& [id, task] : timerCtx.tasks)
+    for (auto& [taskId, task] : timerCtx.tasks)
     {
         if (task.cancelled)
         {

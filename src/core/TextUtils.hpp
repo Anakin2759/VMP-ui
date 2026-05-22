@@ -75,7 +75,7 @@ inline std::vector<std::string>
         return lines;
     }
 
-    if (wrapMode == policies::TextWrap::Char)
+    if (wrapMode == policies::TextWrap::CHAR)
     {
         std::string currentLine;
         for (size_t i = 0; i < paragraph.size();)

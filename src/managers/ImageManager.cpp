@@ -1,15 +1,60 @@
+#include "common/Result.hpp"
+#include <string>
+#include "singleton/Logger.hpp"
+#include "common/ErrorCodes.hpp"
+#include <cctype>
+#include <cstdio>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include "SDL3/SDL_surface.h"
+#include "SDL3/SDL_error.h"
+#include "SDL3/SDL_pixels.h"
+#include "SDL3/SDL_stdinc.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 #include "ImageManager.hpp"
 #include "DeviceManager.hpp"
 
-#include <cstring>
-#include <SDL3/SDL.h>
 #include <SDL3/SDL_gpu.h>
 
 namespace ui::managers
 {
+namespace
+{
+void WriteStderr(const char* text) noexcept
+{
+    if (text == nullptr)
+    {
+        return;
+    }
+
+    const auto textSize = std::strlen(text);
+    if (std::fwrite(text, 1U, textSize, stderr) != textSize)
+    {
+        std::clearerr(stderr);
+    }
+}
+} // namespace
+
+ImageManager::~ImageManager() noexcept
+{
+    try
+    {
+        releaseAll();
+    }
+    catch (const std::exception& exception)
+    {
+        WriteStderr("[ImageManager] destructor cleanup failed: ");
+        WriteStderr(exception.what());
+        WriteStderr("\n");
+    }
+    catch (...)
+    {
+        WriteStderr("[ImageManager] destructor cleanup failed with unknown exception\n");
+    }
+}
 
 ui::Result<SDL_GPUTexture*> ImageManager::loadTexture(const std::string& path)
 {
@@ -27,9 +72,9 @@ ui::Result<SDL_GPUTexture*> ImageManager::loadTexture(const std::string& path)
     }
 
     // 缓存命中
-    if (auto it = m_cache.find(path); it != m_cache.end())
+    if (auto textureIt = m_cache.find(path); textureIt != m_cache.end())
     {
-        return it->second;
+        return textureIt->second;
     }
 
     SDL_GPUTexture* tex = nullptr;
@@ -39,9 +84,9 @@ ui::Result<SDL_GPUTexture*> ImageManager::loadTexture(const std::string& path)
     if (dot != std::string::npos)
     {
         std::string ext = path.substr(dot + 1);
-        for (auto& ch : ext)
+        for (auto& character : ext)
         {
-            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
         }
 
         if (ext == "bmp")

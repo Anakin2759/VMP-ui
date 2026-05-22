@@ -1,7 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <ui.hpp>
 
+#include "common/components/Layout.hpp"
+#include "common/components/Animation.hpp"
+#include "common/components/Visual.hpp"
 #include "src/common/GlobalContext.hpp"
 #include "src/core/RuntimeFacade.hpp"
 #include "src/core/UiRuntime.hpp"
@@ -18,9 +22,6 @@ namespace
 class UiTweenSystemTest : public ::testing::Test
 {
 protected:
-    UiRuntime m_runtime;
-    std::unique_ptr<UiRuntimeScope> m_scope;
-
     void SetUp() override
     {
         m_scope = std::make_unique<UiRuntimeScope>(m_runtime);
@@ -28,6 +29,10 @@ protected:
     }
 
     void TearDown() override { m_scope.reset(); }
+
+private:
+    UiRuntime m_runtime;
+    std::unique_ptr<UiRuntimeScope> m_scope;
 };
 
 TEST_F(UiTweenSystemTest, PositionTweenCompletesAndCleansUp)
@@ -114,7 +119,7 @@ TEST(UiTweenSystemRuntimeIsolationTest, TweenStaysWithinActiveRuntimeScope)
     UiRuntime alternateRuntime;
 
     {
-        UiRuntimeScope defaultScope(defaultRuntime);
+        UiRuntimeScope const defaultScope(defaultRuntime);
 
         // ---- Setup entity & animation in the default runtime ----
         RuntimeFacade::current().ensureContext<globalcontext::FrameContext>().intervalMs = 16;
@@ -134,7 +139,7 @@ TEST(UiTweenSystemRuntimeIsolationTest, TweenStaysWithinActiveRuntimeScope)
 
         // ---- Switch to alternate runtime: it must not see the default-runtime entity ----
         {
-            UiRuntimeScope altScope(alternateRuntime);
+            UiRuntimeScope const altScope(alternateRuntime);
 
             // The alternate runtime is empty: facade-routed entt::registry must report so.
             EXPECT_FALSE(RuntimeFacade::current().enttRegistry().valid(defaultEntity));

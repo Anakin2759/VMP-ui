@@ -1,11 +1,20 @@
 #include <cstdlib>
+#include <cstdio>
+#include <cstring>
 #include <exception>
-#include <iostream>
 #include <span>
 #include <utility>
 
 #ifdef _WIN32
-#include <windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h> // IWYU pragma: keep
+#include <consoleapi2.h>
+#include <winnls.h>
 #endif
 
 #include <ui.hpp>
@@ -21,36 +30,54 @@ void InitializeConsoleUtf8()
     SetConsoleCP(CP_UTF8);
 #endif
 }
+
+void WriteStderr(const char* text) noexcept
+{
+    if (text == nullptr)
+    {
+        return;
+    }
+
+    const auto textSize = std::strlen(text);
+    if (std::fwrite(text, 1U, textSize, stderr) != textSize)
+    {
+        std::clearerr(stderr);
+    }
+}
 } // namespace
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
+int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) noexcept
 {
-
-    InitializeConsoleUtf8();
-
     try
     {
+        InitializeConsoleUtf8();
+
         auto appResult = ui::factory::CreateApplication(std::span<char*>(argv, argc));
         if (!appResult.has_value())
         {
-            std::cerr << "UI 初始化失败: " << appResult.error().message() << std::endl;
+            WriteStderr("UI init failed: ");
+            WriteStderr(appResult.error().message().c_str());
+            WriteStderr("\n");
             return EXIT_FAILURE;
         }
 
-        auto app = std::move(appResult).value();
+        auto app = std::move(*appResult);
 
         example::ui_demo::view::CreateMenuDialog();
         ui::utils::TimerCallback(5000, []() { ui::log::Info("定时任务1执行！"); });
         app->exec();
+        return EXIT_SUCCESS;
     }
-    catch (const std::exception& e)
+    catch (const std::exception& exception)
     {
-        std::cerr << "应用程序异常终止: " << e.what() << std::endl;
+        WriteStderr("Application terminated by exception: ");
+        WriteStderr(exception.what());
+        WriteStderr("\n");
         return EXIT_FAILURE;
     }
     catch (...)
     {
-        std::cerr << "Unknown exception occurred." << std::endl;
+        WriteStderr("Unknown exception occurred.\n");
         return EXIT_FAILURE;
     }
 }

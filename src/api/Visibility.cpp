@@ -1,11 +1,16 @@
 #include "Visibility.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
 #include "../common/Tags.hpp"
 #include "../common/Policies.hpp"
 #include "../common/WindowSync.hpp"
+#include "SDL3/SDL_video.h"
 #include "Utils.hpp"
-#include <SDL3/SDL.h>
+#include "entt/entity/fwd.hpp"
+#include "common/components/Window.hpp"
+#include "common/components/Layout.hpp"
+#include "common/components/Visual.hpp"
+#include "common/Types.hpp"
+#include <algorithm>
 
 namespace ui::visibility
 {
@@ -81,7 +86,7 @@ void SetBackgroundColor(::entt::entity entity, const Color& color)
     if (!Registry::Valid(entity)) return;
     auto& background = Registry::GetOrEmplace<components::Background>(entity);
     background.color = color;
-    background.enabled = policies::Feature::Enabled;
+    background.enabled = policies::Feature::ENABLED;
     ui::utils::MarkVisualChanged(entity);
 }
 
@@ -91,7 +96,7 @@ void SetBorderRadius(::entt::entity entity, float radius)
     auto& background = Registry::GetOrEmplace<components::Background>(entity);
     const auto radiusClamped = std::max(0.0F, radius);
     background.borderRadius = {radiusClamped, radiusClamped, radiusClamped, radiusClamped};
-    background.enabled = policies::Feature::Enabled;
+    background.enabled = policies::Feature::ENABLED;
     if (auto* border = Registry::TryGet<components::Border>(entity))
     {
         border->borderRadius = {radiusClamped, radiusClamped, radiusClamped, radiusClamped};
@@ -104,7 +109,7 @@ void SetBorderColor(::entt::entity entity, const Color& color)
     if (!Registry::Valid(entity)) return;
     auto& border = Registry::GetOrEmplace<components::Border>(entity);
     border.color = color;
-    border.enabled = policies::Feature::Enabled;
+    border.enabled = policies::Feature::ENABLED;
     ui::utils::MarkVisualChanged(entity);
 }
 
@@ -113,7 +118,7 @@ void SetBorderThickness(::entt::entity entity, float thickness)
     if (!Registry::Valid(entity)) return;
     auto& border = Registry::GetOrEmplace<components::Border>(entity);
     border.thickness = thickness;
-    border.enabled = policies::Feature::Enabled;
+    border.enabled = policies::Feature::ENABLED;
     ui::utils::MarkVisualChanged(entity);
 }
 

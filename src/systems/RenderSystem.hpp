@@ -20,6 +20,8 @@
  */
 
 #pragma once
+#include <bit>
+#include <cstddef>
 #include <memory>
 #include <vector>
 #include <SDL3/SDL.h>
@@ -143,7 +145,7 @@ private:
     };
 
 public:
-    void update() noexcept;
+    void update();
 
 private:
     void ensureInitialized();
@@ -181,7 +183,8 @@ private:
 
     RenderStats m_stats;
     wrappers::UniqueGPUTexture m_whiteTexture;
-    SDL_GPUTexture* m_fallbackWhiteTextureTag = reinterpret_cast<SDL_GPUTexture*>(1);
+    std::byte m_fallbackWhiteTextureCookie{};
+    SDL_GPUTexture* m_fallbackWhiteTextureTag = std::bit_cast<SDL_GPUTexture*>(&m_fallbackWhiteTextureCookie);
 
     bool m_useFallback = false;
     bool m_forceFallback = false;

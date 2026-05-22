@@ -1,24 +1,33 @@
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <ui.hpp>
+#include <vector>
 
+#include "common/components/Layout.hpp"
+#include "entt/entity/entity.hpp"
+#include "entt/entity/fwd.hpp"
 #include "src/api/Hierarchy.hpp"
-#include "src/common/Components.hpp"
 #include "src/common/Tags.hpp"
 #include "src/singleton/Registry.hpp"
 
 namespace ui::tests
 {
+namespace
+{
 
 class HierarchyTest : public ::testing::Test
 {
 protected:
-    UiRuntime m_runtime;
-    std::unique_ptr<UiRuntimeScope> m_scope;
-
     void SetUp() override { m_scope = std::make_unique<UiRuntimeScope>(m_runtime); }
     void TearDown() override { m_scope.reset(); }
+
+private:
+    UiRuntime m_runtime;
+    std::unique_ptr<UiRuntimeScope> m_scope;
 };
+
+} // namespace
 
 // ===================== AddChild =====================
 
@@ -44,7 +53,7 @@ TEST_F(HierarchyTest, AddChildAppendsToParentChildrenList)
     const auto* pHier = Registry::TryGet<components::Hierarchy>(parent);
     ASSERT_NE(pHier, nullptr);
     ASSERT_EQ(pHier->children.size(), 1U);
-    EXPECT_EQ(pHier->children[0], child);
+    EXPECT_EQ(pHier->children.at(0), child);
 }
 
 TEST_F(HierarchyTest, AddChildRemovesRootTagFromChild)
@@ -93,7 +102,7 @@ TEST_F(HierarchyTest, AddChildReparentsFromOldParent)
     EXPECT_EQ(cHier->parent, parentB);
     EXPECT_TRUE(pAHier->children.empty());
     ASSERT_EQ(pBHier->children.size(), 1U);
-    EXPECT_EQ(pBHier->children[0], child);
+    EXPECT_EQ(pBHier->children.at(0), child);
 }
 
 TEST_F(HierarchyTest, AddChildWithInvalidParentIsNoOp)
@@ -179,23 +188,23 @@ TEST_F(HierarchyTest, TraverseChildrenVisitsAllDescendantsPreOrder)
     //   │   └── grandchild
     //   └── child2
     const auto parent = factory::CreateVBoxLayout("h_traverse_parent");
-    const auto child1 = factory::CreateLabel("C1", "h_traverse_c1");
-    const auto child2 = factory::CreateLabel("C2", "h_traverse_c2");
-    const auto grandchild = factory::CreateLabel("GC", "h_traverse_gc");
+    const auto firstChild = factory::CreateLabel("C1", "h_traverse_c1");
+    const auto secondChild = factory::CreateLabel("C2", "h_traverse_c2");
+    const auto nestedChild = factory::CreateLabel("GC", "h_traverse_gc");
 
-    hierarchy::AddChild(parent, child1);
-    hierarchy::AddChild(child1, grandchild);
-    hierarchy::AddChild(parent, child2);
+    hierarchy::AddChild(parent, firstChild);
+    hierarchy::AddChild(firstChild, nestedChild);
+    hierarchy::AddChild(parent, secondChild);
 
     std::vector<entt::entity> visited;
-    hierarchy::TraverseChildren(parent, [&visited](entt::entity e) { visited.push_back(e); });
+    hierarchy::TraverseChildren(parent, [&visited](entt::entity entity) { visited.push_back(entity); });
 
     // TraverseChildren 是后序（先递归子节点再访问当前节点）——按实现实际顺序断言：
     // grandchild → child1 → child2
     ASSERT_EQ(visited.size(), 3U);
-    EXPECT_EQ(visited[0], grandchild);
-    EXPECT_EQ(visited[1], child1);
-    EXPECT_EQ(visited[2], child2);
+    EXPECT_EQ(visited.at(0), nestedChild);
+    EXPECT_EQ(visited.at(1), firstChild);
+    EXPECT_EQ(visited.at(2), secondChild);
 }
 
 TEST_F(HierarchyTest, TraverseChildrenOnLeafEntityCallsVisitorZeroTimes)

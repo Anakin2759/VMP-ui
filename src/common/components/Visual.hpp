@@ -48,7 +48,7 @@ struct Background
     using is_component_tag = void;
     Color color{0.0F, 0.0F, 0.0F, 0.0F};
     Vec4 borderRadius{0.0F, 0.0F, 0.0F, 0.0F}; // 圆角半径 (x:TopLeft, y:TopRight, z:BottomRight, w:BottomLeft)
-    policies::Feature enabled = policies::Feature::Disabled; // 是否启用背景绘制
+    policies::Feature enabled = policies::Feature::DISABLED; // 是否启用背景绘制
 };
 
 /**
@@ -60,7 +60,7 @@ struct Border
     Color color{1.0F, 1.0F, 1.0F, 1.0F};
     float thickness = 1.0F;
     Vec4 borderRadius{0.0F, 0.0F, 0.0F, 0.0F}; // 圆角半径
-    policies::Feature enabled = policies::Feature::Disabled;
+    policies::Feature enabled = policies::Feature::DISABLED;
 };
 
 /**
@@ -72,7 +72,7 @@ struct Shadow
     float softness{};                    // 阴影柔和度
     Vec2 offset{0.0F, 0.0F};             // 阴影偏移 (x, y)
     Color color{0.0F, 0.0F, 0.0F, 1.0F}; // 阴影颜色
-    policies::Feature enabled = policies::Feature::Disabled;
+    policies::Feature enabled = policies::Feature::DISABLED;
 };
 
 /**
@@ -91,7 +91,7 @@ struct Targetable
 {
     using is_component_tag = void;
     int priority = 0;
-    policies::Feature selectable = policies::Feature::Disabled;
+    policies::Feature selectable = policies::Feature::DISABLED;
 };
 
 } // namespace ui::components

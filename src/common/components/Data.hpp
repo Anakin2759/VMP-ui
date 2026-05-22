@@ -46,7 +46,7 @@ struct Text
     float letterSpacing = 0.0F;                                // 字符间距（像素或倍数）
     policies::TextWrap wordWrap = policies::TextWrap::NONE;    // 默认不换行
     policies::Alignment alignment = policies::Alignment::NONE; // 默认居中
-    policies::TextFlag flags = policies::TextFlag::Default;    // 其他文本属性
+    policies::TextFlag flags = policies::TextFlag::DEFAULT;    // 其他文本属性
 };
 
 /**
@@ -60,7 +60,7 @@ struct TextEdit
     std::string placeholder; // 占位符文本
     Color textColor{1.0F, 1.0F, 1.0F, 1.0F};
     size_t maxLength = MAX_LENGTH;
-    policies::TextFlag inputMode = policies::TextFlag::Default;
+    policies::TextFlag inputMode = policies::TextFlag::DEFAULT;
 
     // Cursor and selection
     size_t cursorPosition = 0; // 光标位置（字节索引）
@@ -86,7 +86,7 @@ struct Image
     Vec2 uvMax{1.0F, 1.0F};                    // UV 最大坐标
     Color tintColor{1.0F, 1.0F, 1.0F, 1.0F};   // 颜色叠加
     Color borderColor{0.0F, 0.0F, 0.0F, 0.0F}; // 边框颜色
-    policies::AspectRatio maintainAspectRatio = policies::AspectRatio::Maintain;
+    policies::AspectRatio maintainAspectRatio = policies::AspectRatio::MAINTAIN;
 };
 
 /// 图像文件来源组件——指定图像路径，由 ImageManager 异步/同步加载
@@ -111,7 +111,7 @@ struct Icon
     static constexpr float DEFAULT_SIZE = 16.0F;
     static constexpr float DEFAULT_SPACING = 4.0F;
 
-    policies::IconFlag type = policies::IconFlag::Default; // 图标类型
+    policies::IconFlag type = policies::IconFlag::DEFAULT; // 图标类型
 
     // 纹理图标相关字段（type == Texture 时使用）
     std::string textureId;  // 图标纹理ID
@@ -119,12 +119,12 @@ struct Icon
     Vec2 uvMax{1.0F, 1.0F}; // UV 最大坐标
 
     // 字体图标相关字段（type == Font 时使用）
-    void* fontHandle = nullptr; // IconFont 字体句柄
+    const void* fontHandle = nullptr; // IconFont 字体句柄
     uint32_t codepoint = 0;     // Unicode 码点（如 0xF015 表示 home 图标）
 
     // 通用字段
     Vec2 size{DEFAULT_SIZE, DEFAULT_SIZE};                     // 图标尺寸
-    policies::IconFlag iconflag = policies::IconFlag::Default; // 相对于文本的位置
+    policies::IconFlag iconflag = policies::IconFlag::DEFAULT; // 相对于文本的位置
     float spacing = DEFAULT_SPACING;                           // 与文本的间距
     Color tintColor{1.0F, 1.0F, 1.0F, 1.0F};                   // 图标颜色
 };
@@ -142,7 +142,7 @@ struct ListArea
     std::vector<int> selectedIndices;
     float itemHeight = DEFAULT_ITEM_HEIGHT;
     int selectedIndex = -1;
-    policies::Selection multiSelect = policies::Selection::Single;
+    policies::Selection multiSelect = policies::Selection::SINGLE;
 };
 
 /**
@@ -194,7 +194,7 @@ struct SliderInfo
     float currentValue = 0.0F;
 
     float step = 0.0F;                                                  // 步长，0 表示连续滑动
-    policies::Orientation vertical = policies::Orientation::Horizontal; // 是否为垂直滑块
+    policies::Orientation vertical = policies::Orientation::HORIZONTAL; // 是否为垂直滑块
     on_event<float> onValueChanged;                                     // 值变化回调
     policies::Alignment labelAlignment = policies::Alignment::NONE;     // 标签对齐方式
 
@@ -219,8 +219,8 @@ struct ScrollBar
     float viewportSize = 1.0F;                                        // 可见区域占总内容的比例 (0.0 - 1.0)
     float thumbSize = MIN_THUMB_SIZE;                                 // 滑块大小（像素）
     float trackSize = 0.0F;                                           // 轨道总长度（像素）
-    policies::Orientation vertical = policies::Orientation::Vertical; // 是否为垂直滚动条
-    policies::Visibility autoHide = policies::Visibility::Visible;    // 无需滚动时自动隐藏
+    policies::Orientation vertical = policies::Orientation::VERTICAL; // 是否为垂直滚动条
+    policies::Visibility autoHide = policies::Visibility::VISIBLE;    // 无需滚动时自动隐藏
     bool dragging = false;                                            // 是否正在拖动滑块
     Color thumbColor{0.5F, 0.5F, 0.5F, 0.8F};                         // 滑块颜色
     Color trackColor{0.2F, 0.2F, 0.2F, 0.5F};                         // 轨道颜色
@@ -236,8 +236,8 @@ struct ProgressBar
     float progress = 0.0F;                                                    // 进度值 (0.0 - 1.0)
     Color fillColor{0.2F, 0.6F, 1.0F, 1.0F};                                  // 填充颜色
     Color backgroundColor{0.3F, 0.3F, 0.3F, 1.0F};                            // 背景颜色
-    policies::LabelVisibility showLabel = policies::LabelVisibility::Visible; // 是否显示百分比标签
-    policies::AnimationState animated = policies::AnimationState::Stopped;    // 是否启用动画效果
+    policies::LabelVisibility showLabel = policies::LabelVisibility::VISIBLE; // 是否显示百分比标签
+    policies::AnimationState animated = policies::AnimationState::STOPPED;    // 是否启用动画效果
 };
 
 /**

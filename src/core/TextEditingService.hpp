@@ -4,7 +4,6 @@
  * @file TextEditingService.hpp
  * @brief TextEdit 编辑命令服务
  *
- * 从 TextInputSystem 中抽离文本编辑算法，使系统本身只负责事件桥接和重复输入策略。
  *
  * ************************************************************************
  */
@@ -63,7 +62,7 @@ struct TextEditModeOps
     static bool isMultiline(const components::TextEdit& edit)
     {
         const auto modeValue = static_cast<uint8_t>(edit.inputMode);
-        const auto multilineFlag = static_cast<uint8_t>(policies::TextFlag::Multiline);
+        const auto multilineFlag = static_cast<uint8_t>(policies::TextFlag::MULTILINE);
         return (modeValue & multilineFlag) != 0;
     }
 
@@ -462,7 +461,7 @@ public:
             if (!Registry::AnyOf<components::TextEditTag>(entity)) continue;
 
             auto& edit = view.get<components::TextEdit>(entity);
-            if (policies::HasFlag(edit.inputMode, policies::TextFlag::ReadOnly)) continue;
+            if (policies::HasFlag(edit.inputMode, policies::TextFlag::READ_ONLY)) continue;
 
             auto& textComp = view.get<components::Text>(entity);
             detail::TextEditContentOps::insertText(entity, edit, textComp, rawText);
@@ -481,7 +480,7 @@ public:
             bool shift = (modState & SDL_KMOD_SHIFT) != 0;
 
             if (handleReadOnlyShortcut(entity, edit, key, ctrl)) continue;
-            if (policies::HasFlag(edit.inputMode, policies::TextFlag::ReadOnly)) continue;
+            if (policies::HasFlag(edit.inputMode, policies::TextFlag::READ_ONLY)) continue;
 
             auto& textComp = view.get<components::Text>(entity);
             if (handleClipboardShortcut(entity, edit, textComp, key, ctrl)) continue;

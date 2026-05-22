@@ -67,12 +67,12 @@ public:
 
 #ifdef UI_FORCE_CPU_RENDER
         // 编译时强制 CPU 渲染：直接使用 software 驱动，跳过所有硬件加速后端
-        static constexpr std::array<const char*, 1> ACTIVE_DRIVERS = {"software"};
+    static constexpr std::array<const char*, 1> activeDrivers = {"software"};
 #else
-        const auto& ACTIVE_DRIVERS = DRIVER_CANDIDATES;
+    const auto& activeDrivers = DRIVER_CANDIDATES;
 #endif
 
-        for (const char* driver : ACTIVE_DRIVERS)
+    for (const char* driver : activeDrivers)
         {
             SDL_SetHint(SDL_HINT_RENDER_DRIVER, driver);
             m_renderer = SDL_CreateRenderer(window, driver);

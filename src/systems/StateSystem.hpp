@@ -5,15 +5,9 @@
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2025-12-11 (Updated)
  * @version 0.2
- * @brief 状态系统 - 处理UI状态生命周期和窗口状态同步
  *
- * 职责：
- * 1. 管理全局UI状态（焦点/激活/悬停实体）
  * 2. 同步窗口状态到ECS组件（如Resizable、Frameless等）
- * 3. 处理状态变更事件（Hover / Active / Focus）
- * 4. 处理窗口生命周期事件（关闭/移动/大小变化）
  *
- * 注意：Focus 和 Active 同时只有一个组件被操作，Hover 需要考虑父组件
  *
  * ************************************************************************
  * @copyright Copyright (c) 2025 AnakinLiu
@@ -48,10 +42,9 @@ namespace ui::systems
 class StateSystem : public ui::interface::EnableRegister<StateSystem>
 {
 public:
-    // 滚动条命中类型
     enum class ScrollbarHitType : std::uint8_t
     {
-        NONE,  // 未命中
+        NONE,
         THUMB, // 命中滑块
         TRACK  // 命中轨道
     };
@@ -74,7 +67,6 @@ public:
         Dispatcher::Sink<events::HitPointerButton>().connect<&StateSystem::onHitPointerButton>(*this);
         Dispatcher::Sink<events::HitPointerWheel>().connect<&StateSystem::onHitPointerWheel>(*this);
 
-        // 帧结束时应用状态更新
         Dispatcher::Sink<events::EndFrame>().connect<&StateSystem::onEndFrame>(*this);
     }
 
@@ -146,7 +138,7 @@ private:
             const Vec2 size = sizeComp->size;
 
             float ratio = 0.0F;
-            if (slider->vertical == policies::Orientation::Vertical)
+            if (slider->vertical == policies::Orientation::VERTICAL)
             {
                 if (size.y() <= 0.0F) return;
                 ratio = (absPos.y() + size.y() - mousePos.y()) / size.y();
@@ -257,7 +249,7 @@ private:
                 interState.scrollbarHovered = false;
                 interState.trackHovered = false;
 
-                if (policies::HasFlag(scrollArea.scrollBar, policies::ScrollBar::NoVisibility))
+                if (policies::HasFlag(scrollArea.scrollBar, policies::ScrollBar::NO_VISIBILITY))
                 {
                     continue;
                 }
@@ -368,11 +360,11 @@ private:
         static ScrollbarHitType checkHit(entt::entity entity, const Vec2& mousePos, bool& outIsVertical)
         {
             const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
-            if (scrollArea == nullptr || policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::NoVisibility))
+            if (scrollArea == nullptr || policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::NO_VISIBILITY))
             {
                 return ScrollbarHitType::NONE;
             }
-            if (!policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::Draggable))
+            if (!policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::DRAGGABLE))
             {
                 return ScrollbarHitType::NONE;
             }
@@ -444,7 +436,7 @@ private:
             }
 
             const auto* edit = Registry::TryGet<components::TextEdit>(entity);
-            return edit == nullptr || !policies::HasFlag(edit->inputMode, policies::TextFlag::ReadOnly);
+            return edit == nullptr || !policies::HasFlag(edit->inputMode, policies::TextFlag::READ_ONLY);
         }
 
         static bool shouldEmitPressForEntity(entt::entity entity)
@@ -887,7 +879,6 @@ private:
     // ===================================================================
 
     /**
-     * @brief 处理悬停事件 - 更新悬停状态（延迟应用）
      */
     void onHoverEvent(const events::HoverEvent& event)
     {
@@ -905,7 +896,6 @@ private:
     }
 
     /**
-     * @brief 处理鼠标按下事件 - 设置激活状态（延迟应用）
      */
     void onMousePressEvent(const events::MousePressEvent& event)
     {
@@ -914,7 +904,6 @@ private:
     }
 
     /**
-     * @brief 处理鼠标释放事件 - 清除激活状态（延迟应用）
      */
     void onMouseReleaseEvent(const events::MouseReleaseEvent& event)
     {
@@ -1001,8 +990,6 @@ private:
     }
 
     /**
-     * @brief 设置焦点到指定实体（用于输入框等需要焦点的组件）
-     * @note Focus 状态立即应用，因为涉及 SDL 输入法状态同步
      */
     static void setFocus(entt::entity entity, SDL_Window* sdlWindow = nullptr)
     {
@@ -1018,7 +1005,6 @@ private:
     }
 
     // ===================================================================
-    // WindowSyncState: 窗口生命周期与 SDL 同步
     // ===================================================================
 
     void onCloseWindow(const events::CloseWindow& event)
@@ -1047,7 +1033,6 @@ private:
     // ===================================================================
 
     /**
-     * @brief 更新所有可见 ScrollArea 的滚动条悬停状态
      */
     void updateScrollbarHoverStates(const events::HitPointerMove& event)
     {
@@ -1065,7 +1050,6 @@ private:
     }
 
     /**
-     * @brief 尝试处理滚动条按下事件
      * @param event 点击事件
      * @param state 状态上下文
      * @return true 如果处理了滚动条按下事件
@@ -1081,8 +1065,6 @@ private:
         PointerStateHelpers::handleEntityPress(event);
     }
 
-    /// 任意 DropDown 处于展开状态时，若本次点击落在其外部（既非 DropDown 实体本身、也非
-    /// 弹出面板子树），立即关闭该弹出层 — 实现「失焦关闭」语义。
     static void closeDropDownsOnOutsideClick(entt::entity hitEntity)
     {
         auto view = Registry::View<components::DropDown>();
@@ -1140,11 +1122,9 @@ private:
     }
 
     /**
-     * @brief 检查点是否在滚动条内，并返回命中类型
      * @param entity 实体
      * @param mousePos 鼠标位置
      * @param outIsVertical 输出是否为垂直滚动条
-     * @return ScrollbarHitType 命中类型（None/Thumb/Track）
      */
     ScrollbarHitType checkScrollbarHit(entt::entity entity, const Vec2& mousePos, bool& outIsVertical)
     {
@@ -1172,7 +1152,6 @@ private:
     // ===================================================================
 
     /**
-     * @brief 待处理的状态标签更新集合
      * @note 使用 unordered_set 自动去重，避免同一实体多次操作
      */
     std::unordered_set<entt::entity> m_pendingHoverAdd;
@@ -1183,8 +1162,6 @@ private:
     entt::entity m_dragSliderEntity = entt::null;
 
     /**
-     * @brief 帧结束时批量应用状态更新
-     * @note 通过合并同帧内的多次状态变化，减少无效的 Registry 操作
      */
     void onEndFrame()
     {
@@ -1213,7 +1190,6 @@ private:
 
             if (!Registry::Valid(current)) continue;
 
-            // 将当前实体加入销毁列表
             toDestroy.push_back(current);
 
             // 将子节点加入栈（逆序添加以保持遍历顺序）
@@ -1249,7 +1225,6 @@ private:
                 }
             }
 
-            // 销毁实体本身
             Registry::Destroy(entity);
         }
     }

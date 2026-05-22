@@ -16,7 +16,7 @@
 #pragma once
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+
 #include "../common/Tags.hpp"
 #include "../managers/BatchManager.hpp"
 #include "../managers/DeviceManager.hpp"
@@ -102,7 +102,7 @@ private:
     void renderBackground(entt::entity entity, core::RenderContext& context)
     {
         const auto* bg = Registry::TryGet<components::Background>(entity);
-        if (!bg || bg->enabled != policies::Feature::Enabled)
+        if (!bg || bg->enabled != policies::Feature::ENABLED)
         {
             return;
         }
@@ -119,7 +119,7 @@ private:
         // Debug log
         if (auto* baseInfo = Registry::TryGet<components::BaseInfo>(entity))
         {
-            if (bg->borderRadius.x() > 0.0f || bg->borderRadius.y() > 0.0f || bg->borderRadius.z() > 0.0f ||
+            if (bg->borderRadius.x() > 0.0F || bg->borderRadius.y() > 0.0f || bg->borderRadius.z() > 0.0f ||
                 bg->borderRadius.w() > 0.0f)
             {
                 Logger::debug("[ShapeRenderer] Entity '{}': borderRadius=({:.1f}, {:.1f}, {:.1f}, {:.1f})",
@@ -133,7 +133,7 @@ private:
 
         // 处理阴影
         const auto* shadow = Registry::TryGet<components::Shadow>(entity);
-        if (shadow && shadow->enabled == policies::Feature::Enabled)
+        if (shadow && shadow->enabled == policies::Feature::ENABLED)
         {
             pushConstants.shadow_soft = shadow->softness;
             pushConstants.shadow_offset_x = shadow->offset.x();

@@ -25,6 +25,7 @@
 #pragma once
 
 #include <entt/entt.hpp>
+#include <memory>
 #include <unordered_map>
 
 #include <yoga/Yoga.h>
@@ -52,7 +53,7 @@ public:
 
     void registerHandlersImpl();
     void unregisterHandlersImpl();
-    void update() noexcept;
+    void update();
 
     interface::SystemPhase getPhase() { return interface::SystemPhase::Layout; }
 
@@ -69,7 +70,7 @@ private:
     void applyWindowCentering(entt::entity root, float screenWidth, float screenHeight);
 
     YGConfigRef m_yogaConfig = nullptr;
-    std::unordered_map<entt::entity, YGNodeRef> m_entityToNode;
+    std::unique_ptr<std::unordered_map<entt::entity, YGNodeRef>> m_entityToNode;
 };
 
 } // namespace ui::systems

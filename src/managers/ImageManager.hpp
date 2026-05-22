@@ -18,7 +18,6 @@
 #include <unordered_map>
 #include <SDL3/SDL_gpu.h>
 
-#include "../common/ErrorCodes.hpp"
 #include "../common/Result.hpp"
 
 namespace ui::managers
@@ -38,7 +37,7 @@ class ImageManager
 {
 public:
     explicit ImageManager(DeviceManager* deviceManager) : m_deviceManager(deviceManager) {}
-    ~ImageManager() { releaseAll(); }
+    ~ImageManager() noexcept;
 
     ImageManager(const ImageManager&) = delete;
     ImageManager& operator=(const ImageManager&) = delete;

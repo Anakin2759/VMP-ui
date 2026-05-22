@@ -16,12 +16,18 @@
 #include "ResourceProvider.hpp"
 #include "../common/ErrorCodes.hpp"
 #include "../singleton/Logger.hpp"
+#include <string_view>
+#include <string>
+#include "common/Result.hpp"
+#include <memory>
+#include <span>
 
-#if defined(UI_RESOURCE_BACKEND_CMRC)
+#ifdef UI_RESOURCE_BACKEND_CMRC
 #include <cmrc/cmrc.hpp>
 
+// NOLINTNEXTLINE(modernize-type-traits)
 CMRC_DECLARE(ui_fonts);
-#elif defined(UI_RESOURCE_BACKEND_STD_EMBED)
+#elifdef UI_RESOURCE_BACKEND_STD_EMBED
 #include "StdEmbedResourceTable.hpp"
 #endif
 
@@ -30,7 +36,7 @@ namespace ui::managers
 namespace
 {
 
-#if defined(UI_RESOURCE_BACKEND_CMRC)
+#ifdef UI_RESOURCE_BACKEND_CMRC
 class CmrcResourceProvider final : public IResourceProvider
 {
 public:
@@ -60,7 +66,7 @@ public:
 };
 #endif
 
-#if defined(UI_RESOURCE_BACKEND_STD_EMBED)
+#ifdef UI_RESOURCE_BACKEND_STD_EMBED
 class StdEmbedResourceProvider final : public IResourceProvider
 {
 public:
@@ -105,18 +111,18 @@ public:
 
 std::shared_ptr<const IResourceProvider> GetDefaultUiResourceProvider()
 {
-#if defined(UI_RESOURCE_BACKEND_STD_EMBED)
-    static const std::shared_ptr<const IResourceProvider> DEFAULT_UI_RESOURCE_PROVIDER =
+#ifdef UI_RESOURCE_BACKEND_STD_EMBED
+    static const std::shared_ptr<const IResourceProvider> defaultUiResourceProvider =
         std::make_shared<StdEmbedResourceProvider>();
-    return DEFAULT_UI_RESOURCE_PROVIDER;
-#elif defined(UI_RESOURCE_BACKEND_CMRC)
-    static const std::shared_ptr<const IResourceProvider> DEFAULT_UI_RESOURCE_PROVIDER =
+    return defaultUiResourceProvider;
+#elifdef UI_RESOURCE_BACKEND_CMRC
+    static const std::shared_ptr<const IResourceProvider> defaultUiResourceProvider =
         std::make_shared<CmrcResourceProvider>();
-    return DEFAULT_UI_RESOURCE_PROVIDER;
+    return defaultUiResourceProvider;
 #else
-    static const std::shared_ptr<const IResourceProvider> DEFAULT_UI_RESOURCE_PROVIDER =
+    static const std::shared_ptr<const IResourceProvider> defaultUiResourceProvider =
         std::make_shared<UnavailableResourceProvider>();
-    return DEFAULT_UI_RESOURCE_PROVIDER;
+    return defaultUiResourceProvider;
 #endif
 }
 

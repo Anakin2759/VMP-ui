@@ -16,9 +16,11 @@
 
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Data.hpp"
 #include "../common/Tags.hpp"
+#include "../common/RenderTypes.hpp"
 #include <SDL3/SDL_gpu.h>
+#include <vector>
 
 namespace ui::renderers
 {
@@ -47,12 +49,54 @@ public:
     [[nodiscard]] int getPriority() const override { return 5; }
 
 private:
+    struct TableRenderState
+    {
+        float tableX = 0.0F;
+        float tableY = 0.0F;
+        float totalWidth = 0.0F;
+        float totalHeight = 0.0F;
+        float bodyY = 0.0F;
+        float bodyHeight = 0.0F;
+        int rowCount = 0;
+        float scrollOffsetY = 0.0F;
+        std::vector<float> colWidths;
+        render::UiPushConstants pushConstants{};
+        Eigen::Vector4f gridColor{};
+    };
+
     static Eigen::Vector4f toVec4(const Color& color, float alpha)
     {
         return {color.red, color.green, color.blue, color.alpha * alpha};
     }
 
+    static TableRenderState makeRenderState(const components::TableInfo& info, const core::RenderContext& context);
     static std::vector<float> computeColWidths(const components::TableInfo& info, float totalWidth);
+    static const Color& rowBackgroundColor(const components::TableInfo& info, int row);
+    static void updateScrollArea(entt::entity entity, const components::TableInfo& info, TableRenderState& state);
+    void renderHeaderBackground(const components::TableInfo& info,
+                                core::RenderContext& context,
+                                const TableRenderState& state) const;
+    void renderHeaderText(const components::TableInfo& info,
+                          core::RenderContext& context,
+                          const TableRenderState& state) const;
+    void renderRowBackgrounds(const components::TableInfo& info,
+                              core::RenderContext& context,
+                              const TableRenderState& state) const;
+    void renderBodyGrid(const components::TableInfo& info,
+                        core::RenderContext& context,
+                        const TableRenderState& state) const;
+    void renderCellText(const components::TableInfo& info,
+                        core::RenderContext& context,
+                        const TableRenderState& state) const;
+    void renderCellTexture(const std::string& text,
+                           float cellX,
+                           float rowY,
+                           float rowHeight,
+                           const Eigen::Vector4f& cellColor,
+                           core::RenderContext& context) const;
+    void renderHeaderSeparators(const components::TableInfo& info,
+                                core::RenderContext& context,
+                                const TableRenderState& state) const;
 };
 
 } // namespace ui::renderers

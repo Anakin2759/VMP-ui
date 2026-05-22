@@ -2,6 +2,7 @@
 
 #include <entt/entt.hpp>
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -52,40 +53,37 @@ struct EventRecorder
     void onLayout(const events::UpdateLayout& event) const
     {
         (void)event;
-        events->push_back("layout");
+        events->emplace_back("layout");
     }
 
     void onRender(const events::UpdateRendering& event) const
     {
         (void)event;
-        events->push_back("render");
+        events->emplace_back("render");
     }
 
     void onEndFrame(const events::EndFrame& event) const
     {
         (void)event;
-        events->push_back("end_frame");
+        events->emplace_back("end_frame");
     }
 
     void onUpdate(const events::UpdateEvent& event) const
     {
         (void)event;
-        events->push_back("update");
+        events->emplace_back("update");
     }
 
     void onTimer(const events::UpdateTimer& event) const
     {
         (void)event;
-        events->push_back("timer");
+        events->emplace_back("timer");
     }
 };
 
 class TaskChainTest : public ::testing::Test
 {
 protected:
-    UiRuntime m_runtime;
-    std::unique_ptr<UiRuntimeScope> m_scope;
-
     void SetUp() override
     {
         m_scope = std::make_unique<UiRuntimeScope>(m_runtime);
@@ -99,6 +97,10 @@ protected:
         Dispatcher::Update();
         m_scope.reset();
     }
+
+private:
+    UiRuntime m_runtime;
+    std::unique_ptr<UiRuntimeScope> m_scope;
 };
 
 TEST_F(TaskChainTest, CombinedBroadcastsArgumentsAndReturnsSecondResult)
@@ -107,7 +109,8 @@ TEST_F(TaskChainTest, CombinedBroadcastsArgumentsAndReturnsSecondResult)
     int secondCallCount = 0;
     int lastFirstSum = 0;
 
-    auto combined = tasks::PIPE_COMPOSER(CountingTask{&firstCallCount, &lastFirstSum}, SummingTask{&secondCallCount});
+    auto combined = tasks::PIPE_COMPOSER(CountingTask{.callCount = &firstCallCount, .lastSum = &lastFirstSum},
+                                         SummingTask{&secondCallCount});
 
     const int result = combined(7, 5);
 
@@ -152,8 +155,8 @@ TEST_F(TaskChainTest, QueuedTaskUpdatesFrameContextBeforeDispatchingQueuedEvents
     EXPECT_EQ(frameContext.intervalMs, 33U);
     EXPECT_EQ(frameContext.frameSlot, 1U);
     ASSERT_EQ(observedEvents.size(), 2U);
-    EXPECT_EQ(observedEvents[0], "timer");
-    EXPECT_EQ(observedEvents[1], "update");
+    EXPECT_EQ(observedEvents.at(0), "timer");
+    EXPECT_EQ(observedEvents.at(1), "update");
 }
 
 TEST_F(TaskChainTest, RenderTaskTriggersFrameStagesInFixedOrderAndHonorsDelay)
@@ -172,9 +175,9 @@ TEST_F(TaskChainTest, RenderTaskTriggersFrameStagesInFixedOrderAndHonorsDelay)
     renderTask(16);
 
     ASSERT_EQ(observedEvents.size(), 3U);
-    EXPECT_EQ(observedEvents[0], "layout");
-    EXPECT_EQ(observedEvents[1], "render");
-    EXPECT_EQ(observedEvents[2], "end_frame");
+    EXPECT_EQ(observedEvents.at(0), "layout");
+    EXPECT_EQ(observedEvents.at(1), "render");
+    EXPECT_EQ(observedEvents.at(2), "end_frame");
     EXPECT_EQ(renderTask.remainingTime, 16U);
 
     observedEvents.clear();
@@ -184,9 +187,9 @@ TEST_F(TaskChainTest, RenderTaskTriggersFrameStagesInFixedOrderAndHonorsDelay)
 
     renderTask(1);
     ASSERT_EQ(observedEvents.size(), 3U);
-    EXPECT_EQ(observedEvents[0], "layout");
-    EXPECT_EQ(observedEvents[1], "render");
-    EXPECT_EQ(observedEvents[2], "end_frame");
+    EXPECT_EQ(observedEvents.at(0), "layout");
+    EXPECT_EQ(observedEvents.at(1), "render");
+    EXPECT_EQ(observedEvents.at(2), "end_frame");
     EXPECT_EQ(renderTask.remainingTime, 16U);
 }
 

@@ -1,7 +1,11 @@
 #include "Hierarchy.hpp"
 
-#include "../common/Components.hpp"
 #include "Utils.hpp"
+#include "entt/entity/fwd.hpp"
+#include "singleton/Registry.hpp"
+#include "common/components/Layout.hpp"
+#include "entt/entity/entity.hpp"
+#include "common/Tags.hpp"
 namespace ui::hierarchy
 {
 

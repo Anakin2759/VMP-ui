@@ -76,7 +76,7 @@ private:
         view.each(
             [this, deltaTime, &completedEntities](entt::entity entity, components::AnimationTime& anim)
             {
-                if (anim.state != policies::AnimationState::Playing)
+                if (anim.state != policies::AnimationState::PLAYING)
                 {
                     completedEntities.push_back(entity);
                     return;
@@ -102,7 +102,7 @@ private:
 
                 if (anim.mode == policies::Play::ONCE && time >= 1.0F)
                 {
-                    anim.state = policies::AnimationState::Stopped;
+                    anim.state = policies::AnimationState::STOPPED;
                     completedEntities.push_back(entity);
                 }
             });

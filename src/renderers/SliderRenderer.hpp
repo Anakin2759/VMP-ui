@@ -40,7 +40,7 @@ public:
         if (sliderPtr == nullptr) { return; }
         const auto& info = *sliderPtr;
 
-        const bool isVertical = (info.vertical == policies::Orientation::Vertical);
+        const bool isVertical = (info.vertical == policies::Orientation::VERTICAL);
         const float trackW = context.size.x();
         const float trackH = context.size.y();
         const Eigen::Vector2f trackPos = context.position;

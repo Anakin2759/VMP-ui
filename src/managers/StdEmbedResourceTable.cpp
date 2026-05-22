@@ -19,6 +19,8 @@
 #include "StdEmbedResourceTable.hpp"
 
 #include <array>
+#include <span>
+#include <string_view>
 
 namespace ui::managers
 {

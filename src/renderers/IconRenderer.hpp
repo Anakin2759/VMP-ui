@@ -72,7 +72,7 @@ public:
         Eigen::Vector2f uvMax = {1.0F, 1.0F};
         Eigen::Vector2f actualIconSize = iconDrawSize;
 
-        if (HasFlag(iconComp->type, policies::IconFlag::Texture))
+        if (HasFlag(iconComp->type, policies::IconFlag::TEXTURE))
         {
             // 纹理图标
             if (const auto* textureInfo = m_iconManager->getTextureInfo(iconComp->textureId))
@@ -87,7 +87,7 @@ public:
                 return; // 纹理不存在
             }
         }
-        else if (!HasFlag(iconComp->type, policies::IconFlag::Texture))
+        else if (!HasFlag(iconComp->type, policies::IconFlag::TEXTURE))
         {
             // 字体图标
             // fontHandle 暂时存储为字体名称字符串指针，或者为空则使用默认

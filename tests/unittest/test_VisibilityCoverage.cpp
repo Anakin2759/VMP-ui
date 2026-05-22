@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <ui.hpp>
 
+#include "entt/entity/entity.hpp"
+#include "common/components/Layout.hpp"
+#include "common/components/Visual.hpp"
 #include "src/api/Visibility.hpp"
-#include "src/common/Components.hpp"
 #include "src/common/Policies.hpp"
 #include "src/common/Tags.hpp"
 #include "src/common/WindowSync.hpp"
@@ -14,15 +17,21 @@
 namespace ui::tests
 {
 
+namespace
+{
+
 class VisibilityTest : public ::testing::Test
 {
 protected:
-    UiRuntime m_runtime;
-    std::unique_ptr<UiRuntimeScope> m_scope;
-
     void SetUp() override { m_scope = std::make_unique<UiRuntimeScope>(m_runtime); }
     void TearDown() override { m_scope.reset(); }
+
+private:
+    UiRuntime m_runtime;
+    std::unique_ptr<UiRuntimeScope> m_scope;
 };
+
+} // namespace
 
 // ===================== Show / Hide =====================
 
@@ -193,7 +202,7 @@ TEST_F(VisibilityTest, SetBackgroundColorStoresColorAndEnablesBackground)
     EXPECT_EQ(background->color.red, 1.0F);
     EXPECT_EQ(background->color.green, 0.0F);
     EXPECT_EQ(background->color.blue, 0.0F);
-    EXPECT_EQ(background->enabled, policies::Feature::Enabled);
+    EXPECT_EQ(background->enabled, policies::Feature::ENABLED);
 }
 
 TEST_F(VisibilityTest, SetBackgroundColorTriggersRenderDirty)
@@ -245,7 +254,7 @@ TEST_F(VisibilityTest, SetBorderColorStoresColorAndEnablesBorder)
     const auto* border = Registry::TryGet<components::Border>(entity);
     ASSERT_NE(border, nullptr);
     EXPECT_FLOAT_EQ(border->color.blue, 1.0F);
-    EXPECT_EQ(border->enabled, policies::Feature::Enabled);
+    EXPECT_EQ(border->enabled, policies::Feature::ENABLED);
 }
 
 // ===================== SetBorderThickness =====================
@@ -259,7 +268,7 @@ TEST_F(VisibilityTest, SetBorderThicknessStoresValueAndEnablesBorder)
     const auto* border = Registry::TryGet<components::Border>(entity);
     ASSERT_NE(border, nullptr);
     EXPECT_FLOAT_EQ(border->thickness, 3.0F);
-    EXPECT_EQ(border->enabled, policies::Feature::Enabled);
+    EXPECT_EQ(border->enabled, policies::Feature::ENABLED);
 }
 
 } // namespace ui::tests

@@ -3,9 +3,14 @@
  */
 
 #include "SystemManager.hpp"
+#include "singleton/Logger.hpp"
 #include "singleton/Registry.hpp"
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <numeric>
+#include <vector>
+#include <utility>
 
 // 引入所有子系统头文件
 #include "../systems/RenderSystem.hpp"
@@ -68,17 +73,16 @@ void SystemManager::registerAllHandlers()
 {
     // OP-22: 按阶段排序，确保事件处理器按 Input→Logic→Animation→Layout→Render→Frame 顺序订阅
     // entt::poly 是 move-only 类型，无法直接用于 stable_sort 比较器；改用索引排序后重组
-    std::vector<std::size_t> idx(m_systems.size());
-    std::iota(idx.begin(), idx.end(), std::size_t{0});
-    std::stable_sort(idx.begin(),
-                     idx.end(),
-                     [this](std::size_t a, std::size_t b)
-                     { return m_systems[a]->getPhase() < m_systems[b]->getPhase(); });
+    std::vector<std::size_t> indices(m_systems.size());
+    std::ranges::iota(indices, std::size_t{0});
+    std::ranges::stable_sort(indices,
+                             [this](std::size_t leftIndex, std::size_t rightIndex)
+                             { return m_systems.at(leftIndex)->getPhase() < m_systems.at(rightIndex)->getPhase(); });
     decltype(m_systems) sorted;
     sorted.reserve(m_systems.size());
-    for (auto i : idx)
+    for (auto systemIndex : indices)
     {
-        sorted.push_back(std::move(m_systems[i]));
+        sorted.push_back(std::move(m_systems.at(systemIndex)));
     }
     m_systems = std::move(sorted);
     for (auto& system : m_systems)

@@ -7,11 +7,31 @@
  */
 
 #include "../RenderSystem.hpp"
-#include <bit>
+#include <algorithm>
 #include <cctype>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <memory>
+#include "common/Result.hpp"
+#include <string_view>
+#include "singleton/Logger.hpp"
+#include "common/ErrorCodes.hpp"
+#include "managers/FontManager.hpp"
+#include "managers/ImageManager.hpp"
+#include "managers/BatchManager.hpp"
+#include "SDL3/SDL_stdinc.h"
+#include <utility>
+#include "common/Events.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+#include "SDL3/SDL_video.h"
+#include "SDL3/SDL_gpu.h"
+#include "SDL3/SDL_init.h"
+#include <exception>
+#include "managers/CommandBuffer.hpp"
 #include "singleton/Registry.hpp"
-#include "common/Components.hpp"
-#include "common/Tags.hpp"
 #include "../../renderers/FallbackBackendRenderer.hpp"
 #include "../../managers/IconManager.hpp"
 #include "../../managers/ResourceProvider.hpp"
@@ -40,10 +60,24 @@ bool IsTruthyEnvironmentValue(const char* value)
     return normalized == "1" || normalized == "true" || normalized == "on" || normalized == "yes" || normalized == "y";
 }
 
+void WriteStderr(const char* text) noexcept
+{
+    if (text == nullptr)
+    {
+        return;
+    }
+
+    const auto textSize = std::strlen(text);
+    if (std::fwrite(text, 1U, textSize, stderr) != textSize)
+    {
+        std::clearerr(stderr);
+    }
+}
+
 std::shared_ptr<const ui::managers::IResourceProvider> GetUiResourceProvider()
 {
-    static const auto RESOURCE_PROVIDER = ui::managers::GetDefaultUiResourceProvider();
-    return RESOURCE_PROVIDER;
+    static const auto resourceProvider = ui::managers::GetDefaultUiResourceProvider();
+    return resourceProvider;
 }
 
 ui::Result<ui::managers::BinaryResource> LoadUiResource(std::string_view resourcePath)
@@ -93,8 +127,14 @@ RenderSystem::RenderSystem()
 
 RenderSystem::~RenderSystem()
 {
-    cleanup();
-    Logger::info("[RenderSystem] 析构完成");
+    try
+    {
+        cleanup();
+    }
+    catch (...)
+    {
+        WriteStderr("[RenderSystem] destructor cleanup failed\n");
+    }
 }
 
 RenderSystem::RenderSystem(RenderSystem&& other) noexcept
@@ -103,23 +143,27 @@ RenderSystem::RenderSystem(RenderSystem&& other) noexcept
       m_pipelineCache(std::move(other.m_pipelineCache)), m_textTextureCache(std::move(other.m_textTextureCache)),
       m_batchManager(std::move(other.m_batchManager)), m_commandBuffer(std::move(other.m_commandBuffer)),
       m_backendRenderer(std::move(other.m_backendRenderer)), m_renderers(std::move(other.m_renderers)),
-      m_stats(other.m_stats), m_whiteTexture(std::move(other.m_whiteTexture)),
-      m_fallbackWhiteTextureTag(other.m_fallbackWhiteTextureTag), m_useFallback(other.m_useFallback),
+    m_stats(other.m_stats), m_whiteTexture(std::move(other.m_whiteTexture)), m_useFallback(other.m_useFallback),
       m_forceFallback(other.m_forceFallback), m_backendSelectionLogged(other.m_backendSelectionLogged),
       m_screenWidth(other.m_screenWidth), m_screenHeight(other.m_screenHeight)
 {
     other.m_useFallback = false;
     other.m_forceFallback = false;
     other.m_backendSelectionLogged = false;
-    Logger::info("[RenderSystem] 移动构造完成");
 }
 
 RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
 {
     if (this != &other)
     {
-        Logger::info("[RenderSystem] 移动赋值开始");
-        cleanup();
+        try
+        {
+            cleanup();
+        }
+        catch (...)
+        {
+            WriteStderr("[RenderSystem] move assignment cleanup failed\n");
+        }
 
         m_deviceManager = std::move(other.m_deviceManager);
         m_fontManager = std::move(other.m_fontManager);
@@ -133,7 +177,7 @@ RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
         m_renderers = std::move(other.m_renderers);
         m_stats = other.m_stats;
         m_whiteTexture = std::move(other.m_whiteTexture);
-        m_fallbackWhiteTextureTag = other.m_fallbackWhiteTextureTag;
+        m_fallbackWhiteTextureTag = std::bit_cast<SDL_GPUTexture*>(&m_fallbackWhiteTextureCookie);
         m_useFallback = other.m_useFallback;
         m_forceFallback = other.m_forceFallback;
         m_backendSelectionLogged = other.m_backendSelectionLogged;
@@ -144,7 +188,6 @@ RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
         other.m_useFallback = false;
         other.m_forceFallback = false;
         other.m_backendSelectionLogged = false;
-        Logger::info("[RenderSystem] 移动赋值完成");
     }
     return *this;
 }
@@ -305,8 +348,11 @@ void RenderSystem::ensureInitialized()
         if (auto fontResource = LoadUiResource(DEFAULT_FONT_RESOURCE); fontResource.has_value())
         {
             const auto& fontBytes = fontResource.value();
-            const auto* fontData = std::bit_cast<const uint8_t*>(fontBytes.data());
-            if (auto loadResult = m_fontManager->loadFromMemory(fontData, fontBytes.size(), 14.0F);
+            std::vector<uint8_t> fontData(fontBytes.size());
+            std::ranges::transform(fontBytes.bytes,
+                                   fontData.begin(),
+                                   [](std::byte byte) { return std::to_integer<uint8_t>(byte); });
+            if (auto loadResult = m_fontManager->loadFromMemory(fontData.data(), fontData.size(), 14.0F);
                 !loadResult.has_value())
             {
                 Logger::error("[RenderSystem] 默认字体加载失败: {}", loadResult.error().message());

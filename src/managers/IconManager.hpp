@@ -31,14 +31,11 @@
 #include <vector>
 #include <array>
 #include <chrono>
-#include <algorithm>
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#include <freetype/freetype.h>
 #include <SDL3/SDL.h>
 #include <Eigen/Core>
 #include "../singleton/Logger.hpp"
 #include "../common/GPUWrappers.hpp"
-#include "../common/ErrorCodes.hpp"
 #include "../common/Result.hpp"
 
 namespace ui::managers
@@ -88,7 +85,7 @@ public:
     explicit IconManager(DeviceManager* deviceManager) : m_deviceManager(deviceManager)
     {
         FT_Error error = FT_Init_FreeType(&m_ftLibrary);
-        if (error)
+        if (error != 0)
         {
             Logger::error("[IconManager] Failed to initialize FreeType: error {}", error);
             m_ftLibrary = nullptr;
@@ -98,7 +95,7 @@ public:
             Logger::info("[IconManager] FreeType initialized");
         }
     }
-    ~IconManager() { shutdown(); }
+    ~IconManager() noexcept;
     IconManager(const IconManager&) = delete;
     IconManager& operator=(const IconManager&) = delete;
     IconManager(IconManager&&) noexcept = default;
@@ -256,6 +253,11 @@ private:
                                                           const std::vector<uint32_t>& rgbaPixels,
                                                           uint32_t width,
                                                           uint32_t height);
+
+    const TextureInfo* cacheIconTexture(const std::string& cacheKey,
+                                        wrappers::UniqueGPUTexture texture,
+                                        int width,
+                                        int height);
 
     DeviceManager* m_deviceManager;
     FT_Library m_ftLibrary = nullptr;

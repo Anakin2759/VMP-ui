@@ -3,6 +3,10 @@
 #include "UiRuntime.hpp"
 
 #include "../common/WindowEntityLookup.hpp"
+#include "singleton/Registry.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "entt/entity/fwd.hpp"
+#include <cstdint>
 
 namespace ui
 {
@@ -10,8 +14,8 @@ namespace ui
 RuntimeFacade::ActiveRuntimeState RuntimeFacade::activateRuntime(UiRuntime& runtime) const
 {
     return {
-        Registry::swapActiveInstance(&runtime.m_registry),
-        Dispatcher::swapActiveInstance(&runtime.m_dispatcher),
+        .registry = Registry::swapActiveInstance(&runtime.m_registry),
+        .dispatcher = Dispatcher::swapActiveInstance(&runtime.m_dispatcher),
     };
 }
 

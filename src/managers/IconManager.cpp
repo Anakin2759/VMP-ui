@@ -1,13 +1,84 @@
 #include "IconManager.hpp"
 #include "DeviceManager.hpp"
+#include "freetype/config/ftheader.h"
+#include "singleton/Logger.hpp"
+#include "freetype/fttypes.h"
+#include "common/Result.hpp"
+#include "common/ErrorCodes.hpp"
+#include "freetype/ftimage.h"
+#include "common/GPUWrappers.hpp"
+#include "SDL3/SDL_stdinc.h"
 #include <SDL3/SDL_gpu.h>
-#include <ft2build.h>
+#include <string>
+#include <ios>
+#include <vector>
+#include <utility>
+#include <sstream>
+#include <istream>
+#include <cstdio>
+#include <cstdint>
+#include <exception>
+#include <string_view>
+#include <chrono>
+#include <iterator>
+#include <algorithm>
 #include FT_FREETYPE_H
 #include <cstring>
 #include <fstream>
 #include <span>
 namespace ui::managers
 {
+namespace
+{
+void WriteStderr(const char* text) noexcept
+{
+    if (text == nullptr)
+    {
+        return;
+    }
+
+    const auto textSize = std::strlen(text);
+    if (std::fwrite(text, 1U, textSize, stderr) != textSize)
+    {
+        std::clearerr(stderr);
+    }
+}
+
+std::vector<uint32_t> BuildPremultipliedRgba(const FT_Bitmap& bitmap, int width, int height)
+{
+    const std::span<const uint8_t> bitmapData(bitmap.buffer, static_cast<size_t>(width) * static_cast<size_t>(height));
+    std::vector<uint32_t> rgbaPixels(bitmapData.size());
+    size_t pixelIndex = 0;
+    for (const uint8_t alpha : bitmapData)
+    {
+        auto premultRGB = static_cast<uint8_t>((255U * alpha) / 255U);
+        rgbaPixels.at(pixelIndex) = (static_cast<uint32_t>(alpha) << 24U) |
+                                    (static_cast<uint32_t>(premultRGB) << 16U) |
+                                    (static_cast<uint32_t>(premultRGB) << 8U) | premultRGB;
+        ++pixelIndex;
+    }
+    return rgbaPixels;
+}
+} // namespace
+
+IconManager::~IconManager() noexcept
+{
+    try
+    {
+        shutdown();
+    }
+    catch (const std::exception& exception)
+    {
+        WriteStderr("[IconManager] destructor cleanup failed: ");
+        WriteStderr(exception.what());
+        WriteStderr("\n");
+    }
+    catch (...)
+    {
+        WriteStderr("[IconManager] destructor cleanup failed with unknown exception\n");
+    }
+}
+
 /**
  * @brief 加载 IconFont 字体和 codepoints 文件
  * @param name 字体库名称（用于后续引用）
@@ -39,11 +110,16 @@ bool IconManager::loadIconFont(const std::string& name,
         return false;
     }
 
-    std::streamsize size = file.tellg();
+    std::streamsize const size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::vector<unsigned char> buffer(size);
-    if (!file.read(std::bit_cast<char*>(buffer.data()), size))
+    std::vector<unsigned char> buffer;
+    buffer.reserve(static_cast<size_t>(size));
+    for (std::istreambuf_iterator<char> input(file), end; input != end; ++input)
+    {
+        buffer.push_back(static_cast<unsigned char>(*input));
+    }
+    if (buffer.size() != static_cast<size_t>(size))
     {
         Logger::error("Failed to read font file: {}", fontPath);
         return false;
@@ -131,7 +207,7 @@ Result<void> IconManager::loadIconFontFromMemory(const std::string& name,
     }
 
     // 解析 codepoints
-    std::string codepointsStr(static_cast<const char*>(codepointsData), codepointsLength);
+    std::string const codepointsStr(static_cast<const char*>(codepointsData), codepointsLength);
     std::istringstream stream(codepointsStr);
 
     CodepointMap codepoints;
@@ -262,7 +338,7 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
     float quantizedSize = quantizeSize(size);
 
     // 构造 cache key
-    std::string cacheKey =
+    std::string const cacheKey =
         std::string(fontName) + "_" + std::to_string(codepoint) + "_" + std::to_string(static_cast<int>(quantizedSize));
 
     // 检查缓存
@@ -303,7 +379,7 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
     }
 
     // 加载字形
-    FT_UInt glyphIndex = FT_Get_Char_Index(face, codepoint);
+    FT_UInt const glyphIndex = FT_Get_Char_Index(face, codepoint);
     error = FT_Load_Glyph(face, glyphIndex, FT_LOAD_DEFAULT);
     if (error != 0)
     {
@@ -319,9 +395,9 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
         return nullptr;
     }
 
-    FT_Bitmap& bitmap = face->glyph->bitmap;
-    int width = static_cast<int>(bitmap.width);
-    int height = static_cast<int>(bitmap.rows);
+    FT_Bitmap const& bitmap = face->glyph->bitmap;
+    int const width = static_cast<int>(bitmap.width);
+    int const height = static_cast<int>(bitmap.rows);
 
     if (width == 0 || height == 0)
     {
@@ -337,16 +413,7 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
     }
 
     // 转换 alpha 位图为 RGBA（预乘 Alpha 格式）
-    const std::span<const uint8_t> bitmapData(bitmap.buffer, static_cast<size_t>(width) * static_cast<size_t>(height));
-    std::vector<uint32_t> rgbaPixels(bitmapData.size());
-    for (size_t i = 0; i < bitmapData.size(); ++i)
-    {
-        const uint8_t alpha = bitmapData[i];
-        // 预乘 Alpha：白色 (255, 255, 255) * alpha
-        auto premultRGB = static_cast<uint8_t>((255U * alpha) / 255U);
-        rgbaPixels[i] = (static_cast<uint32_t>(alpha) << 24U) | (static_cast<uint32_t>(premultRGB) << 16U) |
-                        (static_cast<uint32_t>(premultRGB) << 8U) | premultRGB;
-    }
+    auto rgbaPixels = BuildPremultipliedRgba(bitmap, width, height);
 
     // 创建并上传纹理
     auto texture =
@@ -356,7 +423,14 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
         return nullptr;
     }
 
-    // 创建缓存条目
+    return cacheIconTexture(cacheKey, std::move(texture), width, height);
+}
+
+const TextureInfo* IconManager::cacheIconTexture(const std::string& cacheKey,
+                                                 wrappers::UniqueGPUTexture texture,
+                                                 int width,
+                                                 int height)
+{
     CachedTextureEntry entry{};
     entry.textureInfo.texture = std::move(texture);
     entry.textureInfo.uvMin = {0.0F, 0.0F};
@@ -366,8 +440,9 @@ const TextureInfo* IconManager::getTextureInfo(std::string_view fontName, uint32
     entry.lastAccessTime = std::chrono::steady_clock::now();
     entry.accessCount = 1;
 
-    m_fontTextureCache[cacheKey] = std::move(entry);
-    return &m_fontTextureCache[cacheKey].textureInfo;
+    auto [iterator, inserted] = m_fontTextureCache.insert_or_assign(cacheKey, std::move(entry));
+    (void)inserted;
+    return &iterator->second.textureInfo;
 }
 
 IconManager::CodepointMap IconManager::parseCodepoints(const std::string& filePath)
@@ -381,7 +456,7 @@ IconManager::CodepointMap IconManager::parseCodepoints(const std::string& filePa
         return result;
     }
 
-    if (filePath.find(".json") != std::string::npos)
+    if (filePath.contains(".json"))
     {
         result = parseCodepointsJSON(file);
     }
@@ -401,7 +476,10 @@ IconManager::CodepointMap IconManager::parseCodepointsTXT(std::istream& file)
 
     while (std::getline(file, line))
     {
-        if (line.empty() || line[0] == '#') continue;
+        if (line.empty() || line.front() == '#')
+        {
+            continue;
+        }
 
         std::istringstream iss(line);
         std::string iconName;
@@ -411,7 +489,7 @@ IconManager::CodepointMap IconManager::parseCodepointsTXT(std::istream& file)
         {
             try
             {
-                uint32_t codepoint = std::stoul(hexCode, nullptr, 16);
+                uint32_t const codepoint = std::stoul(hexCode, nullptr, 16);
                 result[iconName] = codepoint;
             }
             catch (...)
@@ -427,30 +505,30 @@ IconManager::CodepointMap IconManager::parseCodepointsTXT(std::istream& file)
 IconManager::CodepointMap IconManager::parseCodepointsJSON(std::istream& file)
 {
     CodepointMap result;
-    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::string const content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
     size_t pos = 0;
     while (true)
     {
-        size_t keyStart = content.find('"', pos);
+        size_t const keyStart = content.find('"', pos);
         if (keyStart == std::string::npos) break;
 
-        size_t keyEnd = content.find('"', keyStart + 1);
+        size_t const keyEnd = content.find('"', keyStart + 1);
         if (keyEnd == std::string::npos) break;
 
         std::string key = content.substr(keyStart + 1, keyEnd - keyStart - 1);
 
-        size_t valueStart = content.find('"', keyEnd + 1);
+        size_t const valueStart = content.find('"', keyEnd + 1);
         if (valueStart == std::string::npos) break;
 
-        size_t valueEnd = content.find('"', valueStart + 1);
+        size_t const valueEnd = content.find('"', valueStart + 1);
         if (valueEnd == std::string::npos) break;
 
         std::string value = content.substr(valueStart + 1, valueEnd - valueStart - 1);
 
         try
         {
-            uint32_t codepoint = std::stoul(value, nullptr, 16);
+            uint32_t const codepoint = std::stoul(value, nullptr, 16);
             result[key] = codepoint;
         }
         catch (...)
@@ -471,7 +549,7 @@ void IconManager::evictLRUFromFontCache()
         return;
     }
 
-    SDL_GPUDevice* device = m_deviceManager->getDevice();
+    SDL_GPUDevice const* device = m_deviceManager->getDevice();
     if (device == nullptr)
     {
         return;
@@ -514,15 +592,15 @@ void IconManager::evictLRUFromFontCache()
         }
 
         // 按访问时间排序
-        std::sort(entries.begin(),
-                  entries.end(),
-                  [](const auto& first, const auto& second) { return first.second < second.second; });
+        std::ranges::sort(entries,
+
+                          [](const auto& first, const auto& second) { return first.second < second.second; });
 
         // 驱逐最旧的条目
         size_t evicted = 0;
         for (size_t idx = 0; idx < std::min(EVICTION_BATCH, entries.size()); ++idx)
         {
-            auto iter = m_fontTextureCache.find(entries[idx].first);
+            auto iter = m_fontTextureCache.find(entries.at(idx).first);
             if (iter != m_fontTextureCache.end())
             {
                 m_fontTextureCache.erase(iter);

@@ -1,7 +1,9 @@
 #include "Size.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
 #include "Utils.hpp"
+#include "entt/entity/fwd.hpp"
+#include "common/components/Layout.hpp"
+#include "common/Policies.hpp"
 
 namespace ui::size
 {
@@ -10,7 +12,7 @@ void SetFixedSize(::entt::entity entity, float width, float height)
     if (!Registry::Valid(entity)) return;
 
     auto& size = Registry::GetOrEmplace<components::Size>(entity);
-    size.sizePolicy = policies::Size::Fixed;
+    size.sizePolicy = policies::Size::FIXED;
     size.size = {width, height};
     utils::MarkLayoutDirty(entity);
 }

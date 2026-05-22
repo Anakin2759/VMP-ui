@@ -1,15 +1,27 @@
 /**
  * @file RenderFrame.cpp
- * @brief RenderSystem — 每帧渲染逻辑与实体数据收集
  *
- * 包含：update()、collectRenderData()
  */
 
 #include "../RenderSystem.hpp"
 #include <algorithm>
+#include <cstdint>
+#include <ranges>
 #include <stack>
+#include "common/components/Window.hpp"
+#include "singleton/Logger.hpp"
+#include "SDL3/SDL_gpu.h"
+#include "SDL3/SDL_video.h"
+#include "core/RenderContext.hpp"
+#include "Eigen/src/Core/Matrix.h"
+#include "common/components/Layout.hpp"
+#include "entt/entity/fwd.hpp"
+#include <utility>
+#include "common/components/Visual.hpp"
+#include "common/components/Interaction.hpp"
+#include "common/Types.hpp"
+#include "SDL3/SDL_rect.h"
 #include "singleton/Registry.hpp"
-#include "common/Components.hpp"
 #include "common/Tags.hpp"
 #include "../../api/Utils.hpp"
 
@@ -17,7 +29,7 @@ namespace ui::systems
 {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size)
-void RenderSystem::update() noexcept
+void RenderSystem::update()
 {
     auto windowView = Registry::View<components::Window, components::RenderDirtyTag>();
 
@@ -44,7 +56,7 @@ void RenderSystem::update() noexcept
     }
     else
     {
-        SDL_GPUDevice* device = m_deviceManager->getDevice();
+        SDL_GPUDevice const* device = m_deviceManager->getDevice();
         if (device == nullptr)
         {
             Logger::warn("GPU device not ready");
@@ -73,35 +85,37 @@ void RenderSystem::update() noexcept
         SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp.windowID);
         if (sdlWindow == nullptr)
         {
-            Logger::warn("窗口实体的 sdlWindow 为空");
+            Logger::warn("Window entity has no SDL window");
             continue;
         }
 
         int width = 0;
         int height = 0;
         SDL_GetWindowSizeInPixels(sdlWindow, &width, &height);
-        if (width <= 0 || height <= 0) continue;
+        if (width <= 0 || height <= 0)
+        {
+            continue;
+        }
 
         if (!m_useFallback && m_pipelineCache->getPipeline() == nullptr)
         {
             if (auto claimResult = m_deviceManager->claimWindow(sdlWindow); !claimResult.has_value())
             {
-                Logger::warn("[RenderSystem] claimWindow 失败: {}", claimResult.error().message());
+                Logger::warn("[RenderSystem] claimWindow failed: {}", claimResult.error().message());
             }
             if (auto pipeResult = m_pipelineCache->createPipeline(sdlWindow); !pipeResult.has_value())
             {
-                Logger::warn("[RenderSystem] 重新创建管线失败: {}", pipeResult.error().message());
+                Logger::warn("[RenderSystem] pipeline creation failed: {}", pipeResult.error().message());
             }
 
             if (m_pipelineCache->getPipeline() == nullptr)
             {
-                // 管线创建失败（通常是着色器二进制过期），切换到 fallback 渲染器
-                Logger::warn("[RenderSystem] GPU 管线不可用，切换到 fallback 渲染器（运行 compile.bat "
-                             "重新编译着色器可恢复 GPU 渲染）");
+                Logger::warn("[RenderSystem] GPU pipeline unavailable; switching to fallback renderer. "
+                             "Rebuild shaders with compile.bat to restore GPU rendering.");
                 m_useFallback = true;
                 if (!tryInitializeFallback(sdlWindow))
                 {
-                    Logger::error("[RenderSystem] Fallback 初始化也失败，跳过本帧渲染");
+                    Logger::error("[RenderSystem] fallback initialization failed; skipping this frame");
                 }
                 continue;
             }
@@ -141,7 +155,7 @@ void RenderSystem::update() noexcept
         }
 
         // Sort render queue by RenderKey (Z-Order primarily)
-        std::sort(m_renderQueue.begin(), m_renderQueue.end());
+        std::ranges::sort(m_renderQueue, {}, &RenderItem::sortKey);
 
         if (m_useFallback)
         {
@@ -220,7 +234,7 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
     };
 
     std::stack<StackFrame> stack;
-    stack.push({entity, context});
+    stack.push({.entity = entity, .context = context});
 
     while (!stack.empty())
     {
@@ -236,34 +250,30 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
         const auto* scaleComp = Registry::TryGet<components::Scale>(currentEntity);
         const auto* offsetComp = Registry::TryGet<components::RenderOffset>(currentEntity);
 
-        float globalAlpha = currentContext.alpha * (alphaComp != nullptr ? alphaComp->value : 1.0F);
+        float const globalAlpha = currentContext.alpha * (alphaComp != nullptr ? alphaComp->value : 1.0F);
         Eigen::Vector2f absolutePos = currentContext.position + pos.value;
         Eigen::Vector2f finalSize = size.size;
 
-        // 应用渲染偏移
         if (offsetComp != nullptr)
         {
             absolutePos += offsetComp->value;
         }
 
-        // 应用缩放（基于中心点）
         if (scaleComp != nullptr)
         {
-            Eigen::Vector2f scaleDiff = size.size.cwiseProduct(Eigen::Vector2f::Ones() - scaleComp->value);
+            Eigen::Vector2f const scaleDiff = size.size.cwiseProduct(Eigen::Vector2f::Ones() - scaleComp->value);
             absolutePos += scaleDiff * 0.5F;
             finalSize = size.size.cwiseProduct(scaleComp->value);
         }
 
         Eigen::Vector2f contentOffset(0.0F, 0.0F);
 
-        // 更新上下文
         core::RenderContext entityContext = currentContext;
         entityContext.position = absolutePos;
         entityContext.size = finalSize;
         entityContext.alpha = globalAlpha;
         core::RenderContext childBaseContext = entityContext;
 
-        // 处理 ScrollArea
         const auto* scrollArea = Registry::TryGet<components::ScrollArea>(currentEntity);
         if (scrollArea != nullptr)
         {
@@ -279,11 +289,10 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
         }
         else if (Registry::AnyOf<components::LayoutInfo>(currentEntity))
         {
-            // 容器裁剪：防止子元素因 Yoga 浮点误差或内容溢出而渲染超出容器边界
-            const SDL_Rect containerScissor{static_cast<int>(absolutePos.x()),
-                                            static_cast<int>(absolutePos.y()),
-                                            static_cast<int>(std::max(0.0F, finalSize.x())),
-                                            static_cast<int>(std::max(0.0F, finalSize.y()))};
+            const SDL_Rect containerScissor{.x = static_cast<int>(absolutePos.x()),
+                                            .y = static_cast<int>(absolutePos.y()),
+                                            .w = static_cast<int>(std::max(0.0F, finalSize.x())),
+                                            .h = static_cast<int>(std::max(0.0F, finalSize.y()))};
             childBaseContext.pushScissor(containerScissor);
         }
 
@@ -297,7 +306,6 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
         // Shift to positive range for unsigned sorting (int32_min -> 0)
         auto encodedZ = static_cast<uint64_t>(static_cast<int64_t>(zOrder) + 2147483648LL);
 
-        // 使用渲染器收集数据
         for (auto& renderer : m_renderers)
         {
             if (renderer->canHandle(currentEntity))
@@ -315,15 +323,14 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
             }
         }
 
-        // 迭代处理子元素（反序压栈，保证第一个子先弹出）
         const auto* hierarchy = Registry::TryGet<components::Hierarchy>(currentEntity);
         if (hierarchy != nullptr && !hierarchy->children.empty())
         {
-            for (auto it = hierarchy->children.rbegin(); it != hierarchy->children.rend(); ++it)
+            for (auto childEntity : std::views::reverse(hierarchy->children))
             {
                 core::RenderContext childContext = childBaseContext;
                 childContext.position = absolutePos + contentOffset;
-                stack.push({*it, std::move(childContext)});
+                stack.push({.entity = childEntity, .context = std::move(childContext)});
             }
         }
     }

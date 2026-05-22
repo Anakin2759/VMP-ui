@@ -1,25 +1,34 @@
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <ui.hpp>
 
+#include "entt/entity/entity.hpp"
+#include "common/components/Data.hpp"
+#include "common/components/Layout.hpp"
 #include "src/api/Hierarchy.hpp"
 #include "src/api/Utils.hpp"
-#include "src/common/Components.hpp"
 #include "src/common/Tags.hpp"
 #include "src/singleton/Registry.hpp"
 
 namespace ui::tests
 {
 
+namespace
+{
+
 class UtilsTest : public ::testing::Test
 {
 protected:
-    UiRuntime m_runtime;
-    std::unique_ptr<UiRuntimeScope> m_scope;
-
     void SetUp() override { m_scope = std::make_unique<UiRuntimeScope>(m_runtime); }
     void TearDown() override { m_scope.reset(); }
+
+private:
+    UiRuntime m_runtime;
+    std::unique_ptr<UiRuntimeScope> m_scope;
 };
+
+} // namespace
 
 // ===================== MarkLayoutChanged =====================
 
@@ -35,21 +44,23 @@ TEST_F(UtilsTest, MarkLayoutChangedTagsEntityWithLayoutDirtyTag)
 
 TEST_F(UtilsTest, MarkLayoutChangedBubblesToParentAndGrandparent)
 {
-    const auto grandparent = factory::CreateVBoxLayout("gp_layout");
-    const auto parent = factory::CreateVBoxLayout("p_layout");
-    const auto child = factory::CreateLabel("C", "child_layout");
+    const auto rootLayout = factory::CreateVBoxLayout("gp_layout");
+    const auto nestedLayout = factory::CreateVBoxLayout("p_layout");
+    const auto leafLabel = factory::CreateLabel("C", "child_layout");
 
-    hierarchy::AddChild(grandparent, parent);
-    hierarchy::AddChild(parent, child);
+    hierarchy::AddChild(rootLayout, nestedLayout);
+    hierarchy::AddChild(nestedLayout, leafLabel);
 
-    for (auto e : {grandparent, parent, child})
-        Registry::Remove<components::LayoutDirtyTag>(e);
+    for (auto entity : {rootLayout, nestedLayout, leafLabel})
+    {
+        Registry::Remove<components::LayoutDirtyTag>(entity);
+    }
 
-    utils::MarkLayoutChanged(child);
+    utils::MarkLayoutChanged(leafLabel);
 
-    EXPECT_TRUE(Registry::AllOf<components::LayoutDirtyTag>(child));
-    EXPECT_TRUE(Registry::AllOf<components::LayoutDirtyTag>(parent));
-    EXPECT_TRUE(Registry::AllOf<components::LayoutDirtyTag>(grandparent));
+    EXPECT_TRUE(Registry::AllOf<components::LayoutDirtyTag>(leafLabel));
+    EXPECT_TRUE(Registry::AllOf<components::LayoutDirtyTag>(nestedLayout));
+    EXPECT_TRUE(Registry::AllOf<components::LayoutDirtyTag>(rootLayout));
 }
 
 TEST_F(UtilsTest, MarkLayoutChangedOnLeafDoesNotTagSibling)
@@ -61,8 +72,10 @@ TEST_F(UtilsTest, MarkLayoutChangedOnLeafDoesNotTagSibling)
     hierarchy::AddChild(parent, child1);
     hierarchy::AddChild(parent, child2);
 
-    for (auto e : {parent, child1, child2})
-        Registry::Remove<components::LayoutDirtyTag>(e);
+    for (auto entity : {parent, child1, child2})
+    {
+        Registry::Remove<components::LayoutDirtyTag>(entity);
+    }
 
     utils::MarkLayoutChanged(child1);
 
@@ -89,7 +102,6 @@ TEST_F(UtilsTest, MarkVisualChangedTagsEntityWithRenderDirtyTag)
 
 TEST_F(UtilsTest, MarkVisualChangedAlsoTagsAncestorWindowEntity)
 {
-    // 创建一个携带 WindowTag 的祖先实体
     const auto windowEntity = Registry::Create();
     Registry::Emplace<components::BaseInfo>(windowEntity).alias = "win_root";
     Registry::Emplace<components::WindowTag>(windowEntity);

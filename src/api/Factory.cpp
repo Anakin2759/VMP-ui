@@ -1,8 +1,6 @@
 
 
 #include "Factory.hpp"
-
-#include "../common/Components.hpp"
 #include "../common/Tags.hpp"
 #include "../common/Policies.hpp"
 #include "../common/Types.hpp"
@@ -13,14 +11,30 @@
 #include "../singleton/Registry.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "Hierarchy.hpp"
+#include "SDL3/SDL_error.h"
 #include "Utils.hpp"
 #include "Animation.hpp"
 #include "../core/PlatformWindow.hpp"
+#include "entt/entity/fwd.hpp"
+#include "common/components/Window.hpp"
+#include "common/components/Layout.hpp"
+#include "common/components/Visual.hpp"
+#include "common/components/Interaction.hpp"
+#include "common/components/Data.hpp"
+#include "common/Result.hpp"
+#include "core/Application.hpp"
+#include "entt/entity/entity.hpp"
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_video.h>
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <exception>
 #include <memory>
+#include <string_view>
+#include <string>
+#include <span>
 
 namespace ui::factory
 {
@@ -84,11 +98,11 @@ entt::entity CreateTitleBarContainer(std::string_view alias, float titleBarHeigh
 
     auto& titleBarSize = Registry::Get<components::Size>(titleBar);
     titleBarSize.size = {0.0F, titleBarHeight};
-    titleBarSize.sizePolicy = policies::Size::HFill | policies::Size::VFixed;
+    titleBarSize.sizePolicy = policies::Size::H_FILL | policies::Size::V_FIXED;
 
     auto& background = Registry::Emplace<components::Background>(titleBar);
     background.color = {0.0F, 0.0F, 0.0F, 0.0F};
-    background.enabled = policies::Feature::Enabled;
+    background.enabled = policies::Feature::ENABLED;
 
     Registry::Emplace<components::Clickable>(titleBar);
     auto& draggable = Registry::Emplace<components::Draggable>(titleBar);
@@ -176,12 +190,12 @@ entt::entity CreateWindowControlButton(
     auto button = CreateButton("", buttonAlias);
     auto& buttonSizeComp = Registry::Get<components::Size>(button);
     buttonSizeComp.size = {buttonSize, buttonSize};
-    buttonSizeComp.sizePolicy = policies::Size::Fixed;
+    buttonSizeComp.sizePolicy = policies::Size::FIXED;
 
     auto& buttonBackground = Registry::GetOrEmplace<components::Background>(button);
     buttonBackground.color = {0.0F, 0.0F, 0.0F, 0.0F};
     buttonBackground.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
-    buttonBackground.enabled = policies::Feature::Enabled;
+    buttonBackground.enabled = policies::Feature::ENABLED;
 
     auto& iconComp = Registry::Emplace<components::Icon>(button);
     iconComp.codepoint = iconCodepoint;
@@ -274,7 +288,7 @@ entt::entity CreateButton(const std::string& content, std::string_view alias)
     text.content = content;
     text.alignment = policies::Alignment::CENTER;
     text.fontSize = 0.0F;
-    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::Auto;
+    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::AUTO;
     return entity;
 }
 
@@ -284,7 +298,7 @@ entt::entity CreateLabel(const std::string& content, std::string_view alias)
     Registry::Emplace<components::LabelTag>(entity);
     auto& text = Registry::Emplace<components::Text>(entity);
     text.content = content;
-    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::Auto;
+    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::AUTO;
     return entity;
 }
 
@@ -295,7 +309,7 @@ entt::entity CreateTextEdit(const std::string& placeholder, bool multiline, std:
     auto& textEdit = Registry::Emplace<components::TextEdit>(entity);
     textEdit.placeholder = placeholder;
     textEdit.inputMode =
-        multiline ? (policies::TextFlag::Default | policies::TextFlag::Multiline) : policies::TextFlag::Default;
+        multiline ? (policies::TextFlag::DEFAULT | policies::TextFlag::MULTILINE) : policies::TextFlag::DEFAULT;
     textEdit.cursorPosition = 0;
     textEdit.selectionStart = 0;
     textEdit.selectionEnd = 0;
@@ -332,7 +346,7 @@ entt::entity CreateArrow(const Vec2& start, const Vec2& end, std::string_view al
     arrow.startPoint = start;
     arrow.endPoint = end;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::Auto;
+    size.sizePolicy = policies::Size::AUTO;
     return entity;
 }
 
@@ -345,10 +359,9 @@ entt::entity CreateSpacer(int stretchFactor, std::string_view alias)
     Registry::Emplace<components::Hierarchy>(entity);
     Registry::Emplace<components::Position>(entity);
 
-    // 添加 Size 组件，初始值为 0，避免布局不稳定
     auto& size = Registry::Emplace<components::Size>(entity);
     size.size = {0.0F, 0.0F};
-    size.sizePolicy = policies::Size::Auto;
+    size.sizePolicy = policies::Size::AUTO;
 
     auto& spacer = Registry::Emplace<components::Spacer>(entity);
     spacer.stretchFactor = static_cast<uint8_t>(std::max(1, stretchFactor));
@@ -362,7 +375,7 @@ entt::entity CreateSpacer(float width, float height, std::string_view alias)
     auto entity = CreateBaseWidget(alias);
     auto& size = Registry::Get<components::Size>(entity);
     size.size = {width, height};
-    size.sizePolicy = policies::Size::Fixed;
+    size.sizePolicy = policies::Size::FIXED;
     return entity;
 }
 
@@ -372,10 +385,10 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
     MarkAsRoot(entity);
     Registry::Emplace<components::DialogTag>(entity);
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::Fixed;
+    size.sizePolicy = policies::Size::FIXED;
     auto& dialog = Registry::Emplace<components::Window>(entity);
     dialog.title = std::string(title);
-    dialog.flags |= policies::WindowFlag::NoTitleBar;
+    dialog.flags |= policies::WindowFlag::NO_TITLE_BAR;
     constexpr int DEFAULT_DIALOG_WIDTH = 400;
     constexpr int DEFAULT_DIALOG_HEIGHT = 300;
     SDL_Window* sdlWindow = CreateSdlWindowOrRollback(entity,
@@ -405,7 +418,6 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
                  static_cast<uint32_t>(entity));
     Dispatcher::Trigger<events::WindowGraphicsContextSetEvent>({entity});
 
-    // 自动创建自绘标题栏
     CreateTitleBar(entity, std::string(alias) + "_titleBar");
 
     return entity;
@@ -419,7 +431,7 @@ entt::entity CreateScrollArea(std::string_view alias)
     layout.direction = policies::LayoutDirection::VERTICAL;
     layout.alignment = policies::Alignment::TOP_LEFT;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::FillParent;
+    size.sizePolicy = policies::Size::FILL_PARENT;
     return entity;
 }
 
@@ -430,9 +442,9 @@ entt::entity CreateWindow(std::string_view title, std::string_view alias)
     Registry::Emplace<components::WindowTag>(entity);
     auto& window = Registry::Emplace<components::Window>(entity);
     window.title = std::string(title);
-    window.flags &= ~policies::WindowFlag::Modal;
+    window.flags &= ~policies::WindowFlag::MODAL;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::Fixed;
+    size.sizePolicy = policies::Size::FIXED;
     auto& layoutInfo = Registry::Emplace<components::LayoutInfo>(entity);
     layoutInfo.direction = policies::LayoutDirection::VERTICAL;
     layoutInfo.alignment = policies::Alignment::CENTER;
@@ -484,7 +496,7 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
     constexpr uint32_t ICON_MAXIMIZE = 0xE930;
 
     auto titleBar = CreateTitleBarContainer(alias, TITLE_BAR_HEIGHT);
-    uint32_t windowID = windowComp->windowID;
+    uint32_t const windowID = windowComp->windowID;
     ConfigureTitleBarDragging(titleBar, windowEntity, windowID);
 
     auto titleLabel = CreateLabel(windowComp->title, std::string(alias) + "_title");
@@ -559,7 +571,7 @@ entt::entity CreateVBoxLayout(std::string_view alias)
     layout.direction = policies::LayoutDirection::VERTICAL;
     layout.alignment = policies::Alignment::TOP_LEFT;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::Auto;
+    size.sizePolicy = policies::Size::AUTO;
     Registry::Emplace<components::Padding>(entity);
     return entity;
 }
@@ -571,7 +583,7 @@ entt::entity CreateHBoxLayout(std::string_view alias)
     layout.direction = policies::LayoutDirection::HORIZONTAL;
     layout.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::Auto;
+    size.sizePolicy = policies::Size::AUTO;
     Registry::Emplace<components::Padding>(entity);
     return entity;
 }
@@ -593,22 +605,20 @@ entt::entity CreateTextBrowser(std::string_view initialText, std::string_view pl
     auto& edit = Registry::Get<components::TextEdit>(entity);
     edit.buffer = std::string(initialText);
     edit.cursorPosition = 0; // Start at beginning for read-only
-    edit.inputMode = policies::TextFlag::ReadOnly | policies::TextFlag::Multiline;
+    edit.inputMode = policies::TextFlag::READ_ONLY_MULTILINE;
     auto& text = Registry::Get<components::Text>(entity);
     text.content = edit.buffer;
 
-    // 添加 ScrollArea 组件以支持滚动
     auto& scrollArea = Registry::Emplace<components::ScrollArea>(entity);
-    scrollArea.scroll = policies::Scroll::Vertical;
-    scrollArea.scrollBar = policies::ScrollBar::Draggable | policies::ScrollBar::AutoHide;
-    scrollArea.anchor = policies::ScrollAnchor::Smart; // 设置为智能模式
+    scrollArea.scroll = policies::Scroll::VERTICAL;
+    scrollArea.scrollBar = policies::ScrollBar::DRAGGABLE | policies::ScrollBar::AUTO_HIDE;
+    scrollArea.anchor = policies::ScrollAnchor::SMART;
 
     text.alignment = policies::Alignment::TOP | policies::Alignment::LEFT;
-    text.wordWrap = policies::TextWrap::Word; // 自动换行
+    text.wordWrap = policies::TextWrap::WORD;
 
-    // 确保尺寸策略允许填充父容器
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::FillParent;
+    size.sizePolicy = policies::Size::FILL_PARENT;
 
     return entity;
 }
@@ -623,13 +633,11 @@ entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_
     auto& text = Registry::Emplace<components::Text>(entity);
     text.content   = label;
     text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
-    // 为文字留出左侧方框空间（约 24px）
     auto& padding = Registry::GetOrEmplace<components::Padding>(entity);
     padding.values = {0.0F, 0.0F, 0.0F, 24.0F}; // Top, Right, Bottom, Left
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::Auto;
+    size.sizePolicy = policies::Size::AUTO;
     size.size       = {120.0F, 22.0F};
-    // 挂载点击回调：点击时切换 checked 状态并触发 onChanged
     auto& clickable = Registry::Emplace<components::Clickable>(entity);
     clickable.onClick = [entity]()
     {
@@ -645,12 +653,10 @@ entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_
     return entity;
 }
 
-// ── DropDown 内部辅助函数（仅 Factory.cpp 可见）─────────────────────────────
 // NOLINTBEGIN(readability-*,misc-*)
 namespace
 {
 
-/// 向上遍历层级，找到最近的 WindowTag 祖先
 entt::entity FindWindowRoot(entt::entity entity)
 {
     entt::entity current = entity;
@@ -668,7 +674,6 @@ entt::entity FindWindowRoot(entt::entity entity)
 
 } // namespace (DropDown internal helpers)
 
-/// 关闭并销毁弹出列表（defer 到下一帧执行，避免在 onClick 内部销毁自身实体）
 void CloseDropDownPopup(entt::entity ddEntity)
 {
     auto* dropDown = Registry::TryGet<components::DropDown>(ddEntity);
@@ -684,19 +689,16 @@ void CloseDropDownPopup(entt::entity ddEntity)
     dropDown->open        = false;
     ui::utils::MarkVisualChanged(ddEntity);
 
-    // 延迟到下一帧销毁，确保当前事件处理完毕（避免在 onClick 内删除含 onClick 的实体）
     ui::utils::InvokeTask([popupToDestroy]()
     {
         if (!Registry::Valid(popupToDestroy)) return;
 
-        // 从父级 children 列表中移除
         const auto* popupHier = Registry::TryGet<components::Hierarchy>(popupToDestroy);
         if (popupHier != nullptr && popupHier->parent != entt::null)
         {
             hierarchy::RemoveChild(popupHier->parent, popupToDestroy);
         }
 
-        // 深度优先收集子树中所有实体后逆序销毁
         std::vector<entt::entity> toDestroy;
         std::vector<entt::entity> stack{popupToDestroy};
         while (!stack.empty())
@@ -723,7 +725,6 @@ void CloseDropDownPopup(entt::entity ddEntity)
     });
 }
 
-/// 打开弹出列表（在 ddEntity 正下方创建悬浮选项面板）
 namespace
 {
 void OpenDropDownPopup(entt::entity ddEntity)
@@ -731,38 +732,35 @@ void OpenDropDownPopup(entt::entity ddEntity)
     auto* dropDown = Registry::TryGet<components::DropDown>(ddEntity);
     if (dropDown == nullptr || dropDown->options.empty()) return;
 
-    // 找到窗口根节点，弹出层挂在其下以获得正确的绝对坐标空间
     const entt::entity windowRoot = FindWindowRoot(ddEntity);
     if (windowRoot == entt::null) return;
 
-    // 计算 dropdown 的屏幕绝对矩形
     const Rect ddRect = ui::utils::GetEntityRect(ddEntity);
 
     constexpr float ITEM_H   = 26.0F;
-    constexpr float ITEM_PAD = 6.0F;   // 文字左侧内边距
+    constexpr float ITEM_PAD = 6.0F;
     const float popupW = ddRect.width();
     const float popupH = ITEM_H * static_cast<float>(dropDown->options.size());
 
-    // 创建弹出面板
     const auto popup = CreateBaseWidget("__dd_popup__");
     auto& popupPos = Registry::Get<components::Position>(popup);
     popupPos.value          = {ddRect.x(), ddRect.y() + ddRect.height()};
-    popupPos.positionPolicy = policies::Position::Absolute;
+    popupPos.positionPolicy = policies::Position::ABSOLUTE_POS;
 
     auto& popupSize = Registry::Get<components::Size>(popup);
-    popupSize.sizePolicy = policies::Size::Fixed;
+    popupSize.sizePolicy = policies::Size::FIXED;
     popupSize.size       = {popupW, popupH};
 
     auto& popupBg = Registry::Emplace<components::Background>(popup);
     popupBg.color        = Color{0.13F, 0.13F, 0.18F, 0.97F};
     popupBg.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
-    popupBg.enabled      = policies::Feature::Enabled;
+    popupBg.enabled      = policies::Feature::ENABLED;
 
     auto& popupBorder = Registry::Emplace<components::Border>(popup);
     popupBorder.color        = Color{0.35F, 0.35F, 0.50F, 1.0F};
     popupBorder.thickness    = 1.0F;
     popupBorder.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
-    popupBorder.enabled      = policies::Feature::Enabled;
+    popupBorder.enabled      = policies::Feature::ENABLED;
 
     Registry::Emplace<components::ZOrderIndex>(popup).value = 1000;
 
@@ -770,11 +768,10 @@ void OpenDropDownPopup(entt::entity ddEntity)
     popupLayout.direction = policies::LayoutDirection::VERTICAL;
     popupLayout.alignment = policies::Alignment::TOP_LEFT;
 
-    // 为每个选项创建按钮
     const int optCount = static_cast<int>(dropDown->options.size());
     for (int idx = 0; idx < optCount; ++idx)
     {
-        const std::string& optText = dropDown->options[static_cast<std::size_t>(idx)];
+        const std::string& optText = dropDown->options.at(static_cast<std::size_t>(idx));
         const bool isSelected      = (idx == dropDown->selectedIndex);
 
         const auto optBtn = CreateBaseWidget("");
@@ -785,22 +782,20 @@ void OpenDropDownPopup(entt::entity ddEntity)
         btnText.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
 
         auto& btnSize = Registry::Get<components::Size>(optBtn);
-        btnSize.sizePolicy = policies::Size::Fixed;
+        btnSize.sizePolicy = policies::Size::FIXED;
         btnSize.size       = {popupW, ITEM_H};
 
         auto& btnPad = Registry::GetOrEmplace<components::Padding>(optBtn);
         btnPad.values = {0.0F, 0.0F, 0.0F, ITEM_PAD};
 
-        // 高亮当前选中项
         if (isSelected)
         {
             auto& selBg = Registry::Emplace<components::Background>(optBtn);
             selBg.color   = Color{0.25F, 0.45F, 0.80F, 0.40F};
-            selBg.enabled = policies::Feature::Enabled;
+            selBg.enabled = policies::Feature::ENABLED;
         }
         Registry::Emplace<components::Hoverable>(optBtn);
 
-        // 点击选项：更新选中值、关闭弹出层
         Registry::Get<components::Clickable>(optBtn).onClick = [ddEntity, idx]()
         {
             auto* ddComp = Registry::TryGet<components::DropDown>(ddEntity);
@@ -837,12 +832,11 @@ entt::entity CreateDropDown(const std::vector<std::string>& options, int selecte
     auto& dropDown = Registry::Emplace<components::DropDown>(entity);
     dropDown.options       = options;
     dropDown.selectedIndex = selectedIndex;
-    // 显示当前选中项文字
     auto& text = Registry::Emplace<components::Text>(entity);
     text.content   = dropDown.selectedText();
     text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
     auto& padding = Registry::GetOrEmplace<components::Padding>(entity);
-    padding.values = {0.0F, 20.0F, 0.0F, 6.0F}; // 右侧为箭头留 20px
+    padding.values = {0.0F, 20.0F, 0.0F, 6.0F};
     auto& clickable = Registry::Emplace<components::Clickable>(entity);
     clickable.onClick = [entity]()
     {
@@ -858,7 +852,7 @@ entt::entity CreateDropDown(const std::vector<std::string>& options, int selecte
         }
     };
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::Auto;
+    size.sizePolicy = policies::Size::AUTO;
     size.size       = {140.0F, 26.0F};
     return entity;
 }
@@ -867,10 +861,9 @@ entt::entity CreateSlider(std::string_view alias)
 {
     auto entity = CreateBaseWidget(alias);
     Registry::Emplace<components::SliderInfo>(entity);
-    // 默认尺寸：横向滑块高度 28
     auto& size = Registry::Get<components::Size>(entity);
     size.size = {200.0F, 28.0F};
-    size.sizePolicy = policies::Size::Fixed;
+    size.sizePolicy = policies::Size::FIXED;
     Registry::Emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
     Registry::Emplace<components::SliderTag>(entity);
@@ -883,7 +876,7 @@ entt::entity CreateProgressBar(std::string_view alias)
     Registry::Emplace<components::ProgressBar>(entity);
     auto& size = Registry::Get<components::Size>(entity);
     size.size = {200.0F, 14.0F};
-    size.sizePolicy = policies::Size::Fixed;
+    size.sizePolicy = policies::Size::FIXED;
     Registry::Emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
     Registry::Emplace<components::ProgressBarTag>(entity);
@@ -903,7 +896,7 @@ entt::entity CreateImageFromPath(std::string_view path,
     if (defaultWidth > 0.0F || defaultHeight > 0.0F)
     {
         size.size = {defaultWidth, defaultHeight};
-        size.sizePolicy = policies::Size::Fixed;
+        size.sizePolicy = policies::Size::FIXED;
     }
     Registry::Emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
@@ -917,7 +910,7 @@ entt::entity CreateCanvas(float width, float height, std::string_view alias)
     Registry::Emplace<components::CanvasDrawList>(entity);
     auto& size = Registry::Get<components::Size>(entity);
     size.size = {width, height};
-    size.sizePolicy = policies::Size::Fixed;
+    size.sizePolicy = policies::Size::FIXED;
     Registry::Emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
     return entity;
@@ -930,14 +923,12 @@ entt::entity CreateTable(int columns, std::string_view alias)
     auto& info = Registry::Emplace<components::TableInfo>(entity);
     info.columnCount = columns;
     auto& size = Registry::Get<components::Size>(entity);
-    size.sizePolicy = policies::Size::FillParent;
+    size.sizePolicy = policies::Size::FILL_PARENT;
 
-    // 启用垂直滚动：行数超出可视区域时自动显示滚动条
     auto& scrollArea = Registry::Emplace<components::ScrollArea>(entity);
-    scrollArea.scroll = policies::Scroll::Vertical;
-    scrollArea.scrollBar = policies::ScrollBar::Draggable | policies::ScrollBar::AutoHide;
+    scrollArea.scroll = policies::Scroll::VERTICAL;
+    scrollArea.scrollBar = policies::ScrollBar::DRAGGABLE | policies::ScrollBar::AUTO_HIDE;
 
-    // 顶部内边距 = 表头高度，使 ScrollArea 视口从表头下方开始，确保子控件被正确裁剪
     auto& padding = Registry::Emplace<components::Padding>(entity);
     padding.values.x() = components::TableInfo{}.headerHeight; // top = 32.0F
 

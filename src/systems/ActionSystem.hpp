@@ -28,8 +28,10 @@
 #include "../singleton/Logger.hpp"
 #include "../interface/Isystem.hpp"
 #include "../api/Animation.hpp"
+#include "../common/components/Animation.hpp"
+#include "../common/components/Interaction.hpp"
+#include "../common/components/Layout.hpp"
 #include "../core/RuntimeFacade.hpp"
-#include "../common/Components.hpp"
 #include "../common/GlobalContext.hpp"
 namespace ui::systems
 {
@@ -76,6 +78,42 @@ private:
 
         ui::animation::StartTransformAnimation(entity, targetScale, targetOffset, options, defaultScale, defaultOffset);
     }
+
+    void startDragging(components::Draggable& draggable)
+    {
+        if (draggable.dragging) return;
+
+        draggable.dragging = true;
+        if (draggable.onDragStart) draggable.onDragStart();
+    }
+
+    void applyDragDelta(entt::registry& reg, entt::entity entity, const components::Draggable& draggable, const Vec2& delta)
+    {
+        auto* pos = reg.try_get<components::Position>(entity);
+        if (pos == nullptr) return;
+
+        if (!draggable.lockX) pos->value.x() += delta.x();
+        if (!draggable.lockY) pos->value.y() += delta.y();
+    }
+
+    void applyDragAnimation(entt::registry& reg, entt::entity entity)
+    {
+        auto* interact = reg.try_get<components::InteractiveAnimation>(entity);
+        if (interact == nullptr) return;
+
+        std::optional<Vec2> targetScale =
+            interact->dragScale.has_value() ? interact->dragScale : interact->pressScale;
+        std::optional<Vec2> targetOffset =
+            interact->dragLiftOffset.has_value() ? interact->dragLiftOffset : interact->pressOffset;
+
+        applyAnimation(entity,
+                       targetScale,
+                       targetOffset,
+                       interact->dragDuration,
+                       interact->normalScale,
+                       interact->normalOffset);
+    }
+
     /**
      * @brief 处理命中点的指针移动事件
      * @param event 命中点指针移动事件数据
@@ -89,46 +127,17 @@ private:
 
         if (!reg.valid(entity)) return;
 
-        // 检查是否可拖拽
-        if (auto* draggable = reg.try_get<components::Draggable>(entity);
-            draggable != nullptr && draggable->enabled == policies::Feature::Enabled)
-        {
-            // 只有当鼠标移动且按下时
-            if (event.raw.delta == Vec2{0, 0}) return;
+        auto* draggable = reg.try_get<components::Draggable>(entity);
+        if (draggable == nullptr || draggable->enabled != policies::Feature::ENABLED) return;
 
-            if (!draggable->dragging)
-            {
-                draggable->dragging = true;
-                if (draggable->onDragStart) draggable->onDragStart();
-            }
+        if (event.raw.delta == Vec2{0, 0}) return;
 
-            // 应用移动
-            if (auto* pos = reg.try_get<components::Position>(entity))
-            {
-                if (!draggable->lockX) pos->value.x() += event.raw.delta.x();
-                if (!draggable->lockY) pos->value.y() += event.raw.delta.y();
-            }
+        startDragging(*draggable);
+        applyDragDelta(reg, entity, *draggable, event.raw.delta);
 
-            // 触发回调
-            if (draggable->onDragMove) draggable->onDragMove(event.raw.delta);
+        if (draggable->onDragMove) draggable->onDragMove(event.raw.delta);
 
-            // 应用拖拽动效 (如果配置了 InteractiveAnimation)
-            if (auto* interact = reg.try_get<components::InteractiveAnimation>(entity))
-            {
-                // 切换到 Drag 状态 (优先使用 drag 配置，否则回退到 press 配置)
-                std::optional<Vec2> targetScale =
-                    interact->dragScale.has_value() ? interact->dragScale : interact->pressScale;
-                std::optional<Vec2> targetOffset =
-                    interact->dragLiftOffset.has_value() ? interact->dragLiftOffset : interact->pressOffset;
-
-                applyAnimation(entity,
-                               targetScale,
-                               targetOffset,
-                               interact->dragDuration,
-                               interact->normalScale,
-                               interact->normalOffset);
-            }
-        }
+        applyDragAnimation(reg, entity);
     }
 
     void onMousePress(const ui::events::MousePressEvent& event)
@@ -198,7 +207,7 @@ private:
 
         // 处理点击回调
         auto* clickable = reg.try_get<ui::components::Clickable>(event.entity);
-        if (clickable != nullptr && clickable->enabled == policies::Feature::Enabled && clickable->onClick)
+        if (clickable != nullptr && clickable->enabled == policies::Feature::ENABLED && clickable->onClick)
         {
             Logger::info("Entity {} clicked", static_cast<uint32_t>(event.entity));
             clickable->onClick();
@@ -216,7 +225,7 @@ private:
 
         // 处理 Hover 回调
         auto* hoverable = reg.try_get<ui::components::Hoverable>(event.entity);
-        if (hoverable != nullptr && hoverable->enabled == policies::Feature::Enabled && hoverable->onHover)
+        if (hoverable != nullptr && hoverable->enabled == policies::Feature::ENABLED && hoverable->onHover)
         {
             hoverable->onHover();
         }
@@ -244,7 +253,7 @@ private:
 
         // 处理 Unhover 回调
         auto* hoverable = reg.try_get<ui::components::Hoverable>(event.entity);
-        if (hoverable != nullptr && hoverable->enabled == policies::Feature::Enabled && hoverable->onUnhover)
+        if (hoverable != nullptr && hoverable->enabled == policies::Feature::ENABLED && hoverable->onUnhover)
         {
             hoverable->onUnhover();
         }

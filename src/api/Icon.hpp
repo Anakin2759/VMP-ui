@@ -33,7 +33,7 @@ namespace ui::icon
  */
 void SetIcon(entt::entity entity,
              const std::string& textureId,
-             policies::IconFlag iconflag = policies::IconFlag::Default,
+             policies::IconFlag iconflag = policies::IconFlag::DEFAULT,
              float iconSize = 16.0F,
              float spacing = 4.0F);
 /**
@@ -48,7 +48,7 @@ void SetIcon(entt::entity entity,
 void SetIcon(entt::entity entity,
              const std::string& fontName,
              uint32_t codepoint,
-             policies::IconFlag iconflag = policies::IconFlag::Default,
+             policies::IconFlag iconflag = policies::IconFlag::DEFAULT,
              float iconSize = 16.0F,
              float spacing = 4.0F);
 
@@ -70,14 +70,14 @@ namespace ui::chains
 {
 inline auto Icon(const std::string& fontName,
                  uint32_t codepoint,
-                 policies::IconFlag iconflag = policies::IconFlag::Default,
+                 policies::IconFlag iconflag = policies::IconFlag::DEFAULT,
                  float iconSize = 16.0F,
                  float spacing = 4.0F)
 {
     return ui::actions::icon::SET_FONT_ICON_ACTION.bind(fontName, codepoint, iconflag, iconSize, spacing);
 }
 inline auto Icon(const std::string& textureId,
-                 policies::IconFlag iconflag = policies::IconFlag::Default,
+                 policies::IconFlag iconflag = policies::IconFlag::DEFAULT,
                  float iconSize = 16.0F,
                  float spacing = 4.0F)
 {

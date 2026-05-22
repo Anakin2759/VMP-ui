@@ -3,18 +3,55 @@
  */
 
 #include "EventLoop.hpp"
+#include "asio/io_context.hpp"
+#include "asio/executor_work_guard.hpp"
+#include "asio/error_code.hpp"
 #include <chrono>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <memory>
 namespace ui
 {
+namespace
+{
+void WriteStderr(const char* text) noexcept
+{
+    if (text == nullptr)
+    {
+        return;
+    }
+
+    const auto textSize = std::strlen(text);
+    if (std::fwrite(text, 1U, textSize, stderr) != textSize)
+    {
+        std::clearerr(stderr);
+    }
+}
+} // namespace
+
 EventLoop::EventLoop()
     : m_ioContext(std::make_unique<asio::io_context>()), m_workGuard(asio::make_work_guard(*m_ioContext)),
       m_frameTimer(*m_ioContext), m_running(false)
 {
 }
 
-EventLoop::~EventLoop()
+EventLoop::~EventLoop() noexcept
 {
-    quit();
+    try
+    {
+        quit();
+    }
+    catch (const std::exception& exception)
+    {
+        WriteStderr("[EventLoop] destructor cleanup failed: ");
+        WriteStderr(exception.what());
+        WriteStderr("\n");
+    }
+    catch (...)
+    {
+        WriteStderr("[EventLoop] destructor cleanup failed with unknown exception\n");
+    }
 }
 
 void EventLoop::scheduleNextFrame()

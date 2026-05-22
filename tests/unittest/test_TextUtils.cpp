@@ -13,7 +13,9 @@
  * ************************************************************************
  */
 #include <gtest/gtest.h>
+#include <string>
 
+#include "common/Policies.hpp"
 #include "src/core/TextUtils.hpp"
 
 namespace ui::tests
@@ -46,37 +48,37 @@ TEST(TextUtilsTest, WrapTextLinesReturnsOriginalTextWhenWrapDisabled)
     const auto lines = ui::utils::WrapTextLines("alpha beta", 3, ui::policies::TextWrap::NONE, MeasureByByteLength);
 
     ASSERT_EQ(lines.size(), 1U);
-    EXPECT_EQ(lines[0], "alpha beta");
+    EXPECT_EQ(lines.at(0), "alpha beta");
 }
 
 TEST(TextUtilsTest, WrapTextLinesPreservesBlankLinesBetweenParagraphs)
 {
-    const auto lines = ui::utils::WrapTextLines("alpha\n\nbeta", 10, ui::policies::TextWrap::Word, MeasureByByteLength);
+    const auto lines = ui::utils::WrapTextLines("alpha\n\nbeta", 10, ui::policies::TextWrap::WORD, MeasureByByteLength);
 
     ASSERT_EQ(lines.size(), 4U);
-    EXPECT_EQ(lines[0], "alpha");
-    EXPECT_EQ(lines[1], "");
-    EXPECT_EQ(lines[2], "");
-    EXPECT_EQ(lines[3], "beta");
+    EXPECT_EQ(lines.at(0), "alpha");
+    EXPECT_EQ(lines.at(1), "");
+    EXPECT_EQ(lines.at(2), "");
+    EXPECT_EQ(lines.at(3), "beta");
 }
 
 TEST(TextUtilsTest, WordWrapFallsBackToCharacterWrapForLongWord)
 {
-    const auto lines = ui::utils::WrapTextLines("abcdef", 2, ui::policies::TextWrap::Word, MeasureByByteLength);
+    const auto lines = ui::utils::WrapTextLines("abcdef", 2, ui::policies::TextWrap::WORD, MeasureByByteLength);
 
     ASSERT_EQ(lines.size(), 3U);
-    EXPECT_EQ(lines[0], "ab");
-    EXPECT_EQ(lines[1], "cd");
-    EXPECT_EQ(lines[2], "ef");
+    EXPECT_EQ(lines.at(0), "ab");
+    EXPECT_EQ(lines.at(1), "cd");
+    EXPECT_EQ(lines.at(2), "ef");
 }
 
 TEST(TextUtilsTest, CharWrapSplitsAtCharacterGranularity)
 {
-    const auto lines = ui::utils::WrapTextLines("abcd", 2, ui::policies::TextWrap::Char, MeasureByByteLength);
+    const auto lines = ui::utils::WrapTextLines("abcd", 2, ui::policies::TextWrap::CHAR, MeasureByByteLength);
 
     ASSERT_EQ(lines.size(), 2U);
-    EXPECT_EQ(lines[0], "ab");
-    EXPECT_EQ(lines[1], "cd");
+    EXPECT_EQ(lines.at(0), "ab");
+    EXPECT_EQ(lines.at(1), "cd");
 }
 
 TEST(TextUtilsTest, GetTailThatFitsReturnsLongestSuffixWithinWidth)

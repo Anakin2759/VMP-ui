@@ -5,25 +5,48 @@
 #include "Application.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdio>
 #include <cstdint>
-
-#include <SDL3/SDL.h>
+#include <cstring>
+#include <exception>
+#include <stdexcept>
+#include <string>
 
 #include "RuntimeFacade.hpp"
+#include "SDL3/SDL_init.h"
+#include "SDL3/SDL_error.h"
+#include "SDL3/SDL_timer.h"
 #include "TaskChain.hpp"
 
 #include "../api/Factory.hpp"
 #include "../common/GlobalContext.hpp"
 #include "../singleton/Logger.hpp"
+#include "common/Events.hpp"
+#include "singleton/Dispatcher.hpp"
 
 static constexpr uint32_t MAX_FRAME_TIME_MS = 250; // 防止卡顿时长时间更新
 static constexpr uint32_t LOOP_DELAY_MS = 1;       // 主循环延迟，防止100% CPU占用
 
 namespace
 {
-void onDropDownCloseRequested(const ui::events::DropDownCloseRequested& e)
+void OnDropDownCloseRequested(const ui::events::DropDownCloseRequested& event)
 {
-    ui::factory::CloseDropDownPopup(e.entity);
+    ui::factory::CloseDropDownPopup(event.entity);
+}
+
+void WriteStderr(const char* text) noexcept
+{
+    if (text == nullptr)
+    {
+        return;
+    }
+
+    const auto textSize = std::strlen(text);
+    if (std::fwrite(text, 1U, textSize, stderr) != textSize)
+    {
+        std::clearerr(stderr);
+    }
 }
 } // namespace
 
@@ -69,15 +92,28 @@ Application::Application(std::span<char*> arg) // NOLINT
         });
 
     runtime.sink<ui::events::QuitRequested>().connect<&Application::onQuitRequested>(*this);
-    Dispatcher::Sink<events::DropDownCloseRequested>().connect<&onDropDownCloseRequested>();
+    Dispatcher::Sink<events::DropDownCloseRequested>().connect<&OnDropDownCloseRequested>();
 }
 
-Application::~Application()
+Application::~Application() noexcept
 {
-    RuntimeFacade::current().sink<ui::events::QuitRequested>().disconnect<&Application::onQuitRequested>(*this);
-    Dispatcher::Sink<events::DropDownCloseRequested>().disconnect<&onDropDownCloseRequested>();
-    m_systems.unregisterAllHandlers();
-    SDL_Quit();
+    try
+    {
+        RuntimeFacade::current().sink<ui::events::QuitRequested>().disconnect<&Application::onQuitRequested>(*this);
+        Dispatcher::Sink<events::DropDownCloseRequested>().disconnect<&OnDropDownCloseRequested>();
+        m_systems.unregisterAllHandlers();
+        SDL_Quit();
+    }
+    catch (const std::exception& exception)
+    {
+        WriteStderr("[Application] destructor cleanup failed: ");
+        WriteStderr(exception.what());
+        WriteStderr("\n");
+    }
+    catch (...)
+    {
+        WriteStderr("[Application] destructor cleanup failed with unknown exception\n");
+    }
 }
 
 void Application::onQuitRequested([[maybe_unused]] ui::events::QuitRequested& /*event*/)

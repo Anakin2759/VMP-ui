@@ -128,11 +128,3 @@ SystemHeaders: false
 # Don't inherit .clang-tidy from parent folders
 InheritParentConfig: false
 
-# Compiler args for correct parsing
-ExtraArgs:
-  - -std=c++23
-  - -DASIO_STANDALONE
-  - -DUNICODE
-  - -D_UNICODE
-  - -Wno-unknown-pragmas
-  - /EHsc

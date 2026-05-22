@@ -5,7 +5,6 @@
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-05-18
  * @version 0.1
- * @brief Canvas 渲染器 - 将 CanvasDrawList 中的绘图命令转换为 GPU 批次
  *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
@@ -26,10 +25,7 @@ namespace ui::renderers
 {
 
 /**
- * @brief Canvas 渲染器
  *
- * 负责渲染 CanvasTag + CanvasDrawList 实体。
- * 将绘图命令转换为 BatchManager 的 addRect 调用（线段/矩形/圆形近似）。
  */
 class CanvasRenderer : public core::IRenderer
 {
@@ -140,13 +136,9 @@ private:
         const Eigen::Vector4f col = toVec4(cmd.color, context.alpha);
 
         beginWhiteBatch(context);
-        // 上边
         context.batchManager->addRect({left, top}, {right - left, lineW}, col);
-        // 下边
         context.batchManager->addRect({left, bottom - lineW}, {right - left, lineW}, col);
-        // 左边
         context.batchManager->addRect({left, top + lineW}, {lineW, bottom - top - (2 * lineW)}, col);
-        // 右边
         context.batchManager->addRect({right - lineW, top + lineW}, {lineW, bottom - top - (2 * lineW)}, col);
     }
 
@@ -169,7 +161,7 @@ private:
         pushConst.radius[2]      = radius;
         pushConst.radius[3]      = radius;
         pushConst.opacity        = context.alpha;
-        pushConst.draw_mode      = 0.0F; // 填充
+        pushConst.draw_mode      = 0.0F;
 
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConst);
         context.batchManager->addRect({centerX - radius, centerY - radius}, {2.0F * radius, 2.0F * radius}, col);
@@ -195,14 +187,13 @@ private:
         pushConst.radius[2]      = radius;
         pushConst.radius[3]      = radius;
         pushConst.opacity        = context.alpha;
-        pushConst.draw_mode      = 1.0F; // 描边
+        pushConst.draw_mode      = 1.0F;
         pushConst.stroke_width   = lineW;
 
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConst);
         context.batchManager->addRect({centerX - radius, centerY - radius}, {2.0F * radius, 2.0F * radius}, col);
     }
 
-    // ---- 折线渲染：逐段绘制为带方向感知的矩形 ----
     static void renderPolyline(const components::CanvasDrawCommand& cmd,
                                const Eigen::Vector2f& origin,
                                core::RenderContext& context)
@@ -222,18 +213,15 @@ private:
         }
     }
 
-    // ---- 三次贝塞尔曲线：自适应细分后逐段渲染 ----
     static void renderCubicBezier(const components::CanvasDrawCommand& cmd,
                                   const Eigen::Vector2f& origin,
                                   core::RenderContext& context)
     {
-        // 将世界坐标映射到屏幕
         const Vec2 startPt{origin.x() + cmd.p1.x(), origin.y() + cmd.p1.y()};
         const Vec2 cp1{origin.x() + cmd.p2.x(), origin.y() + cmd.p2.y()};
         const Vec2 cp2{origin.x() + cmd.p3.x(), origin.y() + cmd.p3.y()};
         const Vec2 endPt{origin.x() + cmd.p4.x(), origin.y() + cmd.p4.y()};
 
-        // 自适应细分，生成折线顶点
         std::vector<Vec2> pts;
         pts.reserve(32);
         pts.push_back(startPt);
@@ -247,7 +235,6 @@ private:
         }
     }
 
-    // ---- 开始胶囊批次（draw_mode=2, rect_size=[totalW, totalH]）----
     static void beginCapsuleBatch(float totalWidth, float totalHeight,
                                   core::RenderContext& context)
     {
@@ -261,7 +248,6 @@ private:
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConst);
     }
 
-    // ---- 通用线段 → 胶囊 SDF（有向旋转四边形，亚像素抗锯齿）----
     static void renderSegment(float startX, float startY, float endX, float endY,
                               float lineWidth,
                               const Eigen::Vector4f& col,
@@ -272,36 +258,29 @@ private:
         const float len = std::sqrt((dirX * dirX) + (dirY * dirY));
         if (len < 0.001F) return;
 
-        // 单位切向 / 法向
         const float tanX = dirX / len;
         const float tanY = dirY / len;
         const float normX = -tanY;
         const float normY =  tanX;
 
-        // 胶囊外包矩形尺寸（沿切向扩 radius，沿法向扩 radius）
         const float halfRadius = lineWidth * 0.5F;
-        // 1px 外扩让 smoothstep 有空间，避免边缘被裁
         const float expand = halfRadius + 1.0F;
-        const float totalW = len + (2.0F * expand); // shader 里 half_l = (totalW/2) - halfRadius
-        const float totalH = lineWidth + 2.0F;      // shader 里 half_r = totalH/2
+        const float totalW = len + (2.0F * expand);
+        const float totalH = lineWidth + 2.0F;
 
-        // 中心点
         const float midX = (startX + endX) * 0.5F;
         const float midY = (startY + endY) * 0.5F;
 
-        // 有向四边形的四个角（切向 ± expand，法向 ± (halfRadius+1)）
         const float halfTanX = tanX  * (totalW * 0.5F);
         const float halfTanY = tanY  * (totalW * 0.5F);
         const float halfNrmX = normX * (totalH * 0.5F);
         const float halfNrmY = normY * (totalH * 0.5F);
 
-        // 左上、右上、右下、左下（以线段切向为 X 轴）
         const Eigen::Vector2f vertTopLeft{midX - halfTanX + halfNrmX, midY - halfTanY + halfNrmY};
         const Eigen::Vector2f vertTopRight{midX + halfTanX + halfNrmX, midY + halfTanY + halfNrmY};
         const Eigen::Vector2f vertBotRight{midX + halfTanX - halfNrmX, midY + halfTanY - halfNrmY};
         const Eigen::Vector2f vertBotLeft{midX - halfTanX - halfNrmX, midY - halfTanY - halfNrmY};
 
-        // UV = 归一化本地坐标 [0,1]，shader 内通过 rect_size 还原为像素偏移
         const Eigen::Vector2f uvTopLeft{0.0F, 0.0F};
         const Eigen::Vector2f uvTopRight{1.0F, 0.0F};
         const Eigen::Vector2f uvBotRight{1.0F, 1.0F};
@@ -312,11 +291,10 @@ private:
                                               uvTopLeft, uvTopRight, uvBotRight, uvBotLeft, col);
     }
 
-    // ---- de Casteljau 自适应细分（目标弦误差 ≤ 0.5px²，迭代实现） ----
     static void tessellateCubic(Vec2 ptA, Vec2 ptB, Vec2 ptC, Vec2 ptD,
                                 std::vector<Vec2>& out)
     {
-        constexpr float FLATNESS_SQ = 0.25F; // 0.5px²
+        constexpr float FLATNESS_SQ = 0.25F; // 0.5px2
         constexpr int   MAX_DEPTH   = 8;
 
         struct Seg { Vec2 ptA, ptB, ptC, ptD; int segDepth; };

@@ -1,8 +1,10 @@
 #include "Layout.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
 #include "../common/Policies.hpp"
 #include "Utils.hpp"
+#include "entt/entity/fwd.hpp"
+#include "common/components/Layout.hpp"
+#include <algorithm>
 namespace ui::layout
 {
 

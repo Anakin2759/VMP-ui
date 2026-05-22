@@ -57,7 +57,7 @@ public:
 
     void onQuitRequested([[maybe_unused]] ui::events::QuitRequested& event);
 
-    virtual ~Application();
+    virtual ~Application() noexcept;
 
     /**
      * @brief 应用主循环

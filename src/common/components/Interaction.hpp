@@ -32,9 +32,9 @@ struct ScrollArea
     Vec2 scrollOffset{0.0F, 0.0F};                        // 当前滚动位置
     Vec2 contentSize{0.0F, 0.0F};                         // 内容区域大小
     float scrollSpeed{DEFAULT_SCROLL_SPEED};              // 滚动速度
-    policies::Scroll scroll = policies::Scroll::Vertical; // 滚动方向
-    policies::ScrollBar scrollBar = policies::ScrollBar::Draggable;
-    policies::ScrollAnchor anchor = policies::ScrollAnchor::Top; // 滚动锚定策略
+    policies::Scroll scroll = policies::Scroll::VERTICAL; // 滚动方向
+    policies::ScrollBar scrollBar = policies::ScrollBar::DRAGGABLE;
+    policies::ScrollAnchor anchor = policies::ScrollAnchor::TOP; // 滚动锚定策略
 };
 
 /**
@@ -59,7 +59,7 @@ struct Clickable
 {
     using is_component_tag = void;
     on_event<> onClick;
-    policies::Feature enabled = policies::Feature::Enabled;
+    policies::Feature enabled = policies::Feature::ENABLED;
 };
 
 /**
@@ -69,7 +69,7 @@ struct Clickable
 struct Draggable
 {
     using is_component_tag = void;
-    policies::Feature enabled = policies::Feature::Enabled;
+    policies::Feature enabled = policies::Feature::ENABLED;
     bool lockX = false; // 锁定X轴
     bool lockY = false; // 锁定Y轴
     bool dragging = false;
@@ -88,7 +88,7 @@ struct Hoverable
     using is_component_tag = void;
     on_event<> onHover;
     on_event<> onUnhover;
-    policies::Feature enabled = policies::Feature::Enabled;
+    policies::Feature enabled = policies::Feature::ENABLED;
 };
 
 /**
@@ -99,7 +99,7 @@ struct Pressable
     using is_component_tag = void;
     on_event<> onPress;   // 鼠标按下时触发
     on_event<> onRelease; // 鼠标松开时触发
-    policies::Feature enabled = policies::Feature::Enabled;
+    policies::Feature enabled = policies::Feature::ENABLED;
 };
 
 /**
@@ -108,7 +108,7 @@ struct Pressable
 struct Checkable
 {
     using is_component_tag = void;
-    policies::CheckState checked = policies::CheckState::Unchecked;
+    policies::CheckState checked = policies::CheckState::UNCHECKED;
 };
 
 } // namespace ui::components

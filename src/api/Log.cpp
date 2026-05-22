@@ -17,12 +17,22 @@
 #include "../singleton/Logger.hpp"
 
 #include <atomic>
+#include <string_view>
 
 namespace
 {
 
-std::atomic<ui::log::Callback> g_callback{nullptr};
-std::atomic<ui::log::Level>    g_level{ui::log::Level::DEBUG};
+std::atomic<ui::log::Callback>& CallbackStorage()
+{
+    static std::atomic<ui::log::Callback> callback{nullptr};
+    return callback;
+}
+
+std::atomic<ui::log::Level>& LevelStorage()
+{
+    static std::atomic<ui::log::Level> level{ui::log::Level::DEBUG};
+    return level;
+}
 
 } // namespace
 
@@ -31,17 +41,17 @@ namespace ui::log
 
 void SetLevel(Level level)
 {
-    g_level.store(level, std::memory_order_relaxed);
+    LevelStorage().store(level, std::memory_order_relaxed);
 }
 
 void SetCallback(Callback callback)
 {
-    g_callback.store(callback, std::memory_order_relaxed);
+    CallbackStorage().store(callback, std::memory_order_relaxed);
 }
 
 void LogImpl(Level level, std::string_view message)
 {
-    if (level < g_level.load(std::memory_order_relaxed)) return;
+    if (level < LevelStorage().load(std::memory_order_relaxed)) return;
 
     // 转发到内部 spdlog Logger
     switch (level)
@@ -55,9 +65,9 @@ void LogImpl(Level level, std::string_view message)
     }
 
     // 如果有外部回调也一并通知
-    if (auto* cb = g_callback.load(std::memory_order_relaxed); cb != nullptr)
+    if (auto* callback = CallbackStorage().load(std::memory_order_relaxed); callback != nullptr)
     {
-        cb(level, message);
+        callback(level, message);
     }
 }
 

@@ -27,9 +27,9 @@ enum class LayoutDirection : uint8_t;
 enum class Alignment : uint8_t;
 enum class Play : uint8_t;
 enum class Easing : uint8_t;
-enum class WindowFlag : uint16_t;
+enum class WindowFlag : uint8_t;
 enum class Position : uint8_t;
-enum class TextFlag : uint32_t;
+enum class TextFlag : uint16_t;
 enum class ScrollBar : uint8_t;
 enum class IconFlag : uint8_t;
 } // namespace ui::policies

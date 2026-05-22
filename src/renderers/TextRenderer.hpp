@@ -5,7 +5,6 @@
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-01-30
  * @version 0.1
- * @brief 文本渲染器 - 处理所有文本的渲染
  *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
@@ -34,10 +33,7 @@ namespace ui::renderers
 {
 
 /**
- * @brief 文本渲染器
  *
- * 负责渲染：
- * - 普通文本
  * - 按钮文本
  * - 标签文本
  * - 文本输入框文本及光标
@@ -48,7 +44,6 @@ public:
     TextRenderer() = default;
 
     /**
-     * @brief 检查实体是否可以由文本渲染器处理
      * @param entity 要检查的实体
      * @return true 如果实体可以由文本渲染器处理
      * @return false 如果实体不能由文本渲染器处理
@@ -66,7 +61,6 @@ public:
             return;
         }
 
-        // 文本渲染 (普通文本、按钮、标签)
         if (Registry::AnyOf<components::TextTag, components::ButtonTag, components::LabelTag>(entity))
         {
             const auto* textComp = Registry::TryGet<components::Text>(entity);
@@ -76,7 +70,6 @@ public:
             }
         }
 
-        // 文本输入框渲染
         if (Registry::AnyOf<components::TextEditTag>(entity))
         {
             const auto* textComp = Registry::TryGet<components::Text>(entity);
@@ -90,7 +83,7 @@ public:
 
     int getPriority() const override
     {
-        return 10; // 文本在背景之后渲染
+        return 10;
     }
 
 private:
@@ -236,7 +229,7 @@ private:
             float inferredWidth = getAncestorScrollAreaTextWidth(entity);
             if (inferredWidth > 0.0F)
             {
-                wrapMode = policies::TextWrap::Word;
+                wrapMode = policies::TextWrap::WORD;
                 wrapWidth = inferredWidth;
             }
         }
@@ -253,7 +246,7 @@ private:
         {
             if (auto* sizeComp = Registry::TryGet<components::Size>(entity))
             {
-                if (policies::HasFlag(sizeComp->sizePolicy, policies::Size::VAuto))
+                if (policies::HasFlag(sizeComp->sizePolicy, policies::Size::V_AUTO))
                 {
                     const auto lineHeight = static_cast<float>(context.fontManager->getFontHeight(fontSize));
                     if (lineHeight > 0.0F)
@@ -373,7 +366,7 @@ private:
     static bool isMultilineTextEdit(const components::TextEdit& textEdit)
     {
         const auto modeVal = static_cast<uint8_t>(textEdit.inputMode);
-        const auto multiFlag = static_cast<uint8_t>(policies::TextFlag::Multiline);
+        const auto multiFlag = static_cast<uint8_t>(policies::TextFlag::MULTILINE);
         return (modeVal & multiFlag) != 0;
     }
 
@@ -606,11 +599,11 @@ private:
             scrollArea.contentSize.x() = contentWidth;
             scrollArea.contentSize.y() = totalTextHeight;
 
-            if (scrollArea.anchor == policies::ScrollAnchor::Bottom)
+            if (scrollArea.anchor == policies::ScrollAnchor::BOTTOM)
             {
                 scrollArea.scrollOffset.y() += (newHeight - oldHeight);
             }
-            else if (scrollArea.anchor == policies::ScrollAnchor::Smart)
+            else if (scrollArea.anchor == policies::ScrollAnchor::SMART)
             {
                 const float oldMaxScroll = std::max(0.0F, oldHeight - viewportHeight);
                 const bool wasAtBottom = (scrollArea.scrollOffset.y() >= oldMaxScroll - 2.0F);
@@ -631,7 +624,7 @@ private:
     void renderMultilineTextEdit(const TextEditRenderArgs& args)
     {
         policies::TextWrap wrapMode =
-            args.text().wordWrap != policies::TextWrap::NONE ? args.text().wordWrap : policies::TextWrap::Word;
+            args.text().wordWrap != policies::TextWrap::NONE ? args.text().wordWrap : policies::TextWrap::WORD;
         auto measureFunc =
             [fontManager = args.renderContext().fontManager, fontSize = args.fontSize](const std::string& str)
         { return ui::cpo::measure_text_width(*fontManager, str, fontSize); };
@@ -753,7 +746,6 @@ private:
             drawY += size.y() - textSize.y();
         }
 
-        // 对齐到整数像素，避免亚像素偏移导致线性滤波在预乘 Alpha 纹理上产生暗边
         drawX = std::round(drawX);
         drawY = std::round(drawY);
 
@@ -785,7 +777,7 @@ private:
         pushConstants.rect_size[0] = textSize.x();
         pushConstants.rect_size[1] = textSize.y();
         pushConstants.opacity = opacity;
-        pushConstants.padding = 2.0F; // 标记纹理为 alpha mask，由 shader 负责着色
+        pushConstants.padding = 2.0F;
 
         context.batchManager->beginBatch(textTexture, context.currentScissor, pushConstants);
         context.batchManager->addRect({drawX, drawY}, textSize, color);

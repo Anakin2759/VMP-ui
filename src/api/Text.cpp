@@ -1,8 +1,15 @@
 #include "Text.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
 #include "../common/Tags.hpp"
 #include "../api/Utils.hpp"
+#include "entt/entity/fwd.hpp"
+#include <string>
+#include "common/components/Data.hpp"
+#include "common/Policies.hpp"
+#include "common/Types.hpp"
+#include <algorithm>
+#include "common/components/Interaction.hpp"
+#include <utility>
 namespace ui::text
 {
 void SetText(::entt::entity entity, const std::string& content)
@@ -95,7 +102,7 @@ void SetClickCallback(::entt::entity entity, components::on_event<> callback)
     if (!Registry::Valid(entity)) return;
     auto& clickable = Registry::GetOrEmplace<components::Clickable>(entity);
     clickable.onClick = std::move(callback);
-    clickable.enabled = policies::Feature::Enabled;
+    clickable.enabled = policies::Feature::ENABLED;
 }
 
 void SetOnSubmit(::entt::entity entity, components::on_event<> callback)

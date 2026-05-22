@@ -2,7 +2,8 @@
 
 #include <entt/entt.hpp>
 
-#include "src/common/Components.hpp"
+#include "entt/entity/fwd.hpp"
+#include "common/components/Window.hpp"
 #include "src/common/Events.hpp"
 #include "src/common/GlobalContext.hpp"
 #include "src/core/RuntimeFacade.hpp"
@@ -34,7 +35,7 @@ TEST(UiRuntimeTest, NestedRuntimeScopesSwitchRegistryAndDispatcherIndependently)
     bool secondTriggered = false;
 
     {
-        UiRuntimeScope firstScope(firstRuntime);
+        UiRuntimeScope const firstScope(firstRuntime);
         Registry::ctx().emplace<globalcontext::FrameContext>().intervalMs = 11;
 
         UpdateFlagHandler firstHandler{&firstTriggered};
@@ -42,7 +43,7 @@ TEST(UiRuntimeTest, NestedRuntimeScopesSwitchRegistryAndDispatcherIndependently)
             Dispatcher::Sink<events::UpdateEvent>().template connect<&UpdateFlagHandler::onUpdate>(firstHandler)};
 
         {
-            UiRuntimeScope secondScope(secondRuntime);
+            UiRuntimeScope const secondScope(secondRuntime);
 
             EXPECT_EQ(Registry::ctx().find<globalcontext::FrameContext>(), nullptr);
 
@@ -76,14 +77,14 @@ TEST(UiRuntimeTest, RuntimeFacadeFollowsActiveRuntimeScope)
     UiRuntime secondRuntime;
 
     {
-        UiRuntimeScope firstScope(firstRuntime);
+        UiRuntimeScope const firstScope(firstRuntime);
         RuntimeFacade::current().ensureContext<globalcontext::FrameContext>().intervalMs = 33;
 
         EXPECT_EQ(RuntimeFacade::current().frame().intervalMs, 33U);
         EXPECT_NE(RuntimeFacade::current().tryFrame(), nullptr);
 
         {
-            UiRuntimeScope secondScope(secondRuntime);
+            UiRuntimeScope const secondScope(secondRuntime);
 
             EXPECT_EQ(RuntimeFacade::current().tryFrame(), nullptr);
 
@@ -102,7 +103,7 @@ TEST(UiRuntimeTest, WindowLookupCacheIsolatedPerRuntime)
     entt::entity firstWindow = entt::null;
 
     {
-        UiRuntimeScope firstScope(firstRuntime);
+        UiRuntimeScope const firstScope(firstRuntime);
         firstWindow = Registry::Create();
         Registry::Emplace<components::Window>(firstWindow).windowID = 101;
         RuntimeFacade::current().windowLookup().remember(firstWindow);
@@ -110,7 +111,7 @@ TEST(UiRuntimeTest, WindowLookupCacheIsolatedPerRuntime)
         EXPECT_EQ(RuntimeFacade::current().windowLookup().findById(101), firstWindow);
 
         {
-            UiRuntimeScope secondScope(secondRuntime);
+            UiRuntimeScope const secondScope(secondRuntime);
 
             EXPECT_FALSE(Registry::Valid(RuntimeFacade::current().windowLookup().findById(101)));
 
@@ -129,7 +130,7 @@ TEST(UiRuntimeTest, WindowLookupCacheRecoversFromDestroyedEntity)
 {
     UiRuntime runtime;
     {
-        UiRuntimeScope scope(runtime);
+        UiRuntimeScope const scope(runtime);
 
         const auto firstWindow = Registry::Create();
         Registry::Emplace<components::Window>(firstWindow).windowID = 202;

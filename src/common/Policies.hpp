@@ -17,7 +17,7 @@ namespace ui::policies
 /**
  * @brief 系统管理器枚举
  */
-enum class SystemManager : uint32_t // NOLINT(performance-enum-size)
+enum class SystemManager : uint16_t 
 {
     DISABLE_ALL = 0,
     INTERACTION = 1U << 0U,
@@ -109,40 +109,40 @@ enum class Size : uint8_t
     NONE = 0,
 
     // 水平方向策略 (Horizontal)
-    HFixed = 1 << 0,      // 水平固定
-    HAuto = 1 << 1,       // 水平自动
-    HFill = 1 << 2,       // 水平填充 (父容器)
-    HPercentage = 1 << 3, // 水平百分比
+    H_FIXED = 1 << 0,      // 水平固定
+    H_AUTO = 1 << 1,       // 水平自动
+    H_FILL = 1 << 2,       // 水平填充 (父容器)
+    H_PERCENTAGE = 1 << 3, // 水平百分比
 
     // 垂直方向策略 (Vertical)
-    VFixed = 1 << 4,      // 垂直固定
-    VAuto = 1 << 5,       // 垂直自动
-    VFill = 1 << 6,       // 垂直填充 (父容器)
-    VPercentage = 1 << 7, // 垂直百分比
+    V_FIXED = 1 << 4,      // 垂直固定
+    V_AUTO = 1 << 5,       // 垂直自动
+    V_FILL = 1 << 6,       // 垂直填充 (父容器)
+    V_PERCENTAGE = 1 << 7, // 垂直百分比
 
     // 双向组合 (Common Combinations)
-    Fixed = HFixed | VFixed,
-    Auto = HAuto | VAuto,
-    FillParent = HFill | VFill,
-    Percentage = HPercentage | VPercentage,
+    FIXED = H_FIXED | V_FIXED,
+    AUTO = H_AUTO | V_AUTO,
+    FILL_PARENT = H_FILL | V_FILL,
+    PERCENTAGE = H_PERCENTAGE | V_PERCENTAGE,
 
     // 混合示例
-    HFixedVAuto = HFixed | VAuto,
-    HAutoVFixed = HAuto | VFixed,
-    HFillVAuto = HFill | VAuto
+    H_FIXED_V_AUTO = H_FIXED | V_AUTO,
+    H_AUTO_V_FIXED = H_AUTO | V_FIXED,
+    H_FILL_V_AUTO = H_FILL | V_AUTO
 };
 
 enum class Feature : uint8_t
 {
-    Disabled,
-    Enabled
+    DISABLED,
+    ENABLED
 };
 
 enum class Visibility : uint8_t
 {
-    Visible,
-    Hidden,
-    Collapsed
+    VISIBLE,
+    HIDDEN,
+    COLLAPSED
 };
 /**
  * @brief 文本换行模式枚举
@@ -150,20 +150,21 @@ enum class Visibility : uint8_t
 enum class TextWrap : uint8_t
 {
     NONE,
-    Word, // 按单词换行
-    Char  // 按字符换行
+    WORD, // 按单词换行
+    CHAR  // 按字符换行
 };
 
-enum class TextFlag : uint32_t
+enum class TextFlag : uint16_t
 {
-    Default = 0,
-    Password = 1 << 0,               // 掩码显示
-    ReadOnly = 1 << 1,               // 不可编辑
-    Multiline = 1 << 2,              // 支持多行渲染
-    Transferable = 1 << 3,           // 支持文本拖拽/复制
-    RichText = 1 << 4,               // 启用富文本/标记语言解析
-    NoWrap = 1 << 5,                 // 强制不换行
-    Ansi = 1 << 6,                   // 启用 ANSI 转义码解析
+    DEFAULT = 0,
+    PASSWORD = 1 << 0,               // 掩码显示
+    READ_ONLY = 1 << 1,              // 不可编辑
+    MULTILINE = 1 << 2,              // 支持多行渲染
+    READ_ONLY_MULTILINE = (1U << 1U) | (1U << 2U),
+    TRANSFERABLE = 1 << 3,           // 支持文本拖拽/复制
+    RICH_TEXT = 1 << 4,              // 启用富文本/标记语言解析
+    NO_WRAP = 1 << 5,                // 强制不换行
+    ANSI = 1 << 6,                   // 启用 ANSI 转义码解析
     UNDERLINE = 1 << 7,              // 启用下划线
     WORD_WRAP = 1U << 8U | 0U << 9U, // 启用按单词换行
     CHAR_WRAP = 0U << 8U | 1U << 9U, // 启用按字符换行
@@ -175,46 +176,46 @@ enum class TextFlag : uint32_t
  */
 enum class AspectRatio : uint8_t
 {
-    Ignore,  // 忽略
-    Maintain // 保持比例
+    IGNORE_RATIO,  // 忽略
+    MAINTAIN // 保持比例
 };
 
 enum class CheckState : uint8_t
 {
-    Unchecked,
-    Checked,
-    Indeterminate
+    UNCHECKED,
+    CHECKED,
+    INDETERMINATE
 };
 
 enum class Orientation : uint8_t
 {
-    Horizontal,
-    Vertical
+    HORIZONTAL,
+    VERTICAL
 };
 
 enum class Selection : uint8_t
 {
-    Single,
-    Multi
+    SINGLE,
+    MULTI
 };
 
 enum class SortOrder : uint8_t
 {
     NONE,
-    Ascending,
-    Descending
+    ASCENDING,
+    DESCENDING
 };
 
 enum class AnimationState : uint8_t
 {
-    Stopped,
-    Playing
+    STOPPED,
+    PLAYING
 };
 
 enum class LabelVisibility : uint8_t
 {
-    Hidden,
-    Visible
+    HIDDEN,
+    VISIBLE
 };
 
 /**
@@ -222,36 +223,36 @@ enum class LabelVisibility : uint8_t
  */
 enum class Position : uint8_t
 {
-    Default = 0,        // 默认行为（由布局系统决定）
-    VFixed = 1 << 0,    // 使用 Position 组件中的固定位置
-    VCenter = 1 << 1,   // 在屏幕/父容器中居中
-    VAuto = 1 << 2,     // 由布局系统自动计算
-    VAbsolute = 1 << 3, // 绝对定位
-    HFixed = 1 << 4,    // 使用 Position 组件中的固定位置
-    HCenter = 1 << 5,   // 在屏幕/父容器中居中
-    HAuto = 1 << 6,     // 由布局系统自动计算
-    HAbsolute = 1 << 7, // 绝对定位
+    DEFAULT = 0,        // 默认行为（由布局系统决定）
+    V_FIXED = 1 << 0,   // 使用 Position 组件中的固定位置
+    V_CENTER = 1 << 1,  // 在屏幕/父容器中居中
+    V_AUTO = 1 << 2,    // 由布局系统自动计算
+    V_ABSOLUTE = 1 << 3, // 绝对定位
+    H_FIXED = 1 << 4,   // 使用 Position 组件中的固定位置
+    H_CENTER = 1 << 5,  // 在屏幕/父容器中居中
+    H_AUTO = 1 << 6,    // 由布局系统自动计算
+    H_ABSOLUTE = 1 << 7, // 绝对定位
 
-    Auto = VAuto | HAuto,
-    Center = VCenter | HCenter,
-    Absolute = VAbsolute | HAbsolute,
-    Fixed = VFixed | HFixed
+    AUTO = V_AUTO | H_AUTO,
+    CENTER = V_CENTER | H_CENTER,
+    ABSOLUTE_POS = V_ABSOLUTE | H_ABSOLUTE,
+    FIXED = V_FIXED | H_FIXED
 };
 
 enum class Scroll : uint8_t
 {
-    NONE,       // 不滚动
-    Vertical,   // 垂直滚动
-    Horizontal, // 水平滚动
-    Both,       // 双向滚动
+    NO_SCROLL,  // 不滚动
+    VERTICAL,   // 垂直滚动
+    HORIZONTAL, // 水平滚动
+    BOTH,       // 双向滚动
 };
 
 enum class ScrollBar : uint8_t
 {
-    Default = 0,
-    NoVisibility = 1 << 0,
-    Draggable = 1 << 1,
-    AutoHide = 1 << 2
+    DEFAULT = 0,
+    NO_VISIBILITY = 1 << 0,
+    DRAGGABLE = 1 << 1,
+    AUTO_HIDE = 1 << 2
 
 };
 
@@ -260,29 +261,29 @@ enum class ScrollBar : uint8_t
  */
 enum class ScrollAnchor : uint8_t
 {
-    Top,    // 锚定顶部：内容尺寸变化时，保持顶部偏移量不变 (适用于普通文档/输入框，尾部追加内容时视口不动)
-    Bottom, // 锚定底部：内容尺寸变化时，保持底部偏移量不变 (适用于聊天历史加载/日志跟随)
-    Smart   // 智能锚定：如果滚动条在最底部，则锚定底部；否则锚定顶部
+    TOP,    // 锚定顶部：内容尺寸变化时，保持顶部偏移量不变 (适用于普通文档/输入框，尾部追加内容时视口不动)
+    BOTTOM, // 锚定底部：内容尺寸变化时，保持底部偏移量不变 (适用于聊天历史加载/日志跟随)
+    SMART   // 智能锚定：如果滚动条在最底部，则锚定底部；否则锚定顶部
 };
 
 /**
  * @brief 窗口标志位 - 类似 Qt 的策略
  */
-enum class WindowFlag : uint16_t
+enum class WindowFlag : uint8_t
 {
-    Default = 0,
-    NoTitleBar = 1 << 0,   // 无标题栏
-    NoResize = 1 << 1,     // 禁止调整大小
-    NoMove = 1 << 2,       // 禁止移动
-    NoCollapse = 1 << 3,   // 禁止折叠/最小化
-    NoBackground = 1 << 4, // 无背景
-    NoClose = 1 << 5,      // 无关闭按钮
-    Modal = 1 << 6,        // 模态窗口
-    HasToolbar = 1 << 7,   // 有工具栏
+    DEFAULT = 0,
+    NO_TITLE_BAR = 1 << 0,  // 无标题栏
+    NO_RESIZE = 1 << 1,     // 禁止调整大小
+    NO_MOVE = 1 << 2,       // 禁止移动
+    NO_COLLAPSE = 1 << 3,   // 禁止折叠/最小化
+    NO_BACKGROUND = 1 << 4, // 无背景
+    NO_CLOSE = 1 << 5,      // 无关闭按钮
+    MODAL = 1 << 6,         // 模态窗口
+    HAS_TOOLBAR = 1 << 7,   // 有工具栏
 
     // 组合
-    Frameless = NoTitleBar | NoResize | NoMove,
-    Dialog = Modal | NoCollapse
+    FRAMELESS = NO_TITLE_BAR | NO_RESIZE | NO_MOVE,
+    DIALOG = MODAL | NO_COLLAPSE
 };
 
 /**
@@ -291,15 +292,15 @@ enum class WindowFlag : uint16_t
 enum class IconFlag : uint8_t
 {
     // --- 渲染类型 (Flags) ---
-    Default = 0,
-    Texture = 1 << 0, // 是贴图还是矢量字体
-    HasText = 1 << 1, // 是否携带文本标签
+    DEFAULT = 0,
+    TEXTURE = 1 << 0, // 是贴图还是矢量字体
+    HAS_TEXT = 1 << 1, // 是否携带文本标签
 };
 
-enum class Log : uint16_t
+enum class Log : uint8_t
 {
-    SingleFileR = 1 << 0,  // 只写单个日志文件（覆盖模式）
-    SingleFileRW = 1 << 1, // 读写单个日志文件（追加模式）
-    Terminal = 1 << 1,
+    SINGLE_FILE_R = 1 << 0,  // 只写单个日志文件（覆盖模式）
+    SINGLE_FILE_RW = 1 << 1, // 读写单个日志文件（追加模式）
+    TERMINAL = 1 << 1,
 };
 } // namespace ui::policies

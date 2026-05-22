@@ -2,8 +2,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
+#include <vector>
+#include <string>
 #include "Utils.hpp"
 #include "../singleton/Registry.hpp"
+#include "entt/entity/fwd.hpp"
+#include "common/components/Data.hpp"
+#include "common/Policies.hpp"
+#include "common/components/Layout.hpp"
+#include "common/components/Interaction.hpp"
+#include "common/Types.hpp"
 
 namespace ui::controls
 {
@@ -53,7 +62,7 @@ void SetSliderOrientation(::entt::entity entity, policies::Orientation orientati
     slider.vertical = orientation;
 
     auto& size = Registry::GetOrEmplace<components::Size>(entity);
-    if (orientation == policies::Orientation::Vertical)
+    if (orientation == policies::Orientation::VERTICAL)
     {
         size.size = {28.0F, 200.0F};
     }
@@ -61,7 +70,7 @@ void SetSliderOrientation(::entt::entity entity, policies::Orientation orientati
     {
         size.size = {200.0F, 28.0F};
     }
-    size.sizePolicy = ui::policies::Size::Fixed;
+    size.sizePolicy = ui::policies::Size::FIXED;
 
     ui::utils::MarkLayoutAndVisualChanged(entity);
 }

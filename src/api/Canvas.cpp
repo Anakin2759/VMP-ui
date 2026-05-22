@@ -1,7 +1,11 @@
 #include "Canvas.hpp"
 
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "entt/entity/fwd.hpp"
+#include "common/components/Data.hpp"
+#include "common/Types.hpp"
+#include <vector>
+#include <utility>
 
 namespace ui::canvas
 {
@@ -17,40 +21,70 @@ void DrawLine(entt::entity entity, Vec2 from, Vec2 endPos, Color color, float li
 {
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
-    list.commands.push_back(
-        {components::CanvasDrawType::LINE, from, endPos, {}, {}, color, lineWidth, {}});
+    list.commands.push_back({.type = components::CanvasDrawType::LINE,
+                             .p1 = from,
+                             .p2 = endPos,
+                             .p3 = {},
+                             .p4 = {},
+                             .color = color,
+                             .lineWidth = lineWidth,
+                             .points = {}});
 }
 
 void DrawRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color, float lineWidth)
 {
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
-    list.commands.push_back(
-        {components::CanvasDrawType::RECT, topLeft, bottomRight, {}, {}, color, lineWidth, {}});
+    list.commands.push_back({.type = components::CanvasDrawType::RECT,
+                             .p1 = topLeft,
+                             .p2 = bottomRight,
+                             .p3 = {},
+                             .p4 = {},
+                             .color = color,
+                             .lineWidth = lineWidth,
+                             .points = {}});
 }
 
 void DrawFilledRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color)
 {
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
-    list.commands.push_back(
-        {components::CanvasDrawType::FILLED_RECT, topLeft, bottomRight, {}, {}, color, 1.0F, {}});
+    list.commands.push_back({.type = components::CanvasDrawType::FILLED_RECT,
+                             .p1 = topLeft,
+                             .p2 = bottomRight,
+                             .p3 = {},
+                             .p4 = {},
+                             .color = color,
+                             .lineWidth = 1.0F,
+                             .points = {}});
 }
 
 void DrawCircle(entt::entity entity, Vec2 center, float radius, Color color, float lineWidth)
 {
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
-    list.commands.push_back(
-        {components::CanvasDrawType::CIRCLE, center, {radius, 0.0F}, {}, {}, color, lineWidth, {}});
+    list.commands.push_back({.type = components::CanvasDrawType::CIRCLE,
+                             .p1 = center,
+                             .p2 = {radius, 0.0F},
+                             .p3 = {},
+                             .p4 = {},
+                             .color = color,
+                             .lineWidth = lineWidth,
+                             .points = {}});
 }
 
 void DrawFilledCircle(entt::entity entity, Vec2 center, float radius, Color color)
 {
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
-    list.commands.push_back(
-        {components::CanvasDrawType::FILLED_CIRCLE, center, {radius, 0.0F}, {}, {}, color, 1.0F, {}});
+    list.commands.push_back({.type = components::CanvasDrawType::FILLED_CIRCLE,
+                             .p1 = center,
+                             .p2 = {radius, 0.0F},
+                             .p3 = {},
+                             .p4 = {},
+                             .color = color,
+                             .lineWidth = 1.0F,
+                             .points = {}});
 }
 
 void DrawPolyline(entt::entity entity,
@@ -123,7 +157,7 @@ Painter& Painter::cubicTo(Vec2 cp1, Vec2 cp2, Vec2 endPos)
     // 迭代细分（栈实现，避免递归调用开销）
     struct Seg { Vec2 ptA, ptB, ptC, ptD; int segDepth; };
     std::vector<Seg> segStack;
-    segStack.push_back({startPos, cp1, cp2, endPos, 0});
+    segStack.push_back({.ptA = startPos, .ptB = cp1, .ptC = cp2, .ptD = endPos, .segDepth = 0});
 
     while (!segStack.empty())
     {
@@ -160,8 +194,8 @@ Painter& Painter::cubicTo(Vec2 cp1, Vec2 cp2, Vec2 endPos)
         const Vec2 midPt{(midABC.x() + midBCD.x()) * 0.5F, (midABC.y() + midBCD.y()) * 0.5F};
 
         // 后半段先压栈（LIFO），前半段后压（先弹出）
-        segStack.push_back({midPt, midBCD, midCD, curD, curDepth + 1});
-        segStack.push_back({curA, midAB, midABC, midPt, curDepth + 1});
+        segStack.push_back({.ptA = midPt, .ptB = midBCD, .ptC = midCD, .ptD = curD, .segDepth = curDepth + 1});
+        segStack.push_back({.ptA = curA, .ptB = midAB, .ptC = midABC, .ptD = midPt, .segDepth = curDepth + 1});
     }
 
     m_cursor = endPos;

@@ -132,7 +132,7 @@ inline void SyncWindowFrameless(const components::Window& windowComp, SDL_Window
 {
     const SDL_WindowFlags flags = SDL_GetWindowFlags(sdlWindow);
     const bool currentlyBordered = (flags & SDL_WINDOW_BORDERLESS) == 0;
-    const bool shouldBeBordered = !policies::HasFlag(windowComp.flags, policies::WindowFlag::NoTitleBar);
+    const bool shouldBeBordered = !policies::HasFlag(windowComp.flags, policies::WindowFlag::NO_TITLE_BAR);
 
     if (currentlyBordered != shouldBeBordered)
     {
@@ -144,7 +144,7 @@ inline void SyncWindowResizable(const components::Window& windowComp, SDL_Window
 {
     const SDL_WindowFlags flags = SDL_GetWindowFlags(sdlWindow);
     const bool currentlyResizable = (flags & SDL_WINDOW_RESIZABLE) != 0;
-    const bool shouldBeResizable = !policies::HasFlag(windowComp.flags, policies::WindowFlag::NoResize);
+    const bool shouldBeResizable = !policies::HasFlag(windowComp.flags, policies::WindowFlag::NO_RESIZE);
 
     if (currentlyResizable != shouldBeResizable)
     {
@@ -187,7 +187,7 @@ inline void SyncWindowModal(entt::entity entity, const components::Window& windo
 
     const SDL_WindowFlags flags = SDL_GetWindowFlags(sdlWindow);
     const bool currentlyModal = (flags & SDL_WINDOW_MODAL) != 0;
-    const bool isModal = policies::HasFlag(windowComp.flags, policies::WindowFlag::Modal);
+    const bool isModal = policies::HasFlag(windowComp.flags, policies::WindowFlag::MODAL);
 
     if (isModal && !currentlyModal)
     {

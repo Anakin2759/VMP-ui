@@ -40,7 +40,13 @@ class EventLoop
 public:
     EventLoop();
 
-    ~EventLoop();
+    ~EventLoop() noexcept;
+
+    EventLoop(const EventLoop&) = delete;
+    EventLoop& operator=(const EventLoop&) = delete;
+    EventLoop(EventLoop&&) = delete;
+    EventLoop& operator=(EventLoop&&) = delete;
+
     void exec();
 
     void quit();
@@ -51,7 +57,7 @@ public:
     void invoke(Func&& func)
     {
         asio::post(m_ioContext->get_executor(),
-                   [fn = std::forward<Func>(func)]() mutable { std::invoke(std::move(fn)); });
+                   [callable = std::forward<Func>(func)]() mutable { std::invoke(std::move(callable)); });
     }
 
     template <typename Func, typename... Args>
@@ -59,8 +65,8 @@ public:
     void invoke(Func&& func, Args&&... args)
     {
         asio::post(m_ioContext->get_executor(),
-                   [fn = std::forward<Func>(func), ... capturedArgs = std::forward<Args>(args)]() mutable
-                   { std::invoke(std::move(fn), std::move(capturedArgs)...); });
+                   [callable = std::forward<Func>(func), ... capturedArgs = std::forward<Args>(args)]() mutable
+                   { std::invoke(std::move(callable), std::move(capturedArgs)...); });
     }
 
     // 注册默认处理器（无参数版本）
@@ -68,7 +74,7 @@ public:
         requires std::invocable<std::decay_t<Func>>
     void registerDefaultHandler(Func&& func)
     {
-        m_defaultHandler = [fn = std::forward<Func>(func)]() mutable { std::invoke(std::move(fn)); };
+        m_defaultHandler = [callable = std::forward<Func>(func)]() mutable { std::invoke(std::move(callable)); };
     }
 
     // 注册默认处理器（带参数版本）
@@ -76,8 +82,8 @@ public:
         requires(sizeof...(Args) > 0) && std::invocable<std::decay_t<Func>, std::decay_t<Args>...>
     void registerDefaultHandler(Func&& func, Args&&... args)
     {
-        m_defaultHandler = [fn = std::forward<Func>(func), ... capturedArgs = std::forward<Args>(args)]() mutable
-        { std::invoke(std::move(fn), std::move(capturedArgs)...); };
+        m_defaultHandler = [callable = std::forward<Func>(func), ... capturedArgs = std::forward<Args>(args)]() mutable
+        { std::invoke(std::move(callable), std::move(capturedArgs)...); };
     }
 
 private:

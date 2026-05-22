@@ -26,7 +26,7 @@ struct Size
     Vec2 size{0.0F, 0.0F};
     Vec2 minSize{0.0F, 0.0F};
     Vec2 maxSize{FLT_MAX, FLT_MAX};
-    policies::Size sizePolicy = policies::Size::Auto; // 宽度策略
+    policies::Size sizePolicy = policies::Size::AUTO; // 宽度策略
 
     float percentage = 1.0F; // 百分比值 (当策略为 Percentage 时使用，0.0-1.0)
 };
@@ -38,7 +38,7 @@ struct Position
 {
     using is_component_tag = void;
     Vec2 value{0.0F, 0.0F};
-    policies::Position positionPolicy = policies::Position::Fixed;
+    policies::Position positionPolicy = policies::Position::FIXED;
 };
 
 /**

@@ -7,18 +7,24 @@
 
 #include "../RenderSystem.hpp"
 #include <algorithm>
+#include <cstdint>
+#include <memory>
 #include "../../renderers/ShapeRenderer.hpp"
 #include "../../renderers/TextRenderer.hpp"
 #include "../../renderers/IconRenderer.hpp"
 #include "../../renderers/ScrollBarRenderer.hpp"
 #include "../../renderers/SliderRenderer.hpp"
 #include "../../renderers/ProgressBarRenderer.hpp"
-#include "../../renderers/FallbackBackendRenderer.hpp"
 #include "../../renderers/ImageRenderer.hpp"
 #include "../../renderers/CanvasRenderer.hpp"
 #include "../../renderers/TableRenderer.hpp"
 #include "../../renderers/CheckBoxRenderer.hpp"
 #include "../../renderers/DropDownRenderer.hpp"
+#include "SDL3/SDL_gpu.h"
+#include "common/GPUWrappers.hpp"
+#include "SDL3/SDL_stdinc.h"
+#include "interface/IRenderer.hpp"
+#include "singleton/Logger.hpp"
 
 namespace ui::systems
 {
@@ -86,11 +92,11 @@ void RenderSystem::initializeRenderers()
     m_renderers.push_back(std::make_unique<renderers::CheckBoxRenderer>());
     m_renderers.push_back(std::make_unique<renderers::DropDownRenderer>());
 
-    std::sort(m_renderers.begin(),
-              m_renderers.end(),
-              [](const std::unique_ptr<core::IRenderer>& l,
-                 const std::unique_ptr<core::IRenderer>& r)
-              { return l->getPriority() < r->getPriority(); });
+    std::ranges::sort(m_renderers,
+
+                             [](const std::unique_ptr<core::IRenderer>& leftRenderer,
+                                 const std::unique_ptr<core::IRenderer>& rightRenderer)
+                             { return leftRenderer->getPriority() < rightRenderer->getPriority(); });
 
     Logger::info("[RenderSystem] 初始化了 {} 个渲染器", m_renderers.size());
 }

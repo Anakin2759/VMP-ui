@@ -5,11 +5,7 @@
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-05-19
  * @version 0.1
- * @brief ui_errc / UiErrorCategory 单例与 message() 实现
  *
- * 设计依据：docs/architecture/result-type-design.md §3.4。
- * 把 category 单例放在 .cpp 中，确保整个程序只有一个 ODR 实例，
- * 跨 TU / 跨 DLL 边界比较 ec.category() == GetUiErrorCategory() 稳定。
  *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
@@ -17,6 +13,9 @@
  * ************************************************************************
  */
 #include "ErrorCodes.hpp"
+#include <string>
+#include <system_error>
+#include <string_view>
 
 namespace ui
 {
@@ -68,19 +67,18 @@ std::string UiErrorCategory::message(int condition) const
 
 const std::error_category& GetUiErrorCategory() noexcept
 {
-    // C++11 magic statics：线程安全的局部静态；.cpp 单 TU 定义保证全局唯一。
     static const UiErrorCategory kCategory{};
     return kCategory;
 }
 
-std::error_code make_error_code(ui_errc e) noexcept
+std::error_code make_error_code(ui_errc error) noexcept
 {
-    return {static_cast<int>(e), GetUiErrorCategory()};
+    return {static_cast<int>(error), GetUiErrorCategory()};
 }
 
-std::string_view ToStringView(ui_errc e) noexcept
+std::string_view ToStringView(ui_errc error) noexcept
 {
-    switch (e)
+    switch (error)
     {
         case ui_errc::invalid_entity:        return "invalid_entity";
         case ui_errc::invalid_argument:      return "invalid_argument";

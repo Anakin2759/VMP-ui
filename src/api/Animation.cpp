@@ -1,6 +1,12 @@
 #include "Animation.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "entt/entity/fwd.hpp"
+#include "common/components/Animation.hpp"
+#include "common/Policies.hpp"
+#include "common/Tags.hpp"
+#include "common/Types.hpp"
+#include <optional>
+#include "common/components/Visual.hpp"
 
 namespace ui::animation
 {
@@ -14,7 +20,7 @@ void ConfigureTiming(::entt::entity entity, const TweenOptions& options)
     time.elapsed = 0.0F;
     time.easing = options.easing;
     time.mode = options.mode;
-    time.state = policies::AnimationState::Playing;
+    time.state = policies::AnimationState::PLAYING;
     time.autoCleanup = options.autoCleanup;
 
     Registry::EmplaceOrReplace<components::AnimatingTag>(entity);

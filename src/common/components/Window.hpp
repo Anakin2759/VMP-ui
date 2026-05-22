@@ -25,7 +25,7 @@ struct Window
     std::string title;
     Vec2 minSize{MIN_WID, MIN_HIG};
     Vec2 maxSize{FLT_MAX, FLT_MAX};
-    policies::WindowFlag flags = policies::WindowFlag::Default;
+    policies::WindowFlag flags = policies::WindowFlag::DEFAULT;
     uint32_t windowID = 0;
 };
 

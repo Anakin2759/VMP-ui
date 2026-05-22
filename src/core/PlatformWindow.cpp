@@ -19,6 +19,8 @@
  */
 
 #include "PlatformWindow.hpp"
+#include "SDL3/SDL_video.h"
+#include "SDL3/SDL_properties.h"
 
 // ============================================================================
 // Windows 实现
@@ -32,10 +34,16 @@
 #define NOMINMAX
 #endif
 
-#include <Windows.h>
+#include <Windows.h> // IWYU pragma: keep
 #include <windowsx.h> // GET_X_LPARAM, GET_Y_LPARAM
+#include <basetsd.h>
+#include <minwindef.h>
+#include <windef.h>
+#include <winuser.h>
+#include <wingdi.h>
 #include <dwmapi.h>
 #include <commctrl.h> // SetWindowSubclass
+#include <uxtheme.h>
 
 #pragma comment(lib, "dwmapi")
 #pragma comment(lib, "comctl32")
@@ -52,6 +60,82 @@ struct SubclassData
     int cornerRadius = 0; // 0 = 不裁剪圆角；> 0 时在 WM_SIZE 中同步更新 SetWindowRgn
 };
 
+LRESULT HandleNcCalcSize(HWND hWnd, WPARAM wParam, LPARAM lParam)
+{
+    if (wParam != TRUE)
+    {
+        return DefSubclassProc(hWnd, WM_NCCALCSIZE, wParam, lParam);
+    }
+
+    auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam); // NOLINT
+
+    WINDOWPLACEMENT placement{};
+    placement.length = sizeof(WINDOWPLACEMENT);
+    GetWindowPlacement(hWnd, &placement);
+
+    if (placement.showCmd == SW_MAXIMIZE)
+    {
+        HMONITOR monitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO monitorInfo{};
+        monitorInfo.cbSize = sizeof(MONITORINFO);
+        GetMonitorInfoW(monitor, &monitorInfo);
+
+        params->rgrc[0] = monitorInfo.rcWork;
+    }
+
+    return 0;
+}
+
+LRESULT HandleNcHitTest(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, const SubclassData* data)
+{
+    LRESULT const result = DefWindowProcW(hWnd, uMsg, wParam, lParam);
+    if (result != HTCLIENT)
+    {
+        return result;
+    }
+
+    RECT windowRect{};
+    GetWindowRect(hWnd, &windowRect);
+
+    int const cursorX = GET_X_LPARAM(lParam);
+    int const cursorY = GET_Y_LPARAM(lParam);
+    int const border = (data != nullptr) ? data->borderWidth : 6;
+
+    bool const onLeft = (cursorX >= windowRect.left && cursorX < windowRect.left + border);
+    bool const onRight = (cursorX < windowRect.right && cursorX >= windowRect.right - border);
+    bool const onTop = (cursorY >= windowRect.top && cursorY < windowRect.top + border);
+    bool const onBottom = (cursorY < windowRect.bottom && cursorY >= windowRect.bottom - border);
+
+    if (onTop && onLeft) return HTTOPLEFT;
+    if (onTop && onRight) return HTTOPRIGHT;
+    if (onBottom && onLeft) return HTBOTTOMLEFT;
+    if (onBottom && onRight) return HTBOTTOMRIGHT;
+    if (onLeft) return HTLEFT;
+    if (onRight) return HTRIGHT;
+    if (onTop) return HTTOP;
+    if (onBottom) return HTBOTTOM;
+
+    return HTCLIENT;
+}
+
+void SyncRoundedRegion(HWND hWnd, LPARAM lParam, const SubclassData* data)
+{
+    if (data == nullptr || data->cornerRadius <= 0)
+    {
+        return;
+    }
+
+    int const winW = static_cast<int>(LOWORD(lParam));
+    int const winH = static_cast<int>(HIWORD(lParam));
+    if (winW <= 0 || winH <= 0)
+    {
+        return;
+    }
+
+    HRGN hRgn = CreateRoundRectRgn(0, 0, winW + 1, winH + 1, data->cornerRadius * 2, data->cornerRadius * 2);
+    SetWindowRgn(hWnd, hRgn, TRUE);
+}
+
 /**
  * @brief 窗口子类化过程
  *
@@ -66,83 +150,17 @@ LRESULT CALLBACK CustomFrameProc(
     {
         case WM_NCCALCSIZE:
         {
-            // wParam == TRUE 时, lParam 指向 NCCALCSIZE_PARAMS
-            // 返回 0 让客户区占据整个窗口区域（移除标题栏 + 边框的非客户区）
-            if (wParam == TRUE)
-            {
-                auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam); // NOLINT
-
-                // 若窗口最大化，需要扣除屏幕边缘的不可见边框，
-                // 否则最大化时窗口会溢出到相邻显示器
-                WINDOWPLACEMENT placement{};
-                placement.length = sizeof(WINDOWPLACEMENT);
-                GetWindowPlacement(hWnd, &placement);
-
-                if (placement.showCmd == SW_MAXIMIZE)
-                {
-                    HMONITOR monitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
-                    MONITORINFO monitorInfo{};
-                    monitorInfo.cbSize = sizeof(MONITORINFO);
-                    GetMonitorInfoW(monitor, &monitorInfo);
-
-                    params->rgrc[0] = monitorInfo.rcWork;
-                }
-                // 非最大化时不做任何修改——客户区 = 整个窗口
-                return 0;
-            }
-            break;
+            return HandleNcCalcSize(hWnd, wParam, lParam);
         }
 
         case WM_NCHITTEST:
         {
-            // 先让默认处理判断
-            LRESULT result = DefWindowProcW(hWnd, uMsg, wParam, lParam);
-
-            // 若默认判断已识别为客户区以外（如系统菜单），直接返回
-            if (result != HTCLIENT)
-            {
-                return result;
-            }
-
-            // 在客户区边缘模拟缩放手柄
-            RECT windowRect{};
-            GetWindowRect(hWnd, &windowRect);
-
-            int cursorX = GET_X_LPARAM(lParam);
-            int cursorY = GET_Y_LPARAM(lParam);
-            int border = (data != nullptr) ? data->borderWidth : 6;
-
-            bool onLeft = (cursorX >= windowRect.left && cursorX < windowRect.left + border);
-            bool onRight = (cursorX < windowRect.right && cursorX >= windowRect.right - border);
-            bool onTop = (cursorY >= windowRect.top && cursorY < windowRect.top + border);
-            bool onBottom = (cursorY < windowRect.bottom && cursorY >= windowRect.bottom - border);
-
-            if (onTop && onLeft) return HTTOPLEFT;
-            if (onTop && onRight) return HTTOPRIGHT;
-            if (onBottom && onLeft) return HTBOTTOMLEFT;
-            if (onBottom && onRight) return HTBOTTOMRIGHT;
-            if (onLeft) return HTLEFT;
-            if (onRight) return HTRIGHT;
-            if (onTop) return HTTOP;
-            if (onBottom) return HTBOTTOM;
-
-            return HTCLIENT;
+            return HandleNcHitTest(hWnd, uMsg, wParam, lParam, data);
         }
 
         case WM_SIZE:
         {
-            // 窗口尺寸变化时同步更新圆角裁剪区域
-            if (data != nullptr && data->cornerRadius > 0)
-            {
-                int winW = static_cast<int>(LOWORD(lParam));
-                int winH = static_cast<int>(HIWORD(lParam));
-                if (winW > 0 && winH > 0)
-                {
-                    HRGN hRgn = CreateRoundRectRgn(0, 0, winW + 1, winH + 1,
-                                                   data->cornerRadius * 2, data->cornerRadius * 2);
-                    SetWindowRgn(hWnd, hRgn, TRUE);
-                }
-            }
+            SyncRoundedRegion(hWnd, lParam, data);
             break; // 继续默认处理
         }
 
@@ -183,7 +201,7 @@ void SetupCustomTitleBar(SDL_Window* sdlWindow, int borderWidth)
     // 1. 修改窗口样式：保留 WS_CAPTION + WS_THICKFRAME（Win11 伪无边框方案）
     //    WS_CAPTION 必须保留，否则 DWM 不会应用 Win11 圆角和透明合成，
     //    导致圆角外区域显示黑色。标题栏区域通过 WM_NCCALCSIZE 返回 0 来隐藏。
-    LONG style = GetWindowLongW(hwnd, GWL_STYLE);
+    auto style = GetWindowLongW(hwnd, GWL_STYLE);
     style &= ~WS_SYSMENU;                                        // 仅移除系统菜单，保留 WS_CAPTION 给 DWM
     style |= (WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
     SetWindowLongW(hwnd, GWL_STYLE, style);
@@ -203,12 +221,12 @@ void EnableTransparency(SDL_Window* sdlWindow, int cornerRadius)
 
     // 1. WS_EX_NOREDIRECTIONBITMAP：告知 DWM 直接从 GPU 交换链读取像素（含 alpha 通道），
     //    而非使用 GDI 重定向位图（后者忽略 alpha）。在支持的驱动/OS 上可使 GPU alpha 生效。
-    LONG exStyle = GetWindowLongW(hwnd, GWL_EXSTYLE);
+    auto exStyle = GetWindowLongW(hwnd, GWL_EXSTYLE);
     exStyle |= WS_EX_NOREDIRECTIONBITMAP;
     SetWindowLongW(hwnd, GWL_EXSTYLE, exStyle);
 
     // 2. DWM 帧扩展到整个客户区 → GPU alpha = 窗口透明度
-    const MARGINS margins = {-1, -1, -1, -1};
+    const MARGINS margins = {.cxLeftWidth = -1, .cxRightWidth = -1, .cyTopHeight = -1, .cyBottomHeight = -1};
     DwmExtendFrameIntoClientArea(hwnd, &margins);
 
     // 3. SetWindowRgn 兜底：在 OS 层裁剪圆角，确保 DWM alpha 合成不可用时也无黑角。
@@ -224,8 +242,8 @@ void EnableTransparency(SDL_Window* sdlWindow, int cornerRadius)
 
         RECT rect;
         GetWindowRect(hwnd, &rect);
-        int winW = rect.right - rect.left;
-        int winH = rect.bottom - rect.top;
+        int const winW = rect.right - rect.left;
+        int const winH = rect.bottom - rect.top;
         if (winW > 0 && winH > 0)
         {
             HRGN hRgn = CreateRoundRectRgn(0, 0, winW + 1, winH + 1, cornerRadius * 2, cornerRadius * 2);
@@ -239,7 +257,7 @@ void EnableTransparency(SDL_Window* sdlWindow, int cornerRadius)
 // ============================================================================
 // Linux / X11 实现
 // ============================================================================
-#elif defined(__linux__)
+#elifdef __linux__
 
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
