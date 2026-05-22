@@ -498,8 +498,8 @@ private:
         const int scrollOffsetLines =
             args.lineHeight > 0.0F ? static_cast<int>(scrollArea.scrollOffset.y() / args.lineHeight) : 0;
         const size_t startIndex =
-            std::min(static_cast<size_t>(scrollOffsetLines), lines.empty() ? 0ULL : lines.size() - 1ULL);
-        const size_t endIndex = std::min(startIndex + static_cast<size_t>(maxVisibleLines) + 1ULL, lines.size());
+            std::min(static_cast<size_t>(scrollOffsetLines), lines.empty() ? size_t{0} : lines.size() - size_t{1});
+        const size_t endIndex = std::min(startIndex + static_cast<size_t>(maxVisibleLines) + size_t{1}, lines.size());
         const float startDrawY = args.textPos.y() - (scrollArea.scrollOffset.y() -
                                                      (static_cast<float>(scrollOffsetLines) * args.lineHeight));
 
