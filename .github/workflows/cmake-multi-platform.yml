@@ -103,14 +103,15 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   build-linux:
     name: Linux · ${{ matrix.compiler }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         include:
-          - compiler: GCC
-            c_compiler: gcc
-            cxx_compiler: g++
+          - compiler: GCC 15
+            c_compiler: gcc-15
+            cxx_compiler: g++-15
+            install_gcc_15: true
           - compiler: Clang
             c_compiler: clang
             cxx_compiler: clang++
@@ -121,10 +122,29 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -yq \
+            software-properties-common \
             ninja-build \
             libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libxss-dev libwayland-dev libxkbcommon-dev \
             libegl1-mesa-dev libvulkan-dev
+
+      - name: Install GCC 15
+        if: matrix.install_gcc_15 == true
+        run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update -q
+          sudo apt-get install -yq gcc-15 g++-15
+
+      - name: Check GCC version
+        if: matrix.install_gcc_15 == true
+        run: |
+          required=15.2
+          version="$(${{ matrix.cxx_compiler }} -dumpfullversion -dumpversion)"
+          echo "G++ version: ${version}"
+          if [ "$(printf '%s\n' "${required}" "${version}" | sort -V | head -n1)" != "${required}" ]; then
+            echo "G++ ${required} or newer is required."
+            exit 1
+          fi
 
       - name: Configure CMake
         run: >
