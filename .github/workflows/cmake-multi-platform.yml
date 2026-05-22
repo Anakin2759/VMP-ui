@@ -83,6 +83,11 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-libpng
+            mingw-w64-x86_64-bzip2
+            mingw-w64-x86_64-brotli
 
       - name: Configure CMake
         shell: msys2 {0}
@@ -123,10 +128,18 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -yq \
             software-properties-common \
+            pkg-config \
+            python3 \
+            perl \
             ninja-build \
-            libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
-            libxcursor-dev libxi-dev libxss-dev libwayland-dev libxkbcommon-dev \
-            libegl1-mesa-dev libvulkan-dev
+            zlib1g-dev libpng-dev libbz2-dev libbrotli-dev \
+            libasound2-dev libpulse-dev libjack-jackd2-dev libpipewire-0.3-dev libsndio-dev \
+            libx11-dev libxext-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxrandr-dev libxrender-dev libxss-dev libxtst-dev libxinerama-dev \
+            libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev libdecor-0-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev libvulkan-dev libdrm-dev libgbm-dev \
+            libfribidi-dev libdbus-1-dev libibus-1.0-dev libudev-dev libusb-1.0-0-dev \
+            liburing-dev libunwind-dev
 
       - name: Install GCC 15
         if: matrix.install_gcc_15 == true
