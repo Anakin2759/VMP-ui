@@ -418,7 +418,7 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
                  static_cast<uint32_t>(entity));
     Dispatcher::Trigger<events::WindowGraphicsContextSetEvent>({entity});
 
-    CreateTitleBar(entity, std::string(alias) + "_titleBar");
+    // 自定义 Dialog 默认无标题栏（NO_TITLE_BAR），如需自绘标题栏请显式调用 CreateTitleBar。
 
     return entity;
 }

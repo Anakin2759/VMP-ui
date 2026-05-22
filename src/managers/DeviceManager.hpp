@@ -7,10 +7,11 @@
  * @version 0.1
  * @brief 管理 GPU 设备和窗口声明
 
-    后备渲染方案实现：
+    GPU 后端回退方案实现：
     - 直接在 DeviceManager 内部维护一个后端列表（如 D3D12、Vulkan），并在初始化时逐个尝试创建 GPU 设备。
     - 如果当前后端无法声明窗口（例如在 VM 中 D3D12 无法渲染），则自动切换到下一个后端并重试，直到成功或所有后端均失败。
-    - 尝试后备方案使用cmrc内嵌资源库的swiftshader库提供的vulkan实现，确保在没有物理 GPU 的环境中也能提供基本的渲染支持。
+    - 尝试后备方案使用 cmrc 内嵌资源库的 swiftshader 库提供的 vulkan 实现，确保在没有物理 GPU 的环境中也能提供基本的渲染支持。
+    - CPU/software fallback 由 RenderSystem 的 FallbackBackendRenderer 处理，不属于 SDL_GPU 后端列表。
     - 虚拟机环境可能遇到初始化成功，但无法声明窗口的情况（例如 D3D12 在某些 VM 中无法渲染）。
     - 在这种情况下，DeviceManager 将自动切换到下一个后端（如 Vulkan）并重试声明窗口，确保应用能够继续运行而不是崩溃。
  *
@@ -20,6 +21,7 @@
  * ************************************************************************
  */
 #pragma once
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -28,6 +30,7 @@
 #include <filesystem>
 #include <fstream>
 #include <SDL3/SDL.h>
+#include "../common/AppConfig.hpp"
 #include "../common/Result.hpp"
 #include "../common/ErrorCodes.hpp"
 
@@ -69,19 +72,6 @@ public:
                            SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, "vulkan");
                            SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, false);
                            SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
-                       }},
-                      {.name = "cpu",
-                       .configure =
-                           [](SDL_PropertiesID /*props*/)
-                       {
-                           try
-                           {
-                               Logger::info("正在配置 cpu 后备方案...");
-                           }
-                           catch (const std::exception& e)
-                           {
-                               Logger::error("配置 cpu 后备方案失败: {}", e.what());
-                           }
                        }}
 
         };
@@ -98,6 +88,8 @@ public:
         if (m_gpuDevice != nullptr) return Ok();
 
         Logger::info("DeviceManager: 开始初始化 GPU 后端 (Strategy: Iterative Configuration)");
+
+        applyPreferredBackend();
 
         for (size_t i = 0; i < m_backends.size(); ++i)
         {
@@ -198,6 +190,31 @@ public:
     [[nodiscard]] SDL_GPUTexture* getWhiteTexture() const { return nullptr; } // TODO: Implement white texture creation
 
 private:
+    void applyPreferredBackend()
+    {
+        auto preferred = config::AppConfig::instance().preferredBackend();
+        if (preferred.empty()) return;
+
+        if (config::AppConfig::instance().forceFallbackRenderer())
+        {
+            return;
+        }
+
+        auto it = std::find_if(m_backends.begin(),
+                               m_backends.end(),
+                               [&](const BackendConfig& cfg) { return cfg.name == preferred; });
+        if (it == m_backends.end())
+        {
+            Logger::warn("未知 GPU 后端 \"{}\"，使用默认顺序。可选: direct3d12 / vulkan", preferred);
+            return;
+        }
+        if (it != m_backends.begin())
+        {
+            std::rotate(m_backends.begin(), it, it + 1);
+        }
+        Logger::info("应用命令行 GPU 后端偏好：优先尝试 {}", m_backends.front().name);
+    }
+
     bool createDevice(size_t index)
     {
         if (index >= m_backends.size()) return false;

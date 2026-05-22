@@ -14,6 +14,7 @@
 #include <string>
 #include <memory>
 #include "common/Result.hpp"
+#include "common/AppConfig.hpp"
 #include <string_view>
 #include "singleton/Logger.hpp"
 #include "common/ErrorCodes.hpp"
@@ -314,13 +315,21 @@ void RenderSystem::ensureInitialized()
         return;
     }
 
+    const bool commandLineForcesFallback = config::AppConfig::instance().forceFallbackRenderer();
+    if (!m_forceFallback && commandLineForcesFallback)
+    {
+        m_forceFallback = true;
+        Logger::warn("[RenderSystem] 命令行后端 cpu/software/fallback 已启用，强制使用 SDL_Renderer fallback 后端");
+    }
+
     if (m_forceFallback)
     {
         m_useFallback = true;
 
         if (!m_backendSelectionLogged)
         {
-            Logger::info("[RenderSystem] 当前渲染后端: fallback (source=environment)");
+            Logger::info("[RenderSystem] 当前渲染后端: fallback (source={})",
+                         commandLineForcesFallback ? "command-line" : "environment");
             m_backendSelectionLogged = true;
         }
     }

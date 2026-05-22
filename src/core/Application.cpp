@@ -20,6 +20,7 @@
 #include "TaskChain.hpp"
 
 #include "../api/Factory.hpp"
+#include "../common/AppConfig.hpp"
 #include "../common/GlobalContext.hpp"
 #include "../singleton/Logger.hpp"
 #include "common/Events.hpp"
@@ -55,7 +56,11 @@ namespace ui
 Application::Application(std::span<char*> arg) // NOLINT
     : m_runtimeScope(m_runtime)
 {
-    (void)arg;
+    config::AppConfig::instance().parseCommandLine(arg);
+    if (auto backend = config::AppConfig::instance().preferredBackend(); !backend.empty())
+    {
+        Logger::info("命令行指定 GPU 后端: {}", backend);
+    }
     auto& runtime = RuntimeFacade::current();
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
