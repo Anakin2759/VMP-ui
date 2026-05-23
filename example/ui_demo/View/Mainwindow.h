@@ -15,7 +15,9 @@
  */
 #pragma once
 
+#include <filesystem>
 #include <string>
+#include <string_view>
 
 #include <ui.hpp>
 
@@ -32,6 +34,29 @@ inline entt::entity MakeSectionTitle(const std::string& text, const std::string&
         | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 22.0F)
         | TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::VCENTER);
     return lbl;
+}
+
+inline std::string DemoAssetPath(std::string_view fileName)
+{
+    const auto assetPath = std::filesystem::path(__FILE__).parent_path().parent_path() / "assets" / fileName;
+    return assetPath.string();
+}
+
+inline entt::entity MakeImageCard(std::string_view title, std::string_view assetFileName, const std::string& alias)
+{
+    auto card = ui::factory::CreateVBoxLayout(alias);
+    card | FixedSize(96.0F, 124.0F) | BackgroundColor({0.12F, 0.12F, 0.16F, 0.92F}) | BorderRadius(6.0F)
+        | BorderColor({0.28F, 0.28F, 0.36F, 1.0F}) | BorderThickness(1.0F) | Padding(6.0F) | Spacing(5.0F);
+
+    auto image = ui::factory::CreateImageFromPath(DemoAssetPath(assetFileName), 84.0F, 84.0F, alias + "_image");
+    image | FixedSize(84.0F, 84.0F) | BorderRadius(4.0F) | BackgroundColor({0.05F, 0.05F, 0.07F, 1.0F});
+
+    auto label = ui::factory::CreateLabel(std::string(title), alias + "_label");
+    label | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 18.0F)
+        | TextAlignment(ui::policies::Alignment::CENTER) | TextColor({0.86F, 0.86F, 0.90F, 1.0F}) | FontSize(11.0F);
+
+    card | AddChild(image) | AddChild(label);
+    return card;
 }
 } // namespace detail
 
@@ -317,6 +342,43 @@ inline void CreateMainWindow() // NOLINT
 
         scrollArea | AddChild(scrollContent);
         scrollPanel | AddChild(scrollArea);
+    }
+
+    {
+        auto imagePanel = ui::factory::CreateVBoxLayout("imagePanel");
+        imagePanel | panelStyle | Size(330.0F, 0.0F)
+            | SizePolicy(ui::policies::Size::H_FIXED | ui::policies::Size::V_FILL);
+        row2 | AddChild(imagePanel);
+
+        imagePanel | AddChild(detail::MakeSectionTitle("Image Demo", "imageTitle"));
+
+        auto supportLabel = ui::factory::CreateLabel("Current decoder path: PNG / JPEG / BMP", "imageSupportLabel");
+        supportLabel | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 20.0F)
+            | TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::VCENTER)
+            | TextColor({0.75F, 0.78F, 0.84F, 1.0F}) | FontSize(11.0F);
+        imagePanel | AddChild(supportLabel);
+
+        auto imageRow = ui::factory::CreateHBoxLayout("imageRow");
+        imageRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 132.0F) | Spacing(8.0F);
+
+        imageRow | AddChild(detail::MakeImageCard("PNG", "sample.png", "pngCard"))
+            | AddChild(detail::MakeImageCard("JPEG", "sample.jpg", "jpegCard"))
+            | AddChild(detail::MakeImageCard("BMP", "sample.bmp", "bmpCard"));
+        imagePanel | AddChild(imageRow);
+
+        auto unsupportedLabel = ui::factory::CreateLabel("ICO / SVG: not supported by current ImageManager decoder", "imageUnsupportedLabel");
+        unsupportedLabel | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 34.0F)
+            | TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::TOP)
+            | TextColor({0.92F, 0.66F, 0.40F, 1.0F}) | FontSize(11.0F);
+        imagePanel | AddChild(unsupportedLabel);
+
+        auto noteLabel = ui::factory::CreateLabel("Reason: current loader only dispatches BMP to SDL_LoadBMP and all other formats to stb_image; stb_image does not decode ICO/SVG.",
+                                                   "imageNoteLabel");
+        noteLabel | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+            | TextWordWrap(ui::policies::TextWrap::CHAR) | TextWrapWidth(290.0F)
+            | TextAlignment(ui::policies::Alignment::TOP_LEFT) | TextColor({0.62F, 0.65F, 0.72F, 1.0F}) | FontSize(11.0F)
+            | BackgroundColor({0.08F, 0.08F, 0.11F, 0.55F}) | BorderRadius(4.0F) | Padding(6.0F);
+        imagePanel | AddChild(noteLabel);
     }
 
     auto row3 = ui::factory::CreateHBoxLayout("row3");

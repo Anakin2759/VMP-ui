@@ -88,8 +88,7 @@ public:
         pushConstants.rect_size[0] = context.size.x();
         pushConstants.rect_size[1] = context.size.y();
         pushConstants.opacity = context.alpha;
-        // 纹理模式：draw_mode=1.0 由 shader 采样纹理
-        pushConstants.draw_mode = 1.0F;
+        pushConstants.padding = 1.0F;
 
         context.batchManager->beginBatch(tex, context.currentScissor, pushConstants);
 
