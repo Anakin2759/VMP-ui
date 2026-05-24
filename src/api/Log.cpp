@@ -49,6 +49,11 @@ void SetCallback(Callback callback)
     CallbackStorage().store(callback, std::memory_order_relaxed);
 }
 
+void SetFilePath(std::string_view path)
+{
+    ui::Logger::reconfigure(path);
+}
+
 void LogImpl(Level level, std::string_view message)
 {
     if (level < LevelStorage().load(std::memory_order_relaxed)) return;

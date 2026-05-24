@@ -99,6 +99,15 @@ public:
         instance().log_impl(spdlog::level::debug, msg, std::forward<Args>(args)...);
     }
 
+    /**
+     * @brief 重新配置日志文件路径（替换文件 sink，控制台 sink 保持不变）
+     * @param filePath 新的日志文件路径
+     */
+    static void reconfigure(std::string_view filePath)
+    {
+        instance().reconfigure_impl(filePath);
+    }
+
 private:
     static Logger& instance()
     {
@@ -134,6 +143,22 @@ private:
             lvl,
             fmt::runtime(msg.fmt), // 由于 fmt 被包裹在结构体中，需显式转为 runtime
             std::forward<Args>(args)...);
+    }
+
+    void reconfigure_impl(std::string_view filePath)
+    {
+        auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+            std::string(filePath), MAX_LOG_FILE_SIZE, MAX_LOG_FILE_COUNT);
+        fileSink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%# %!] %v");
+        auto& sinks = m_logger->sinks();
+        if (sinks.size() >= 2)
+        {
+            sinks[1] = std::move(fileSink);
+        }
+        else
+        {
+            sinks.push_back(std::move(fileSink));
+        }
     }
 
     std::shared_ptr<spdlog::logger> m_logger;

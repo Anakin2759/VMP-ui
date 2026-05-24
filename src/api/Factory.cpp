@@ -6,6 +6,7 @@
 #include "../common/Types.hpp"
 #include "../common/Events.hpp"
 #include "../common/ErrorCodes.hpp"
+#include "../common/AppConfig.hpp"
 #include "../core/RuntimeFacade.hpp"
 #include "../singleton/Logger.hpp"
 #include "../singleton/Registry.hpp"
@@ -26,6 +27,8 @@
 #include "entt/entity/entity.hpp"
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_video.h>
+#include <SDL3/SDL_surface.h>
+#include <stb_image.h>
 
 #include <algorithm>
 #include <cmath>
@@ -60,6 +63,34 @@ SDL_Window* CreateSdlWindowOrRollback(
                       SDL_GetError());
         Registry::Destroy(entity);
         return nullptr;
+    }
+
+    // 应用应用程序图标（若已通过 AppConfig 配置）
+    const auto iconPath = ui::config::AppConfig::instance().appIconPath();
+    if (!iconPath.empty())
+    {
+        int w = 0;
+        int h = 0;
+        int channels = 0;
+        unsigned char* pixels = stbi_load(std::string(iconPath).c_str(), &w, &h, &channels, 4);
+        if (pixels != nullptr)
+        {
+            SDL_Surface* surface = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, pixels, w * 4);
+            if (surface != nullptr)
+            {
+                SDL_SetWindowIcon(sdlWindow, surface);
+                SDL_DestroySurface(surface);
+            }
+            else
+            {
+                Logger::warn("[Factory] Failed to create surface for app icon: {}", SDL_GetError());
+            }
+            stbi_image_free(pixels);
+        }
+        else
+        {
+            Logger::warn("[Factory] Failed to load app icon '{}': {}", iconPath, stbi_failure_reason());
+        }
     }
 
     return sdlWindow;

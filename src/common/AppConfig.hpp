@@ -40,6 +40,16 @@ public:
 
     [[nodiscard]] std::string_view preferredBackend() const noexcept { return m_preferredBackend; }
 
+    /// 设置应用程序窗口图标路径（支持 BMP / PNG / JPG，空字符串表示不设置）
+    void setAppIconPath(std::string path) { m_appIconPath = std::move(path); }
+
+    [[nodiscard]] std::string_view appIconPath() const noexcept { return m_appIconPath; }
+
+    /// 设置日志文件路径（空字符串表示使用默认路径 logs/pestmankill.log）
+    void setLogFilePath(std::string path) { m_logFilePath = std::move(path); }
+
+    [[nodiscard]] std::string_view logFilePath() const noexcept { return m_logFilePath; }
+
     [[nodiscard]] bool forceFallbackRenderer() const noexcept
     {
         return m_preferredBackend == "cpu" || m_preferredBackend == "software" || m_preferredBackend == "fallback";
@@ -89,6 +99,8 @@ public:
 private:
     AppConfig() = default;
     std::string m_preferredBackend;
+    std::string m_appIconPath;
+    std::string m_logFilePath;
 };
 
 } // namespace ui::config

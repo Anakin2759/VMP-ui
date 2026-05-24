@@ -57,6 +57,13 @@ Application::Application(std::span<char*> arg) // NOLINT
     : m_runtimeScope(m_runtime)
 {
     config::AppConfig::instance().parseCommandLine(arg);
+
+    // 优先应用日志文件路径配置（在任何日志输出之前）
+    if (const auto logPath = config::AppConfig::instance().logFilePath(); !logPath.empty())
+    {
+        Logger::reconfigure(logPath);
+    }
+
     if (auto backend = config::AppConfig::instance().preferredBackend(); !backend.empty())
     {
         Logger::info("命令行指定 GPU 后端: {}", backend);

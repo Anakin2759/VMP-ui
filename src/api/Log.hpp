@@ -55,6 +55,9 @@ void SetLevel(Level level);
 /// 设置自定义回调（传 nullptr 则清除）
 void SetCallback(Callback callback);
 
+/// 设置日志文件路径（替换当前文件 sink，立即生效）
+void SetFilePath(std::string_view path);
+
 // ---- 内部实现桥接（由 Log.cpp 提供，模板函数调用）------------------
 
 void LogImpl(Level level, std::string_view message);
