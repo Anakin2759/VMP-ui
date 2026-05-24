@@ -69,13 +69,13 @@ SDL_Window* CreateSdlWindowOrRollback(
     const auto iconPath = ui::config::AppConfig::instance().appIconPath();
     if (!iconPath.empty())
     {
-        int w = 0;
-        int h = 0;
+        int wid = 0;
+        int hei = 0;
         int channels = 0;
-        unsigned char* pixels = stbi_load(std::string(iconPath).c_str(), &w, &h, &channels, 4);
+        unsigned char* pixels = stbi_load(std::string(iconPath).c_str(), &wid, &hei, &channels, 4);
         if (pixels != nullptr)
         {
-            SDL_Surface* surface = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, pixels, w * 4);
+            SDL_Surface* surface = SDL_CreateSurfaceFrom(wid, hei, SDL_PIXELFORMAT_RGBA32, pixels, wid * 4);
             if (surface != nullptr)
             {
                 SDL_SetWindowIcon(sdlWindow, surface);

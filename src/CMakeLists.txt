@@ -14,6 +14,10 @@ option(UI_ENABLE_ASAN "Enable AddressSanitizer for UI module" OFF)
 option(UI_FORCE_CPU_RENDER "Force CPU-only software rendering (skip all GPU backends)" OFF)
 # 线程池：默认单线程，开启后启用 worker 线程做异步任务（图片解码等 CPU 热点）
 option(UI_ENABLE_MULTITHREAD "Enable worker threads in ui::utils::ThreadPool (default OFF, runs all tasks inline)" OFF)
+# Linux 窗口系统后端：AUTO 自动探测、X11、WAYLAND（仅 Linux 生效）
+set(UI_LINUX_WINDOW_SYSTEM "AUTO" CACHE STRING
+    "Linux window system backend: AUTO (detect X11 first, fallback Wayland), X11, WAYLAND")
+set_property(CACHE UI_LINUX_WINDOW_SYSTEM PROPERTY STRINGS AUTO X11 WAYLAND)
 # DXC 着色器编译选项
 # AUTO：构建时自动检测 DXC；若找到则编译，否则回退到预编译二进制
 # ON  ：强制要求 DXC，找不到则报错
@@ -469,9 +473,39 @@ else()
     message(STATUS "[UI] UI_ENABLE_MULTITHREAD=OFF: ThreadPool runs all tasks inline (default).")
 endif()
 
-# Windows 平台链接 DWM + comctl32（用于无边框窗口透明合成 + 子类化）
+# ==================== 平台链接 ====================
+# Windows: DWM 透明合成 + 窗口子类化
 if(WIN32)
     target_link_libraries(ui PRIVATE dwmapi comctl32)
+endif()
+
+# Linux: X11 / Wayland 后端
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(_ui_linux_need_x11
+        $<OR:$<STREQUAL:${UI_LINUX_WINDOW_SYSTEM},AUTO>,$<STREQUAL:${UI_LINUX_WINDOW_SYSTEM},X11>>)
+
+    if(UI_LINUX_WINDOW_SYSTEM STREQUAL "AUTO" OR UI_LINUX_WINDOW_SYSTEM STREQUAL "X11")
+        find_package(X11 QUIET)
+        if(X11_FOUND)
+            target_link_libraries(ui PRIVATE X11::X11)
+            target_compile_definitions(ui PRIVATE UI_LINUX_X11=1)
+            message(STATUS "[UI] Linux: X11 backend enabled")
+        elseif(UI_LINUX_WINDOW_SYSTEM STREQUAL "X11")
+            message(FATAL_ERROR "[UI] UI_LINUX_WINDOW_SYSTEM=X11 but libX11 not found.\n"
+                "  Ubuntu/Debian : sudo apt install libx11-dev\n"
+                "  Fedora/RHEL   : dnf install libX11-devel\n"
+                "  Arch          : pacman -S libx11")
+        else()
+            message(STATUS "[UI] Linux: X11 not found; falling back to Wayland-only")
+        endif()
+    endif()
+
+    if(UI_LINUX_WINDOW_SYSTEM STREQUAL "AUTO" OR UI_LINUX_WINDOW_SYSTEM STREQUAL "WAYLAND")
+        # SDL3 已内建 Wayland 支持，无需额外链接 wayland-client
+        # xdg-decoration / libdecor 等装饰协议可在此追加（P6 扩展）
+        target_compile_definitions(ui PRIVATE UI_LINUX_WAYLAND=1)
+        message(STATUS "[UI] Linux: Wayland backend enabled (via SDL3)")
+    endif()
 endif()
 target_compile_features(ui PUBLIC cxx_std_23)
 

@@ -255,16 +255,19 @@ void EnableTransparency(SDL_Window* sdlWindow, int cornerRadius)
 } // namespace ui::platform
 
 // ============================================================================
-// Linux / X11 实现
+// Linux 实现（X11 和/或 Wayland）
 // ============================================================================
 #elifdef __linux__
 
+#ifdef UI_LINUX_X11
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
+#endif // UI_LINUX_X11
 
 namespace
 {
 
+#ifdef UI_LINUX_X11
 /**
  * @brief Motif WM Hints 结构体
  *
@@ -281,6 +284,7 @@ struct MotifWmHints
 };
 
 constexpr unsigned long MWM_HINTS_DECORATIONS = (1L << 1);
+#endif // UI_LINUX_X11
 
 } // anonymous namespace
 
@@ -289,6 +293,7 @@ namespace ui::platform
 
 void SetupCustomTitleBar(SDL_Window* sdlWindow, [[maybe_unused]] int borderWidth)
 {
+#ifdef UI_LINUX_X11
     // 尝试 X11 路径
     auto* display = static_cast<Display*>(
         SDL_GetPointerProperty(SDL_GetWindowProperties(sdlWindow), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr));
@@ -314,6 +319,7 @@ void SetupCustomTitleBar(SDL_Window* sdlWindow, [[maybe_unused]] int borderWidth
         XFlush(display);
         return;
     }
+#endif // UI_LINUX_X11
 
     // Wayland: 无法通过底层 API 移除装饰，依赖 SDL_WINDOW_BORDERLESS
     // （SDL3 创建窗口时已设置该标志）

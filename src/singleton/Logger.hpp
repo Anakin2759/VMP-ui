@@ -62,6 +62,7 @@ public:
     Logger& operator=(const Logger&) = delete;
     Logger(Logger&&) = delete;
     Logger& operator=(Logger&&) = delete;
+    ~Logger() = default;
 
     /**
      * @brief 警告日志
@@ -165,12 +166,12 @@ private:
 };
 
 // 辅助工具：路径规范化
-inline std::string normalizePath(const char* path)
+inline std::string NormalizePath(const char* path)
 {
-    std::string result = path ? path : "";
-    for (auto& ch : result)
+    std::string result = path == nullptr ? "" : path;
+    for (auto& cha : result)
     {
-        if (ch == '\\') ch = '/';
+        if (cha == '\\') cha = '/';
     }
     return result;
 }
