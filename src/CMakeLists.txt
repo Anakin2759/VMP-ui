@@ -143,6 +143,8 @@ set(UI_SOURCES
     core/RuntimeFacade.cpp
     core/SystemManager.cpp
     systems/LayoutSystem.cpp
+    systems/HitTestSystem.cpp
+    systems/StateSystem.cpp
     systems/render/RenderBackend.cpp
     systems/render/RenderResources.cpp
     systems/render/RenderFrame.cpp
@@ -151,6 +153,7 @@ set(UI_SOURCES
     managers/FontManager.cpp
     managers/IconManager.cpp
     managers/ResourceProvider.cpp
+    managers/TextTextureCache.cpp
     ${UI_STD_EMBED_RESOURCE_TABLE_SOURCE}
     api/Size.cpp
     api/Visibility.cpp

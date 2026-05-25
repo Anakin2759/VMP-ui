@@ -16,8 +16,11 @@
 #pragma once
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/RenderTypes.hpp"
+#include "../common/components/Interaction.hpp"
+#include "../common/components/Layout.hpp"
 #include "../managers/BatchManager.hpp"
+#include <algorithm>
 #include <SDL3/SDL_gpu.h>
 
 namespace ui::renderers
@@ -55,6 +58,138 @@ public:
     }
 
 private:
+    [[nodiscard]] static render::UiPushConstants makeRoundedRectConstants(const Eigen::Vector2f& size,
+                                                                          float radius,
+                                                                          float alpha,
+                                                                          const core::RenderContext& context)
+    {
+        render::UiPushConstants pushConstants{};
+        pushConstants.screen_size[0] = context.screenWidth;
+        pushConstants.screen_size[1] = context.screenHeight;
+        pushConstants.rect_size[0] = size.x();
+        pushConstants.rect_size[1] = size.y();
+        pushConstants.radius[0] = radius;
+        pushConstants.radius[1] = radius;
+        pushConstants.radius[2] = radius;
+        pushConstants.radius[3] = radius;
+        pushConstants.opacity = alpha;
+        pushConstants.shadow_soft = 0.0F;
+        pushConstants.shadow_offset_x = 0.0F;
+        pushConstants.shadow_offset_y = 0.0F;
+        return pushConstants;
+    }
+
+    static void drawRoundedRect(const Eigen::Vector2f& pos,
+                                const Eigen::Vector2f& size,
+                                const Eigen::Vector4f& color,
+                                float radius,
+                                float alpha,
+                                core::RenderContext& context)
+    {
+        const auto pushConstants = makeRoundedRectConstants(size, radius, alpha, context);
+        context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConstants);
+        context.batchManager->addRect(pos, size, color);
+    }
+
+    [[nodiscard]] static Eigen::Vector4f verticalTrackColor(entt::entity entity)
+    {
+        Eigen::Vector4f trackColor = {0.2F, 0.2F, 0.2F, 0.3F};
+        if (const auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(entity))
+        {
+            if (ist->trackHovered || ist->scrollbarHovered || ist->scrollbarPressed)
+            {
+                trackColor = {0.25F, 0.25F, 0.25F, 0.5F};
+            }
+        }
+        return trackColor;
+    }
+
+    [[nodiscard]] static Eigen::Vector4f verticalThumbColor(entt::entity entity)
+    {
+        Eigen::Vector4f thumbColor = {0.6F, 0.6F, 0.6F, 0.7F};
+        if (const auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(entity))
+        {
+            if (ist->scrollbarPressed)
+            {
+                thumbColor = {0.5F, 0.5F, 0.5F, 0.95F};
+            }
+            else if (ist->scrollbarHovered)
+            {
+                thumbColor = {0.7F, 0.7F, 0.7F, 0.85F};
+            }
+        }
+        return thumbColor;
+    }
+
+    void drawVerticalScrollBar(entt::entity entity,
+                               const Eigen::Vector2f& pos,
+                               const Eigen::Vector2f& size,
+                               const components::ScrollArea& scrollArea,
+                               float viewportHeight,
+                               float alpha,
+                               core::RenderContext& context)
+    {
+        const bool hasVerticalScroll =
+            (scrollArea.scroll == policies::Scroll::VERTICAL || scrollArea.scroll == policies::Scroll::BOTH);
+        if (!hasVerticalScroll || scrollArea.contentSize.y() <= viewportHeight)
+        {
+            return;
+        }
+
+        const float trackHeight = size.y();
+        const float visibleRatio = viewportHeight / scrollArea.contentSize.y();
+        const float thumbSize = std::max(20.0F, trackHeight * visibleRatio);
+        const float maxScroll = std::max(0.0F, scrollArea.contentSize.y() - viewportHeight);
+        const float scrollRatio =
+            maxScroll > 0.0F ? std::clamp(scrollArea.scrollOffset.y() / maxScroll, 0.0F, 1.0F) : 0.0F;
+        const float thumbPos = std::clamp((trackHeight - thumbSize) * scrollRatio, 0.0F, trackHeight - thumbSize);
+
+        const float barWidth = 10.0F;
+        const float trackWidth = 12.0F;
+        const float trackPadding = 2.0F;
+
+        const Eigen::Vector2f trackPos(pos.x() + size.x() - trackWidth - trackPadding, pos.y());
+        const Eigen::Vector2f trackSize(trackWidth, size.y());
+        drawRoundedRect(trackPos, trackSize, verticalTrackColor(entity), 6.0F, alpha, context);
+
+        const Eigen::Vector2f barPos(pos.x() + size.x() - barWidth - trackPadding - 1.0F,
+                                     pos.y() + thumbPos + 2.0F);
+        const Eigen::Vector2f barSize(barWidth, thumbSize - 4.0F);
+        drawRoundedRect(barPos, barSize, verticalThumbColor(entity), 5.0F, alpha, context);
+    }
+
+    void drawHorizontalScrollBar(const Eigen::Vector2f& pos,
+                                 const Eigen::Vector2f& size,
+                                 const components::ScrollArea& scrollArea,
+                                 float alpha,
+                                 core::RenderContext& context)
+    {
+        const bool hasHorizontalScroll =
+            (scrollArea.scroll == policies::Scroll::HORIZONTAL || scrollArea.scroll == policies::Scroll::BOTH);
+        if (!hasHorizontalScroll || scrollArea.contentSize.x() <= size.x())
+        {
+            return;
+        }
+
+        const float trackHeight = 12.0F;
+        const float trackPadding = 2.0F;
+        const float barHeight = 10.0F;
+        const float visibleRatio = size.x() / scrollArea.contentSize.x();
+        const float thumbSize = std::max(20.0F, size.x() * visibleRatio);
+        const float maxScroll = std::max(0.0F, scrollArea.contentSize.x() - size.x());
+        const float scrollRatio =
+            maxScroll > 0.0F ? std::clamp(scrollArea.scrollOffset.x() / maxScroll, 0.0F, 1.0F) : 0.0F;
+        const float thumbPos = std::clamp((size.x() - thumbSize) * scrollRatio, 0.0F, size.x() - thumbSize);
+
+        const Eigen::Vector2f trackPos(pos.x(), pos.y() + size.y() - trackHeight - trackPadding);
+        const Eigen::Vector2f trackSize(size.x(), trackHeight);
+        drawRoundedRect(trackPos, trackSize, {0.2F, 0.2F, 0.2F, 0.3F}, 6.0F, alpha, context);
+
+        const Eigen::Vector2f barPos(pos.x() + thumbPos + 1.0F, pos.y() + size.y() - barHeight - trackPadding - 1.0F);
+        const Eigen::Vector2f barSize(thumbSize - 4.0F, barHeight - 2.0F);
+        drawRoundedRect(barPos, barSize, {0.6F, 0.6F, 0.6F, 0.7F}, 5.0F, alpha, context);
+    }
+
     void drawScrollBars(entt::entity entity,
                         const Eigen::Vector2f& pos,
                         const Eigen::Vector2f& size,
@@ -68,89 +203,8 @@ private:
             viewportHeight = std::max(0.0F, size.y() - padding->values.x() - padding->values.z());
         }
 
-        // 简单绘制一个垂直滚动条
-        bool hasVerticalScroll =
-            (scrollArea.scroll == policies::Scroll::VERTICAL || scrollArea.scroll == policies::Scroll::BOTH);
-        if (hasVerticalScroll && scrollArea.contentSize.y() > viewportHeight)
-        {
-            float trackHeight = size.y();
-            float visibleRatio = viewportHeight / scrollArea.contentSize.y();
-            float thumbSize = std::max(20.0F, trackHeight * visibleRatio);
-            float maxScroll = std::max(0.0F, scrollArea.contentSize.y() - viewportHeight);
-            float scrollRatio =
-                maxScroll > 0.0F ? std::clamp(scrollArea.scrollOffset.y() / maxScroll, 0.0F, 1.0F) : 0.0F;
-            float thumbPos = (trackHeight - thumbSize) * scrollRatio;
-
-            thumbPos = std::clamp(thumbPos, 0.0F, trackHeight - thumbSize);
-
-            float barWidth = 10.0F;
-            float trackWidth = 12.0F;
-            float trackPadding = 2.0F;
-
-            Eigen::Vector2f trackPos(pos.x() + size.x() - trackWidth - trackPadding, pos.y());
-            Eigen::Vector2f trackSize(trackWidth, size.y());
-
-            Eigen::Vector4f trackColor = {0.2F, 0.2F, 0.2F, 0.3F}; // 默认半透明深色
-            if (const auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(entity))
-            {
-                if (ist->trackHovered || ist->scrollbarHovered || ist->scrollbarPressed)
-                {
-                    trackColor = {0.25F, 0.25F, 0.25F, 0.5F}; // 悬停时更明显
-                }
-            }
-
-            // 绘制轨道背景
-            render::UiPushConstants trackPushConstants{};
-            trackPushConstants.screen_size[0] = context.screenWidth;
-            trackPushConstants.screen_size[1] = context.screenHeight;
-            trackPushConstants.rect_size[0] = trackSize.x();
-            trackPushConstants.rect_size[1] = trackSize.y();
-            trackPushConstants.radius[0] = 6.0F; // 圆角轨道
-            trackPushConstants.radius[1] = 6.0F;
-            trackPushConstants.radius[2] = 6.0F;
-            trackPushConstants.radius[3] = 6.0F;
-            trackPushConstants.opacity = alpha;
-            trackPushConstants.shadow_soft = 0.0F;
-            trackPushConstants.shadow_offset_x = 0.0F;
-            trackPushConstants.shadow_offset_y = 0.0F;
-
-            context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, trackPushConstants);
-            context.batchManager->addRect(trackPos, trackSize, trackColor);
-
-            Eigen::Vector2f barPos(pos.x() + size.x() - barWidth - trackPadding - 1.0F, pos.y() + thumbPos + 2.0F);
-            Eigen::Vector2f barSize(barWidth, thumbSize - 4.0F); // 稍微小一点，留出间隙
-
-            Eigen::Vector4f thumbColor = {0.6F, 0.6F, 0.6F, 0.7F};
-            if (const auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(entity))
-            {
-                if (ist->scrollbarPressed)
-                {
-                    thumbColor = {0.5F, 0.5F, 0.5F, 0.95F}; // 按下时更暗更不透明
-                }
-                else if (ist->scrollbarHovered)
-                {
-                    thumbColor = {0.7F, 0.7F, 0.7F, 0.85F};
-                }
-            }
-
-            // 绘制滑块
-            render::UiPushConstants pushConstants{};
-            pushConstants.screen_size[0] = context.screenWidth;
-            pushConstants.screen_size[1] = context.screenHeight;
-            pushConstants.rect_size[0] = barSize.x();
-            pushConstants.rect_size[1] = barSize.y();
-            pushConstants.radius[0] = 5.0F;
-            pushConstants.radius[1] = 5.0F;
-            pushConstants.radius[2] = 5.0F;
-            pushConstants.radius[3] = 5.0F;
-            pushConstants.opacity = alpha;
-            pushConstants.shadow_soft = 0.0F;
-            pushConstants.shadow_offset_x = 0.0F;
-            pushConstants.shadow_offset_y = 0.0F;
-
-            context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConstants);
-            context.batchManager->addRect(barPos, barSize, thumbColor);
-        }
+        drawVerticalScrollBar(entity, pos, size, scrollArea, viewportHeight, alpha, context);
+        drawHorizontalScrollBar(pos, size, scrollArea, alpha, context);
     }
 };
 

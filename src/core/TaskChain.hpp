@@ -157,6 +157,14 @@ struct QueuedTask
 
     void operator()(uint32_t delta)
     {
+        // C18 修复：帧开始先排干 Worker Mailbox，确保 Worker 写回的 ECS 操作
+        // 在 Dispatcher::Update()（BUFFERED 事件派发）之前对本帧完全可见。
+        // tryMailbox() 为 nullptr 时（未激活 UiRuntimeScope 的帧/测试场景）静默跳过。
+        if (auto* mailbox = RuntimeFacade::current().tryMailbox())
+        {
+            mailbox->drain(RuntimeFacade::current().enttRegistry());
+        }
+
         // 队列阶段先推进帧上下文，再驱动定时器与缓冲事件派发。
         auto& frameContext = RuntimeFacade::current().frame();
         frameContext.intervalMs = delta;

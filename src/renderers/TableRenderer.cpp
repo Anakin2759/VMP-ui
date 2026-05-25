@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "api/Table.hpp"
 #include "SDL3/SDL_gpu.h"
 #include "SDL3/SDL_rect.h"
 #include "common/RenderTypes.hpp"
@@ -53,9 +54,19 @@ void TableRenderer::collect(entt::entity entity, core::RenderContext& context)
     }
 
     auto state = makeRenderState(*info, context);
-    updateScrollArea(entity, *info, state);
+    updateScrollArea(entity, state);
+
+    // 表头背景（不需横向滚动，始终充满可见宽度）
     renderHeaderBackground(*info, context, state);
+
+    // 表头文字需要横向裁切
+    const SDL_Rect headerRect{.x = static_cast<int>(state.tableX),
+                              .y = static_cast<int>(state.tableY),
+                              .w = static_cast<int>(std::max(0.0F, state.totalWidth)),
+                              .h = static_cast<int>(std::max(0.0F, info->headerHeight))};
+    context.pushScissor(headerRect);
     renderHeaderText(*info, context, state);
+    context.popScissor();
 
     const SDL_Rect bodyRect{.x = static_cast<int>(state.tableX),
                             .y = static_cast<int>(state.bodyY),
@@ -76,12 +87,21 @@ TableRenderer::TableRenderState TableRenderer::makeRenderState(const components:
     TableRenderState state;
     state.tableX = context.position.x();
     state.tableY = context.position.y();
-    state.totalWidth = context.size.x();
-    state.totalHeight = context.size.y();
+    state.totalWidth = std::max(0.0F, context.size.x());
+    state.totalHeight = std::max(0.0F, context.size.y());
     state.bodyY = state.tableY + info.headerHeight;
-    state.bodyHeight = state.totalHeight - info.headerHeight;
+    state.bodyHeight = std::max(0.0F, state.totalHeight - info.headerHeight);
     state.rowCount = static_cast<int>(info.cells.size());
-    state.colWidths = computeColWidths(info, state.totalWidth);
+    state.effectiveRowHeight = std::max(0.0F, std::max(info.rowHeight, info.minRowHeight));
+    state.colWidths = ui::table::ComputeColumnWidths(info, state.totalWidth);
+
+    // 计算 contentWidth（所有列宽之和）
+    state.contentWidth = 0.0F;
+    for (float columnWidth : state.colWidths)
+    {
+        state.contentWidth += columnWidth;
+    }
+
     state.pushConstants.screen_size[0] = context.screenWidth;
     state.pushConstants.screen_size[1] = context.screenHeight;
     state.pushConstants.opacity = context.alpha;
@@ -91,28 +111,10 @@ TableRenderer::TableRenderState TableRenderer::makeRenderState(const components:
 
 std::vector<float> TableRenderer::computeColWidths(const components::TableInfo& info, float totalWidth)
 {
-    const int columnCount = info.columnCount;
-    std::vector<float> widths(static_cast<size_t>(columnCount));
-
-    if (!info.columnWidths.empty() && std::cmp_equal(info.columnWidths.size(), columnCount))
-    {
-        for (int columnIndex = 0; columnIndex < columnCount; ++columnIndex)
-        {
-            widths.at(static_cast<size_t>(columnIndex)) = info.columnWidths.at(static_cast<size_t>(columnIndex));
-        }
-    }
-    else
-    {
-        const float columnWidth = (columnCount > 0) ? (totalWidth / static_cast<float>(columnCount)) : totalWidth;
-        for (int columnIndex = 0; columnIndex < columnCount; ++columnIndex)
-        {
-            widths.at(static_cast<size_t>(columnIndex)) = columnWidth;
-        }
-    }
-    return widths;
+    return ui::table::ComputeColumnWidths(info, totalWidth);
 }
 
-void TableRenderer::updateScrollArea(entt::entity entity, const components::TableInfo& info, TableRenderState& state)
+void TableRenderer::updateScrollArea(entt::entity entity, TableRenderState& state)
 {
     auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
     if (scrollArea == nullptr)
@@ -120,12 +122,19 @@ void TableRenderer::updateScrollArea(entt::entity entity, const components::Tabl
         return;
     }
 
-    const float contentHeight = static_cast<float>(state.rowCount) * info.rowHeight;
-    scrollArea->contentSize = {state.totalWidth, contentHeight};
-    const float viewportHeight = state.totalHeight - info.headerHeight;
-    const float maxScroll = std::max(0.0F, contentHeight - viewportHeight);
-    scrollArea->scrollOffset.y() = std::clamp(scrollArea->scrollOffset.y(), 0.0F, maxScroll);
+    const float contentHeight = static_cast<float>(state.rowCount) * state.effectiveRowHeight;
+    scrollArea->contentSize = {state.contentWidth, contentHeight};
+
+    // 垂直滚动
+    const float viewportHeight = state.bodyHeight;
+    const float maxScrollY = std::max(0.0F, contentHeight - viewportHeight);
+    scrollArea->scrollOffset.y() = std::clamp(scrollArea->scrollOffset.y(), 0.0F, maxScrollY);
     state.scrollOffsetY = scrollArea->scrollOffset.y();
+
+    // 水平滚动
+    const float maxScrollX = std::max(0.0F, state.contentWidth - state.totalWidth);
+    scrollArea->scrollOffset.x() = std::clamp(scrollArea->scrollOffset.x(), 0.0F, maxScrollX);
+    state.scrollOffsetX = scrollArea->scrollOffset.x();
 }
 
 void TableRenderer::renderHeaderBackground(const components::TableInfo& info,
@@ -155,7 +164,7 @@ void TableRenderer::renderHeaderText(const components::TableInfo& info,
 
     static constexpr float HEADER_FONT_SIZE = 13.0F;
     const Eigen::Vector4f headerTextColor = toVec4(info.headerTextColor, 1.0F);
-    float headerX = state.tableX;
+    float headerX = state.tableX - state.scrollOffsetX;
     for (int column = 0; column < info.columnCount && std::cmp_less(column, info.headers.size()); ++column)
     {
         const float columnWidth = state.colWidths.at(static_cast<size_t>(column));
@@ -208,15 +217,15 @@ void TableRenderer::renderRowBackgrounds(const components::TableInfo& info,
     float rowY = state.bodyY - state.scrollOffsetY;
     for (int row = 0; row < state.rowCount; ++row)
     {
-        if (rowY + info.rowHeight > state.bodyY && rowY < state.bodyY + state.bodyHeight)
+        if (rowY + state.effectiveRowHeight > state.bodyY && rowY < state.bodyY + state.bodyHeight)
         {
             const Color& backgroundColor = rowBackgroundColor(info, row);
             context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
             context.batchManager->addRect({state.tableX, rowY},
-                                          {state.totalWidth, info.rowHeight},
+                                          {state.totalWidth, state.effectiveRowHeight},
                                           toVec4(backgroundColor, context.alpha));
         }
-        rowY += info.rowHeight;
+        rowY += state.effectiveRowHeight;
     }
 }
 
@@ -224,25 +233,35 @@ void TableRenderer::renderBodyGrid(const components::TableInfo& info,
                                    core::RenderContext& context,
                                    const TableRenderState& state) const
 {
-    float columnX = state.tableX;
+    // 竖向分隔线：随内容横向滚动
+    float columnX = state.tableX - state.scrollOffsetX;
     for (int column = 0; column < info.columnCount; ++column)
     {
         columnX += state.colWidths.at(static_cast<size_t>(column));
         if (column < info.columnCount - 1)
         {
-            context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
-            context.batchManager->addRect({columnX - 0.5F, state.bodyY}, {1.0F, state.bodyHeight}, state.gridColor);
+            // 只绘制在可见区域内的分隔线
+            if (columnX > state.tableX && columnX < state.tableX + state.totalWidth)
+            {
+                context.batchManager->beginBatch(
+                    context.whiteTexture, context.currentScissor, state.pushConstants);
+                context.batchManager->addRect(
+                    {columnX - 0.5F, state.bodyY}, {1.0F, state.bodyHeight}, state.gridColor);
+            }
         }
     }
 
+    // 水平分隔线：始终覆盖可见宽度，不横向滚动
     float rowY = state.bodyY - state.scrollOffsetY;
     for (int row = 0; row < state.rowCount; ++row)
     {
-        rowY += info.rowHeight;
+        rowY += state.effectiveRowHeight;
         if (rowY > state.bodyY && rowY < state.bodyY + state.bodyHeight)
         {
-            context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
-            context.batchManager->addRect({state.tableX, rowY - 0.5F}, {state.totalWidth, 1.0F}, state.gridColor);
+            context.batchManager->beginBatch(
+                context.whiteTexture, context.currentScissor, state.pushConstants);
+            context.batchManager->addRect(
+                {state.tableX, rowY - 0.5F}, {state.totalWidth, 1.0F}, state.gridColor);
         }
     }
 }
@@ -262,21 +281,21 @@ void TableRenderer::renderCellText(const components::TableInfo& info,
     float rowY = state.bodyY - state.scrollOffsetY;
     for (int row = 0; row < state.rowCount; ++row)
     {
-        if (rowY + info.rowHeight > state.bodyY && rowY < state.bodyY + state.bodyHeight)
+        if (rowY + state.effectiveRowHeight > state.bodyY && rowY < state.bodyY + state.bodyHeight)
         {
-            float cellX = state.tableX;
+            float cellX = state.tableX - state.scrollOffsetX;
             for (int column = 0; column < info.columnCount; ++column)
             {
                 const float columnWidth = state.colWidths.at(static_cast<size_t>(column));
                 const auto& cell = info.cells.at(static_cast<size_t>(row)).at(static_cast<size_t>(column));
                 if (cell.cellEntity == entt::null && !cell.text.empty())
                 {
-                    renderCellTexture(cell.text, cellX, rowY, info.rowHeight, cellColor, context);
+                    renderCellTexture(cell.text, cellX, rowY, state.effectiveRowHeight, cellColor, context);
                 }
                 cellX += columnWidth;
             }
         }
-        rowY += info.rowHeight;
+        rowY += state.effectiveRowHeight;
     }
 }
 
@@ -318,17 +337,24 @@ void TableRenderer::renderHeaderSeparators(const components::TableInfo& info,
                                            core::RenderContext& context,
                                            const TableRenderState& state) const
 {
+    // 表头与表体分隔线：始终覆盖可见宽度
     context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
     context.batchManager->addRect({state.tableX, state.bodyY - 0.5F}, {state.totalWidth, 1.0F}, state.gridColor);
 
-    float columnX = state.tableX;
+    // 表头列分隔线：随内容横向滚动
+    float columnX = state.tableX - state.scrollOffsetX;
     for (int column = 0; column < info.columnCount; ++column)
     {
         columnX += state.colWidths.at(static_cast<size_t>(column));
         if (column < info.columnCount - 1)
         {
-            context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
-            context.batchManager->addRect({columnX - 0.5F, state.tableY}, {1.0F, info.headerHeight}, state.gridColor);
+            if (columnX > state.tableX && columnX < state.tableX + state.totalWidth)
+            {
+                context.batchManager->beginBatch(
+                    context.whiteTexture, context.currentScissor, state.pushConstants);
+                context.batchManager->addRect(
+                    {columnX - 0.5F, state.tableY}, {1.0F, info.headerHeight}, state.gridColor);
+            }
         }
     }
 }

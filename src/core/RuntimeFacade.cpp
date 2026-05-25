@@ -13,9 +13,11 @@ namespace ui
 
 RuntimeFacade::ActiveRuntimeState RuntimeFacade::activateRuntime(UiRuntime& runtime) const
 {
+    WorkerMailbox*& mailboxSlot = activeMailbox();
     return {
-        .registry = Registry::swapActiveInstance(&runtime.m_registry),
+        .registry   = Registry::swapActiveInstance(&runtime.m_registry),
         .dispatcher = Dispatcher::swapActiveInstance(&runtime.m_dispatcher),
+        .mailbox    = std::exchange(mailboxSlot, &runtime.m_mailbox),
     };
 }
 
@@ -23,6 +25,7 @@ void RuntimeFacade::restoreRuntime(ActiveRuntimeState previousRuntime) const
 {
     Dispatcher::swapActiveInstance(previousRuntime.dispatcher);
     Registry::swapActiveInstance(previousRuntime.registry);
+    activeMailbox() = previousRuntime.mailbox;
 }
 
 entt::entity RuntimeFacade::WindowLookupService::findById(uint32_t windowId) const

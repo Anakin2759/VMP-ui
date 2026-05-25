@@ -17,7 +17,9 @@
 #pragma once
 
 #include "RuntimeFacade.hpp"
+#include "WorkerMailbox.hpp"
 
+#include "../common/ThreadPool.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "../singleton/Registry.hpp"
 
@@ -28,7 +30,15 @@ class UiRuntime
 {
 public:
     UiRuntime() = default;
-    ~UiRuntime() = default;
+
+    /**
+     * @brief 析构前等待所有捕获了 &m_mailbox 的 worker 任务完成，防止 UAF。
+     * @see ThreadPool::wait()
+     */
+    ~UiRuntime()
+    {
+        utils::ThreadPool::instance().wait();
+    }
 
     UiRuntime(const UiRuntime&) = delete;
     UiRuntime& operator=(const UiRuntime&) = delete;
@@ -43,12 +53,20 @@ public:
 
     [[nodiscard]] const Dispatcher& dispatcher() const noexcept { return m_dispatcher; }
 
+    /**
+     * @brief 获取本运行时的 Worker Mailbox（供主线程 drain 和 Worker 线程 enqueue）
+     */
+    [[nodiscard]] WorkerMailbox& mailbox() noexcept { return m_mailbox; }
+
+    [[nodiscard]] const WorkerMailbox& mailbox() const noexcept { return m_mailbox; }
+
 private:
     friend class UiRuntimeScope;
     friend class RuntimeFacade;
 
-    Registry m_registry;
-    Dispatcher m_dispatcher;
+    Registry    m_registry;
+    Dispatcher  m_dispatcher;
+    WorkerMailbox m_mailbox;
 };
 
 class UiRuntimeScope

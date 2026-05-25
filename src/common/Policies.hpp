@@ -206,6 +206,17 @@ enum class SortOrder : uint8_t
     DESCENDING
 };
 
+/**
+ * @brief 表格列宽分配策略
+ */
+enum class TableColumnSizing : uint8_t
+{
+    EQUAL,        ///< 均等：所有列等宽，总和 == 可见宽度（默认）
+    FIXED,        ///< 固定：columnWidths 直接使用，超出时横向滚动
+    PROPORTIONAL, ///< 比例：columnWidths 作为权重按可见宽度分配（应用 minColumnWidths 下界）
+    ADAPTIVE,     ///< 自适应：columnWidths>0 的列固定宽度，其余列均分剩余空间
+};
+
 enum class AnimationState : uint8_t
 {
     STOPPED,

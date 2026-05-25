@@ -178,7 +178,10 @@ struct TableInfo
     Color cellTextColor{0.15F, 0.15F, 0.18F, 1.0F}; // 数据单元格文字颜色
     float rowHeight = 28.0F;
     float headerHeight = 32.0F;
-    std::vector<float> columnWidths; // 每列宽度，空则均等分
+    std::vector<float> columnWidths;  ///< 每列宽度（或比例权重），空则均等分
+    policies::TableColumnSizing columnSizing = policies::TableColumnSizing::EQUAL; ///< 列宽分配策略
+    std::vector<float> minColumnWidths; ///< 各列最小宽度（可为空；不足 columnCount 时后补 0）
+    float minRowHeight = 0.0F;          ///< 行最小高度（0 表示不限制）
 };
 
 // ===================== 控件状态 =====================

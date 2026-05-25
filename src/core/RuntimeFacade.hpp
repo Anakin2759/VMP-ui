@@ -19,6 +19,7 @@
 
 #include <entt/entt.hpp>
 
+#include "WorkerMailbox.hpp"
 #include "../common/GlobalContext.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "../singleton/Registry.hpp"
@@ -41,8 +42,9 @@ class RuntimeFacade
 public:
     struct ActiveRuntimeState
     {
-        Registry* registry = nullptr;
-        Dispatcher* dispatcher = nullptr;
+        Registry*       registry   = nullptr;
+        Dispatcher*     dispatcher = nullptr;
+        WorkerMailbox*  mailbox    = nullptr; ///< C18 修复：每帧 drain 所需的 mailbox 指针
     };
     /**
      * @brief windowId 和 entity 的双向映射服务
@@ -69,6 +71,17 @@ public:
     [[nodiscard]] Registry& registry() const { return Registry::current(); }
 
     [[nodiscard]] Dispatcher& dispatcher() const { return Dispatcher::current(); }
+
+    /**
+     * @brief 获取当前激活运行时的 Worker Mailbox（仅主线程处调用）
+     * @note 如果未激活任何 UiRuntimeScope，行为未定义。请改用 tryMailbox()。
+     */
+    [[nodiscard]] WorkerMailbox& mailbox() const { return *activeMailbox(); }
+
+    /**
+     * @brief 安全地获取当前激活运行时的 Worker Mailbox，未激活时返回 nullptr
+     */
+    [[nodiscard]] WorkerMailbox* tryMailbox() const noexcept { return activeMailbox(); }
 
     [[nodiscard]] ActiveRuntimeState activateRuntime(UiRuntime& runtime) const;
 
@@ -144,6 +157,18 @@ public:
 
 private:
     RuntimeFacade() = default;
+
+    /**
+     * @brief 当前线程激活的 WorkerMailbox 指针（thread_local，对称于 Registry::activeInstance）
+     *
+     * 主线程通过 UiRuntimeScope → activateRuntime() 设置；
+     * Worker 线程持有 WorkerMailbox* 裸指针，直接调用 enqueue()，无需访问此方法。
+     */
+    static WorkerMailbox*& activeMailbox() noexcept
+    {
+        static thread_local WorkerMailbox* instance = nullptr;
+        return instance;
+    }
 };
 
 } // namespace ui

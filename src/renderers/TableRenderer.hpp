@@ -59,6 +59,9 @@ private:
         float bodyHeight = 0.0F;
         int rowCount = 0;
         float scrollOffsetY = 0.0F;
+        float scrollOffsetX = 0.0F;      ///< 水平滚动偏移
+        float contentWidth = 0.0F;       ///< 所有列宽之和
+        float effectiveRowHeight = 0.0F; ///< max(rowHeight, minRowHeight)
         std::vector<float> colWidths;
         render::UiPushConstants pushConstants{};
         Eigen::Vector4f gridColor{};
@@ -72,7 +75,7 @@ private:
     static TableRenderState makeRenderState(const components::TableInfo& info, const core::RenderContext& context);
     static std::vector<float> computeColWidths(const components::TableInfo& info, float totalWidth);
     static const Color& rowBackgroundColor(const components::TableInfo& info, int row);
-    static void updateScrollArea(entt::entity entity, const components::TableInfo& info, TableRenderState& state);
+    static void updateScrollArea(entt::entity entity, TableRenderState& state);
     void renderHeaderBackground(const components::TableInfo& info,
                                 core::RenderContext& context,
                                 const TableRenderState& state) const;

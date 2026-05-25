@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <exception>
 #include <future>
+#include <atomic>
 #include <memory>
 #include <thread>
 #include <tuple>
@@ -132,17 +133,38 @@ public:
     }
 
     /**
+     * @brief 等待所有通过 submitDetached 提交的任务完成
+     *
+     * 单线程模式下为空操作。多线程模式下自旋等待直至所有飞行任务归零。
+     *
+     * 典型用途：在销毁持有 WorkerMailbox 的 UiRuntime 前调用，防止 UAF。
+     */
+    void wait() noexcept
+    {
+        if constexpr (isMultithreaded())
+        {
+            while (m_inFlight.load(std::memory_order_acquire) > 0)
+            {
+                std::this_thread::yield();
+            }
+        }
+    }
+
+    /**
      * @brief 提交一个"发完即忘"的任务（无 future 返回值）
      *
      * 性能略优于 submit()，适合不需要回收结果的纯副作用任务。
+     * 多线程模式下跟踪 in-flight 计数，支持 wait() 等待所有此类任务完成。
      */
     template <typename Callable, typename... Args>
     void submitDetached(Callable&& callable, Args&&... args)
     {
         if constexpr (isMultithreaded())
         {
+            m_inFlight.fetch_add(1, std::memory_order_relaxed);
             asio::post(*m_pool,
-                [func = std::forward<Callable>(callable),
+                [this,
+                 func = std::forward<Callable>(callable),
                  tup  = std::tuple<std::decay_t<Args>...>(std::forward<Args>(args)...)]() mutable noexcept
                 {
                     try { std::apply(std::move(func), std::move(tup)); }
@@ -154,6 +176,7 @@ public:
                     {
                         Logger::error("[ThreadPool] Worker caught unknown exception.");
                     }
+                    m_inFlight.fetch_sub(1, std::memory_order_release);
                 });
         }
         else
@@ -195,6 +218,7 @@ private:
 
     // asio::thread_pool 仅在多线程模式下构造
     std::unique_ptr<asio::thread_pool> m_pool;
+    std::atomic<uint32_t> m_inFlight{0}; ///< submitDetached 的飞行任务计数，Wait() 使用
 };
 
 } // namespace ui::utils

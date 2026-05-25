@@ -18,6 +18,8 @@
 #include <string>
 #include <vector>
 #include "../common/Types.hpp"
+#include "../common/Policies.hpp"
+#include "../common/components/Data.hpp"
 #include "Chains.hpp"
 
 namespace ui::table
@@ -84,6 +86,35 @@ void SetSelectedRow(entt::entity entity, int row);
  * @param color 文字颜色
  */
 void SetHeaderTextColor(entt::entity entity, Color color);
+
+/**
+ * @brief 设置列宽分配策略
+ */
+void SetColumnSizing(entt::entity entity, policies::TableColumnSizing sizing);
+
+/**
+ * @brief 设置各列最小宽度
+ * @param minWidths 最小宽度列表，不足 columnCount 时后补 0
+ */
+void SetMinColumnWidths(entt::entity entity, std::vector<float> minWidths);
+
+/**
+ * @brief 设置行最小高度（rowHeight 实际生效高度 = max(rowHeight, minRowHeight)）
+ */
+void SetMinRowHeight(entt::entity entity, float height);
+
+/**
+ * @brief 设置行高
+ */
+void SetRowHeight(entt::entity entity, float height);
+
+/**
+ * @brief 计算实际列宽（供 Renderer 和 HitTest 共用）
+ * @param info       表格组件
+ * @param tableWidth 可见宽度（用于 EQUAL/PROPORTIONAL/ADAPTIVE 模式）
+ * @return 各列实际宽度列表（size == columnCount）
+ */
+[[nodiscard]] std::vector<float> ComputeColumnWidths(const components::TableInfo& info, float tableWidth);
 
 } // namespace ui::table
 
@@ -166,6 +197,43 @@ inline auto TableSelectedRow(int row)
 inline auto TableSetCellWidget(int row, int col, entt::entity widgetEntity)
 {
     return ui::actions::table::SET_CELL_WIDGET_ACTION.bind(row, col, widgetEntity);
+}
+
+/**
+ * @brief Chain DSL：设置列宽分配策略
+ *
+ * 示例：entity | TableColumnSizingMode(policies::TableColumnSizing::FIXED);
+ */
+inline auto TableColumnSizingMode(policies::TableColumnSizing sizing)
+{
+    return Chain{[sizing](entt::entity entity) { ui::table::SetColumnSizing(entity, sizing); }};
+}
+
+/**
+ * @brief Chain DSL：设置各列最小宽度
+ *
+ * 示例：entity | TableMinColumnWidths({60.0F, 80.0F, 40.0F});
+ */
+inline auto TableMinColumnWidths(std::vector<float> minWidths)
+{
+    return Chain{[minWidths = std::move(minWidths)](entt::entity entity) mutable
+                 { ui::table::SetMinColumnWidths(entity, std::move(minWidths)); }};
+}
+
+/**
+ * @brief Chain DSL：设置行最小高度
+ */
+inline auto TableMinRowHeight(float height)
+{
+    return Chain{[height](entt::entity entity) { ui::table::SetMinRowHeight(entity, height); }};
+}
+
+/**
+ * @brief Chain DSL：设置行高
+ */
+inline auto TableRowHeight(float height)
+{
+    return Chain{[height](entt::entity entity) { ui::table::SetRowHeight(entity, height); }};
 }
 
 } // namespace ui::chains

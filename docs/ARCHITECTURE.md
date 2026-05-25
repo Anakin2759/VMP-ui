@@ -1,6 +1,6 @@
 # PmkUi 架构主线文档
 
-> 版本：v0.2 · 日期：2026-05-19  
+> 版本：v0.4 · 日期：2026-05-25  
 > 项目：从 PestManKill 独立的 C++23 自研 ECS UI 静态库
 
 ---
@@ -45,11 +45,13 @@ src/
 ├── api/            对外 DSL + 工厂函数（Factory、Chains、Controls、
 │                   Layout、Text、Icon、Table、Animation...）
 ├── systems/        ECS 系统层（交互、布局、渲染、动画、输入、定时器...）
+│   └── render/     RenderSystem 拆分子文件（RenderBackend / RenderFrame / RenderResources）
 ├── renderers/      渲染器（每类控件独立渲染器，实现 IRenderer）
 ├── managers/       资源 & GPU 管理（Device、Font、Icon、Image、
 │                   BatchManager、CommandBuffer、TextTextureCache...）
-├── common/         纯数据定义（Components、Tags、Events、Policies、
-│                   RenderTypes、Result、ThreadPool...）
+├── common/         纯数据定义（Tags、Events、Policies、RenderTypes、Result、ThreadPool...）
+│   └── components/ 按域拆分的组件头文件（Visual / Layout / Interaction /
+│                   Animation / Data / Window）；Components.hpp 为聚合入口
 ├── interface/      纯虚接口（ISystem、IRenderer、IBackendRenderer）
 ├── singleton/      线程局部单例（Registry、Dispatcher、Logger）
 └── traits/         编译期约束（Component、UiTag、Events concept...）
@@ -94,7 +96,7 @@ docs/               架构文档（本文）
 | `StateSystem` | BUFFERED 事件 | 焦点/悬浮/活跃/滚动 状态机 |
 | `ActionSystem` | BUFFERED 事件 | 触发 `Clickable::onClick`、`OnSliderValueChanged` 等回调 |
 | `LayoutSystem` | `UpdateLayout` IMMEDIATE | Yoga Flexbox 布局计算，回写 `Position/Size` 组件 |
-| `RenderSystem` | `UpdateRendering` IMMEDIATE | 协调所有 `IRenderer` 完成收集→合批→GPU 提交 |
+| `RenderSystem` | `UpdateRendering` IMMEDIATE | 协调所有 `IRenderer` 完成收集→合批→GPU 提交；实现拆分至 `systems/render/`（RenderBackend / RenderFrame / RenderResources） |
 | `TweenSystem` | `UpdateEvent` BUFFERED | 动画插值，更新 `TweenComponent` 中的进度值 |
 | `TimerSystem` | `UpdateTimer` BUFFERED | 触发到期的 `TimerTask` 回调 |
 | `TextInputSystem` | BUFFERED 事件 | 文字输入、键盘重复、IME |
@@ -332,7 +334,7 @@ using Result = std::expected<T, std::error_code>;
 MakeError(ui_errc::invalid_argument)  // → std::unexpected<std::error_code>
 Ok()                                  // → Result<void> 成功值
 
-// 错误码（ui_errc，20 个预定义码）
+// 错误码（ui_errc，27 个预定义码）
 enum class ui_errc : int {
     success = 0,
     invalid_argument = 1,

@@ -351,7 +351,7 @@ struct RawKeyInput
 struct HitPointerMove
 {
     using is_event_tag = void;
-    RawPointerMove raw;
+    RawPointerMove raw{};
     entt::entity hitEntity = entt::null; // 鼠标当前悬停的实体 (可能为 null)
 };
 
@@ -360,7 +360,7 @@ struct HitPointerMove
 struct HitPointerButton
 {
     using is_event_tag = void;
-    RawPointerButton raw;
+    RawPointerButton raw{};
     entt::entity hitEntity = entt::null; // 按键发生位置的实体 (可能为 null)
 };
 
@@ -369,7 +369,7 @@ struct HitPointerButton
 struct HitPointerWheel
 {
     using is_event_tag = void;
-    RawPointerWheel raw;
+    RawPointerWheel raw{};
     entt::entity hitEntity = entt::null; // 滚轮发生位置的实体 (可能为 null)
 };
 

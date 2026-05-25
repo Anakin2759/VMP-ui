@@ -256,8 +256,12 @@ inline void CreateMainWindow() // NOLINT
         dataTable | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
             | BackgroundColor({0.10F, 0.10F, 0.13F, 0.9F}) | BorderRadius(4.0F)
             | BorderColor({0.28F, 0.28F, 0.35F, 0.9F}) | BorderThickness(1.0F)
+            | ScrollMode(ui::policies::Scroll::BOTH)
             | TableColumns(5, {"Name", "Score", "K/D", "Online", "Action"})
-            | TableColumnWidths({180.0F, 90.0F, 80.0F, 120.0F, 120.0F})
+            | TableColumnSizingMode(ui::policies::TableColumnSizing::FIXED)
+            | TableColumnWidths({220.0F, 110.0F, 90.0F, 130.0F, 160.0F})
+            | TableMinColumnWidths({180.0F, 90.0F, 80.0F, 120.0F, 150.0F})
+            | TableRowHeight(30.0F) | TableMinRowHeight(28.0F)
             | TableAddRow({"Player One", "1200", "18/5", "", ""}) | TableAddRow({"Player Two", "980", "12/8", "", ""})
             | TableAddRow({"Player Three", "1560", "24/3", "", ""}) | TableAddRow({"Player Four", "740", "9/11", "", ""})
             | TableAddRow({"Player Five", "2100", "30/2", "", ""}) | TableAddRow({"Player Six", "430", "5/15", "", ""});
