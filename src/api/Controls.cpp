@@ -108,7 +108,7 @@ void SetSliderThumbSize(::entt::entity entity, float size)
 {
     if (!Registry::Valid(entity)) return;
     auto& slider = Registry::GetOrEmplace<components::SliderInfo>(entity);
-    slider.thumbSize   = std::max(4.0F, size);
+    slider.thumbSize = std::max(4.0F, size);
     slider.thumbRadius = slider.thumbSize * 0.5F; // 保持圆形比例
     ui::utils::MarkVisualChanged(entity);
 }
@@ -237,9 +237,8 @@ void SetDropDownSelected(::entt::entity entity, int index)
     if (!Registry::Valid(entity)) return;
     auto* dropDown = Registry::TryGet<components::DropDown>(entity);
     if (dropDown == nullptr) return;
-    dropDown->selectedIndex = dropDown->options.empty()
-        ? 0
-        : std::clamp(index, 0, static_cast<int>(dropDown->options.size()) - 1);
+    dropDown->selectedIndex =
+        dropDown->options.empty() ? 0 : std::clamp(index, 0, static_cast<int>(dropDown->options.size()) - 1);
     if (auto* text = Registry::TryGet<components::Text>(entity))
     {
         text->content = dropDown->selectedText();
@@ -254,4 +253,50 @@ void SetDropDownOnChanged(::entt::entity entity, components::on_event<int> callb
     if (dropDown == nullptr) return;
     dropDown->onChanged = std::move(callback);
 }
+
+// ─── Drag / Drop ─────────────────────────────────────────────────────────────
+
+void SetDraggable(::entt::entity entity, bool enabled)
+{
+    if (!Registry::Valid(entity)) return;
+    auto& draggable = Registry::GetOrEmplace<components::Draggable>(entity);
+    draggable.enabled = enabled ? policies::Feature::ENABLED : policies::Feature::DISABLED;
+}
+
+void SetDragLockAxis(::entt::entity entity, bool lockX, bool lockY)
+{
+    if (!Registry::Valid(entity)) return;
+    auto& draggable = Registry::GetOrEmplace<components::Draggable>(entity);
+    draggable.lockX = lockX;
+    draggable.lockY = lockY;
+}
+
+void SetOnDragStart(::entt::entity entity, components::on_event<> callback)
+{
+    if (!Registry::Valid(entity)) return;
+    auto& draggable = Registry::GetOrEmplace<components::Draggable>(entity);
+    draggable.onDragStart = std::move(callback);
+}
+
+void SetOnDragEnd(::entt::entity entity, components::on_event<> callback)
+{
+    if (!Registry::Valid(entity)) return;
+    auto& draggable = Registry::GetOrEmplace<components::Draggable>(entity);
+    draggable.onDragEnd = std::move(callback);
+}
+
+void SetOnDragMove(::entt::entity entity, components::on_event<Vec2> callback)
+{
+    if (!Registry::Valid(entity)) return;
+    auto& draggable = Registry::GetOrEmplace<components::Draggable>(entity);
+    draggable.onDragMove = std::move(callback);
+}
+
+void SetDroppable(::entt::entity entity, bool enabled)
+{
+    if (!Registry::Valid(entity)) return;
+    auto& droppable = Registry::GetOrEmplace<components::Droppable>(entity);
+    droppable.enabled = enabled ? policies::Feature::ENABLED : policies::Feature::DISABLED;
+}
+
 } // namespace ui::controls

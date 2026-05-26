@@ -28,9 +28,11 @@
 #include "../singleton/Logger.hpp"
 #include "../interface/Isystem.hpp"
 #include "../api/Animation.hpp"
+#include "../api/Hierarchy.hpp"
 #include "../common/components/Animation.hpp"
 #include "../common/components/Interaction.hpp"
 #include "../common/components/Layout.hpp"
+#include "../common/Tags.hpp"
 #include "../core/RuntimeFacade.hpp"
 #include "../common/GlobalContext.hpp"
 namespace ui::systems
@@ -49,8 +51,10 @@ public:
         Dispatcher::Sink<ui::events::MousePressEvent>().connect<&ActionSystem::onMousePress>(*this);
         Dispatcher::Sink<ui::events::MouseReleaseEvent>().connect<&ActionSystem::onMouseRelease>(*this);
         Dispatcher::Sink<ui::events::HitPointerMove>().connect<&ActionSystem::onHitPointerMove>(*this);
-    }
 
+        // 默认拖放处理路径：监听拖放事件并更新层级
+        Dispatcher::Sink<ui::events::DragDroppedEvent>().connect<&ActionSystem::onDragDroppedDefault>(*this);
+    }
     void unregisterHandlersImpl()
     {
         Dispatcher::Sink<ui::events::ClickEvent>().disconnect<&ActionSystem::onClickEvent>(*this);
@@ -60,6 +64,8 @@ public:
         Dispatcher::Sink<ui::events::MousePressEvent>().disconnect<&ActionSystem::onMousePress>(*this);
         Dispatcher::Sink<ui::events::MouseReleaseEvent>().disconnect<&ActionSystem::onMouseRelease>(*this);
         Dispatcher::Sink<ui::events::HitPointerMove>().disconnect<&ActionSystem::onHitPointerMove>(*this);
+
+        Dispatcher::Sink<ui::events::DragDroppedEvent>().disconnect<&ActionSystem::onDragDroppedDefault>(*this);
     }
 
 private:
@@ -79,15 +85,56 @@ private:
         ui::animation::StartTransformAnimation(entity, targetScale, targetOffset, options, defaultScale, defaultOffset);
     }
 
-    void startDragging(components::Draggable& draggable)
+    [[nodiscard]] static bool isDropTargetEnabled(entt::registry& reg, entt::entity target)
+    {
+        if (!reg.valid(target)) return false;
+
+        const bool hasDropMarker =
+            reg.any_of<components::Droppable>(target) || reg.any_of<components::DroppableTag>(target);
+        if (!hasDropMarker) return false;
+
+        if (const auto* droppable = reg.try_get<components::Droppable>(target);
+            droppable != nullptr && droppable->enabled != policies::Feature::ENABLED)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    [[nodiscard]] static bool wouldCreateHierarchyCycle(entt::registry& reg, entt::entity source, entt::entity target)
+    {
+        if (!reg.valid(source) || !reg.valid(target)) return true;
+        if (source == target) return true;
+
+        entt::entity current = target;
+        while (reg.valid(current) && current != entt::null)
+        {
+            if (current == source)
+            {
+                return true;
+            }
+
+            const auto* hierarchy = reg.try_get<components::Hierarchy>(current);
+            current = hierarchy != nullptr ? hierarchy->parent : entt::null;
+        }
+
+        return false;
+    }
+
+    void startDragging(entt::entity entity, components::Draggable& draggable)
     {
         if (draggable.dragging) return;
 
         draggable.dragging = true;
+        Dispatcher::Trigger<events::DragStartEvent>(events::DragStartEvent{entity});
         if (draggable.onDragStart) draggable.onDragStart();
     }
 
-    void applyDragDelta(entt::registry& reg, entt::entity entity, const components::Draggable& draggable, const Vec2& delta)
+    void applyDragDelta(entt::registry& reg,
+                        entt::entity entity,
+                        const components::Draggable& draggable,
+                        const Vec2& delta)
     {
         auto* pos = reg.try_get<components::Position>(entity);
         if (pos == nullptr) return;
@@ -101,17 +148,12 @@ private:
         auto* interact = reg.try_get<components::InteractiveAnimation>(entity);
         if (interact == nullptr) return;
 
-        std::optional<Vec2> targetScale =
-            interact->dragScale.has_value() ? interact->dragScale : interact->pressScale;
+        std::optional<Vec2> targetScale = interact->dragScale.has_value() ? interact->dragScale : interact->pressScale;
         std::optional<Vec2> targetOffset =
             interact->dragLiftOffset.has_value() ? interact->dragLiftOffset : interact->pressOffset;
 
-        applyAnimation(entity,
-                       targetScale,
-                       targetOffset,
-                       interact->dragDuration,
-                       interact->normalScale,
-                       interact->normalOffset);
+        applyAnimation(
+            entity, targetScale, targetOffset, interact->dragDuration, interact->normalScale, interact->normalOffset);
     }
 
     /**
@@ -132,8 +174,14 @@ private:
 
         if (event.raw.delta == Vec2{0, 0}) return;
 
-        startDragging(*draggable);
+        startDragging(entity, *draggable);
         applyDragDelta(reg, entity, *draggable, event.raw.delta);
+
+        Dispatcher::Trigger<events::DragMoveEvent>(events::DragMoveEvent{
+            .source = entity,
+            .delta = event.raw.delta,
+            .hoverTarget = ctx.hoveredEntity,
+        });
 
         if (draggable->onDragMove) draggable->onDragMove(event.raw.delta);
 
@@ -174,7 +222,21 @@ private:
 
         if (auto* draggable = reg.try_get<components::Draggable>(entity); draggable != nullptr)
         {
-            if (draggable->dragging && draggable->onDragEnd) draggable->onDragEnd();
+            entt::entity dropTarget = entt::null;
+            if (draggable->dragging)
+            {
+                const entt::entity hovered = ctx.hoveredEntity;
+                if (isDropTargetEnabled(reg, hovered) && !wouldCreateHierarchyCycle(reg, entity, hovered))
+                {
+                    dropTarget = hovered;
+                    Dispatcher::Trigger<events::DragDroppedEvent>(
+                        events::DragDroppedEvent{.source = entity, .target = dropTarget});
+                }
+
+                Dispatcher::Trigger<events::DragEndEvent>(
+                    events::DragEndEvent{.source = entity, .dropTarget = dropTarget});
+                if (draggable->onDragEnd) draggable->onDragEnd();
+            }
             draggable->dragging = false;
         }
 
@@ -269,6 +331,16 @@ private:
                            interact->normalScale,
                            interact->normalOffset);
         }
+    }
+
+    void onDragDroppedDefault(const ui::events::DragDroppedEvent& event)
+    {
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        if (!reg.valid(event.source) || !reg.valid(event.target)) return;
+        if (!isDropTargetEnabled(reg, event.target)) return;
+        if (wouldCreateHierarchyCycle(reg, event.source, event.target)) return;
+
+        ui::hierarchy::AddChild(event.target, event.source);
     }
 };
 } // namespace ui::systems

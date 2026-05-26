@@ -185,6 +185,50 @@ struct MouseReleaseEvent
     using is_event_tag = void;
     entt::entity entity;
 };
+
+/**
+ * @brief 拖拽开始事件
+ * [IMMEDIATE] 使用 trigger
+ */
+struct DragStartEvent
+{
+    using is_event_tag = void;
+    entt::entity source = entt::null;
+};
+
+/**
+ * @brief 拖拽移动事件
+ * [IMMEDIATE] 使用 trigger
+ */
+struct DragMoveEvent
+{
+    using is_event_tag = void;
+    entt::entity source = entt::null;
+    Vec2 delta;
+    entt::entity hoverTarget = entt::null;
+};
+
+/**
+ * @brief 拖拽结束事件
+ * [IMMEDIATE] 使用 trigger
+ */
+struct DragEndEvent
+{
+    using is_event_tag = void;
+    entt::entity source = entt::null;
+    entt::entity dropTarget = entt::null;
+};
+
+/**
+ * @brief 拖拽放置事件
+ * [IMMEDIATE] 使用 trigger
+ */
+struct DragDroppedEvent
+{
+    using is_event_tag = void;
+    entt::entity source = entt::null;
+    entt::entity target = entt::null;
+};
 /**
  * @brief 文本内容改变事件 (TextEdit/Input)
  * [BUFFERED] 使用 enqueue

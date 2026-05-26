@@ -81,6 +81,16 @@ struct Draggable
 };
 
 /**
+ * @brief 可放置组件
+ * 标记实体可以作为拖拽放置目标
+ */
+struct Droppable
+{
+    using is_component_tag = void;
+    policies::Feature enabled = policies::Feature::ENABLED;
+};
+
+/**
  * @brief 可悬浮组件
  */
 struct Hoverable

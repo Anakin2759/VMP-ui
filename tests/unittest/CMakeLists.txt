@@ -12,6 +12,7 @@ add_executable(ui_tests
     test_VisibilityCoverage.cpp
     test_HierarchyCoverage.cpp
     test_result.cpp
+    test_DragDrop.cpp
 )
 target_compile_features(ui_tests PRIVATE cxx_std_23)
 

@@ -52,6 +52,14 @@ void SetCheckBoxOnChanged(::entt::entity entity, components::on_event<bool> call
 void SetDropDownOptions(::entt::entity entity, std::vector<std::string> options);
 void SetDropDownSelected(::entt::entity entity, int index);
 void SetDropDownOnChanged(::entt::entity entity, components::on_event<int> callback);
+
+// Drag / Drop
+void SetDraggable(::entt::entity entity, bool enabled);
+void SetDragLockAxis(::entt::entity entity, bool lockX, bool lockY);
+void SetOnDragStart(::entt::entity entity, components::on_event<> callback);
+void SetOnDragEnd(::entt::entity entity, components::on_event<> callback);
+void SetOnDragMove(::entt::entity entity, components::on_event<Vec2> callback);
+void SetDroppable(::entt::entity entity, bool enabled);
 } // namespace ui::controls
 
 namespace ui::actions
@@ -82,6 +90,13 @@ inline constexpr EntityAction<&ui::controls::SetCheckBoxOnChanged> SET_CHECKBOX_
 inline constexpr EntityAction<&ui::controls::SetDropDownOptions> SET_DROPDOWN_OPTIONS_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetDropDownSelected> SET_DROPDOWN_SELECTED_ACTION{};
 inline constexpr EntityAction<&ui::controls::SetDropDownOnChanged> SET_DROPDOWN_ON_CHANGED_ACTION{};
+// Drag / Drop actions
+inline constexpr EntityAction<&ui::controls::SetDraggable> SET_DRAGGABLE_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetDragLockAxis> SET_DRAG_LOCK_AXIS_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetOnDragStart> SET_ON_DRAG_START_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetOnDragEnd> SET_ON_DRAG_END_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetOnDragMove> SET_ON_DRAG_MOVE_ACTION{};
+inline constexpr EntityAction<&ui::controls::SetDroppable> SET_DROPPABLE_ACTION{};
 } // namespace controls
 } // namespace ui::actions
 
@@ -207,5 +222,36 @@ inline auto DropDownSelected(int index)
 inline auto OnDropDownChanged(ui::components::on_event<int> callback)
 {
     return ui::actions::controls::SET_DROPDOWN_ON_CHANGED_ACTION.bind(std::move(callback));
+}
+
+// Drag / Drop DSL
+inline auto Draggable(bool enabled = true)
+{
+    return ui::actions::controls::SET_DRAGGABLE_ACTION.bind(enabled);
+}
+
+inline auto DragLockAxis(bool lockX, bool lockY)
+{
+    return ui::actions::controls::SET_DRAG_LOCK_AXIS_ACTION.bind(lockX, lockY);
+}
+
+inline auto OnDragStart(ui::components::on_event<> callback)
+{
+    return ui::actions::controls::SET_ON_DRAG_START_ACTION.bind(std::move(callback));
+}
+
+inline auto OnDragEnd(ui::components::on_event<> callback)
+{
+    return ui::actions::controls::SET_ON_DRAG_END_ACTION.bind(std::move(callback));
+}
+
+inline auto OnDragMove(ui::components::on_event<Vec2> callback)
+{
+    return ui::actions::controls::SET_ON_DRAG_MOVE_ACTION.bind(std::move(callback));
+}
+
+inline auto Droppable(bool enabled = true)
+{
+    return ui::actions::controls::SET_DROPPABLE_ACTION.bind(enabled);
 }
 } // namespace ui::chains

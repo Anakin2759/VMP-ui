@@ -173,6 +173,14 @@ struct DraggableTag
 };
 
 /**
+ * @brief 标记元素是可放置目标
+ */
+struct DroppableTag
+{
+    using is_tags_tag = void;
+};
+
+/**
  * @brief 运行时状态：鼠标悬停标记
  * InteractionSystem 添加此 Tag，RenderSystem 监听此 Tag 来应用 Hover 样式
  */
