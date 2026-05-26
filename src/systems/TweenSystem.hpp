@@ -27,7 +27,11 @@
 #include <cmath>
 #include "../core/RuntimeFacade.hpp"
 #include "../common/Policies.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Animation.hpp"
+#include "../common/components/Data.hpp"
+#include "../common/components/Layout.hpp"
+#include "../common/components/Visual.hpp"
+#include "../common/Tags.hpp"
 #include "../common/GlobalContext.hpp"
 #include "../common/Events.hpp"
 #include "../api/Utils.hpp"

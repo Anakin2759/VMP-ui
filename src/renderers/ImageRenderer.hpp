@@ -16,7 +16,7 @@
 
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Data.hpp"
 #include "../common/Tags.hpp"
 #include "../managers/BatchManager.hpp"
 #include "../managers/ImageManager.hpp"

@@ -22,7 +22,7 @@
 #include <entt/entt.hpp>
 #include <string>
 #include "../common/Policies.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Interaction.hpp"
 #include "Chains.hpp" // Changed: Include Chains.hpp for DSL
 
 namespace ui::text

@@ -17,7 +17,7 @@
 #include <entt/entt.hpp>
 #include "../common/Policies.hpp"
 #include "../common/Types.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Interaction.hpp"
 #include "Chains.hpp"
 
 namespace ui::controls

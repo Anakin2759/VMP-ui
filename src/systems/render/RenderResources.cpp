@@ -6,6 +6,7 @@
  */
 
 #include "../RenderSystem.hpp"
+#include "RenderSystemImpl.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <memory>
@@ -31,7 +32,7 @@ namespace ui::systems
 
 void RenderSystem::createWhiteTexture()
 {
-    SDL_GPUDevice* device = m_deviceManager->getDevice();
+    SDL_GPUDevice* device = m_impl->m_deviceManager->getDevice();
     if (device == nullptr) return;
 
     SDL_GPUTextureCreateInfo texInfo = {};
@@ -43,8 +44,9 @@ void RenderSystem::createWhiteTexture()
     texInfo.num_levels = 1;
     texInfo.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
 
-    m_whiteTexture = wrappers::MakeGpuResource<wrappers::UniqueGPUTexture>(device, SDL_CreateGPUTexture, &texInfo);
-    if (!m_whiteTexture) return;
+    m_impl->m_whiteTexture =
+        wrappers::MakeGpuResource<wrappers::UniqueGPUTexture>(device, SDL_CreateGPUTexture, &texInfo);
+    if (!m_impl->m_whiteTexture) return;
 
     uint32_t whitePixel = 0xFFFFFFFF;
     SDL_GPUTransferBufferCreateInfo transferInfo = {};
@@ -67,7 +69,7 @@ void RenderSystem::createWhiteTexture()
     srcInfo.rows_per_layer = 1;
 
     SDL_GPUTextureRegion dstRegion = {};
-    dstRegion.texture = m_whiteTexture.get();
+    dstRegion.texture = m_impl->m_whiteTexture.get();
     dstRegion.w = 1;
     dstRegion.h = 1;
     dstRegion.d = 1;
@@ -79,26 +81,26 @@ void RenderSystem::createWhiteTexture()
 
 void RenderSystem::initializeRenderers()
 {
-    m_renderers.push_back(std::make_unique<renderers::ShapeRenderer>());
-    m_renderers.push_back(std::make_unique<renderers::ProgressBarRenderer>());
-    m_renderers.push_back(std::make_unique<renderers::SliderRenderer>());
-    m_renderers.push_back(std::make_unique<renderers::TextRenderer>());
-    if (m_iconManager) m_renderers.push_back(std::make_unique<renderers::IconRenderer>(m_iconManager.get()));
+    m_impl->m_renderers.push_back(std::make_unique<renderers::ShapeRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::ProgressBarRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::SliderRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::TextRenderer>());
+    if (m_impl->m_iconManager)
+        m_impl->m_renderers.push_back(std::make_unique<renderers::IconRenderer>(m_impl->m_iconManager.get()));
 
-    m_renderers.push_back(std::make_unique<renderers::ScrollBarRenderer>());
-    m_renderers.push_back(std::make_unique<renderers::ImageRenderer>());
-    m_renderers.push_back(std::make_unique<renderers::CanvasRenderer>());
-    m_renderers.push_back(std::make_unique<renderers::TableRenderer>());
-    m_renderers.push_back(std::make_unique<renderers::CheckBoxRenderer>());
-    m_renderers.push_back(std::make_unique<renderers::DropDownRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::ScrollBarRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::ImageRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::CanvasRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::TableRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::CheckBoxRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::DropDownRenderer>());
 
-    std::ranges::sort(m_renderers,
+    std::ranges::sort(
+        m_impl->m_renderers,
+        [](const std::unique_ptr<core::IRenderer>& leftRenderer, const std::unique_ptr<core::IRenderer>& rightRenderer)
+        { return leftRenderer->getPriority() < rightRenderer->getPriority(); });
 
-                             [](const std::unique_ptr<core::IRenderer>& leftRenderer,
-                                 const std::unique_ptr<core::IRenderer>& rightRenderer)
-                             { return leftRenderer->getPriority() < rightRenderer->getPriority(); });
-
-    Logger::info("[RenderSystem] 初始化了 {} 个渲染器", m_renderers.size());
+    Logger::info("[RenderSystem] 初始化了 {} 个渲染器", m_impl->m_renderers.size());
 }
 
 } // namespace ui::systems

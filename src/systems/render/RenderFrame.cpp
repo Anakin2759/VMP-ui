@@ -4,6 +4,7 @@
  */
 
 #include "../RenderSystem.hpp"
+#include "RenderSystemImpl.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <ranges>
@@ -13,6 +14,12 @@
 #include "SDL3/SDL_gpu.h"
 #include "SDL3/SDL_video.h"
 #include "core/RenderContext.hpp"
+#include "managers/BatchManager.hpp"
+#include "managers/CommandBuffer.hpp"
+#include "managers/DeviceManager.hpp"
+#include "managers/PipelineCache.hpp"
+#include "interface/IBackendRenderer.hpp"
+#include "interface/IRenderer.hpp"
 #include "Eigen/src/Core/Matrix.h"
 #include "common/components/Layout.hpp"
 #include "entt/entity/fwd.hpp"
@@ -38,17 +45,17 @@ void RenderSystem::update()
         return;
     }
 
-    if (m_firstUpdate)
+    if (m_impl->m_firstUpdate)
     {
         Logger::info("[RenderSystem] update first call");
-        m_firstUpdate = false;
+        m_impl->m_firstUpdate = false;
     }
 
     ensureInitialized();
 
-    if (m_useFallback)
+    if (m_impl->m_useFallback)
     {
-        if (m_backendRenderer == nullptr)
+        if (m_impl->m_backendRenderer == nullptr)
         {
             Logger::warn("Fallback backend not ready");
             return;
@@ -56,7 +63,7 @@ void RenderSystem::update()
     }
     else
     {
-        SDL_GPUDevice const* device = m_deviceManager->getDevice();
+        SDL_GPUDevice const* device = m_impl->m_deviceManager->getDevice();
         if (device == nullptr)
         {
             Logger::warn("GPU device not ready");
@@ -64,20 +71,20 @@ void RenderSystem::update()
         }
     }
 
-    if (!m_useFallback && m_pipelineCache == nullptr)
+    if (!m_impl->m_useFallback && m_impl->m_pipelineCache == nullptr)
     {
         Logger::warn("Pipeline cache not initialized");
         return;
     }
 
-    if (!m_useFallback && m_whiteTexture == nullptr)
+    if (!m_impl->m_useFallback && m_impl->m_whiteTexture == nullptr)
     {
         createWhiteTexture();
     }
 
-    m_stats.frameCount++;
-    m_stats.batchCount = 0;
-    m_stats.vertexCount = 0;
+    m_impl->m_stats.frameCount++;
+    m_impl->m_stats.batchCount = 0;
+    m_impl->m_stats.vertexCount = 0;
 
     for (auto windowEntity : windowView)
     {
@@ -97,22 +104,22 @@ void RenderSystem::update()
             continue;
         }
 
-        if (!m_useFallback && m_pipelineCache->getPipeline() == nullptr)
+        if (!m_impl->m_useFallback && m_impl->m_pipelineCache->getPipeline() == nullptr)
         {
-            if (auto claimResult = m_deviceManager->claimWindow(sdlWindow); !claimResult.has_value())
+            if (auto claimResult = m_impl->m_deviceManager->claimWindow(sdlWindow); !claimResult.has_value())
             {
                 Logger::warn("[RenderSystem] claimWindow failed: {}", claimResult.error().message());
             }
-            if (auto pipeResult = m_pipelineCache->createPipeline(sdlWindow); !pipeResult.has_value())
+            if (auto pipeResult = m_impl->m_pipelineCache->createPipeline(sdlWindow); !pipeResult.has_value())
             {
                 Logger::warn("[RenderSystem] pipeline creation failed: {}", pipeResult.error().message());
             }
 
-            if (m_pipelineCache->getPipeline() == nullptr)
+            if (m_impl->m_pipelineCache->getPipeline() == nullptr)
             {
                 Logger::warn("[RenderSystem] GPU pipeline unavailable; switching to fallback renderer. "
                              "Rebuild shaders with compile.bat to restore GPU rendering.");
-                m_useFallback = true;
+                m_impl->m_useFallback = true;
                 if (!tryInitializeFallback(sdlWindow))
                 {
                     Logger::error("[RenderSystem] fallback initialization failed; skipping this frame");
@@ -121,26 +128,27 @@ void RenderSystem::update()
             }
         }
 
-        m_screenWidth = static_cast<float>(width);
-        m_screenHeight = static_cast<float>(height);
+        m_impl->m_screenWidth = static_cast<float>(width);
+        m_impl->m_screenHeight = static_cast<float>(height);
 
-        m_batchManager->clear();
-        m_renderQueue.clear();
-        m_submissionIndex = 0;
+        m_impl->m_batchManager->clear();
+        m_impl->m_renderQueue.clear();
+        m_impl->m_submissionIndex = 0;
 
         if (Registry::AnyOf<components::VisibleTag>(windowEntity))
         {
             core::RenderContext rootContext;
-            rootContext.screenWidth = m_screenWidth;
-            rootContext.screenHeight = m_screenHeight;
-            rootContext.deviceManager = m_deviceManager.get();
-            rootContext.fontManager = m_fontManager.get();
-            rootContext.imageManager = m_imageManager.get();
-            rootContext.textTextureCache = m_textTextureCache.get();
-            rootContext.batchManager = m_batchManager.get();
-            rootContext.backendRenderer = m_useFallback ? m_backendRenderer.get() : nullptr;
+            rootContext.screenWidth = m_impl->m_screenWidth;
+            rootContext.screenHeight = m_impl->m_screenHeight;
+            rootContext.deviceManager = m_impl->m_deviceManager.get();
+            rootContext.fontManager = m_impl->m_fontManager.get();
+            rootContext.imageManager = m_impl->m_imageManager.get();
+            rootContext.textTextureCache = m_impl->m_textTextureCache.get();
+            rootContext.batchManager = m_impl->m_batchManager.get();
+            rootContext.backendRenderer = m_impl->m_useFallback ? m_impl->m_backendRenderer.get() : nullptr;
             rootContext.sdlWindow = sdlWindow;
-            rootContext.whiteTexture = m_useFallback ? m_fallbackWhiteTextureTag : m_whiteTexture.get();
+            rootContext.whiteTexture =
+                m_impl->m_useFallback ? m_impl->m_fallbackWhiteTextureTag : m_impl->m_whiteTexture.get();
 
             Eigen::Vector2f rootOffset = Eigen::Vector2f(0, 0);
             if (const auto* pos = Registry::TryGet<components::Position>(windowEntity))
@@ -155,65 +163,65 @@ void RenderSystem::update()
         }
 
         // Sort render queue by RenderKey (Z-Order primarily)
-        std::ranges::sort(m_renderQueue, {}, &RenderItem::sortKey);
+        std::ranges::sort(m_impl->m_renderQueue, {}, &RenderSystemImpl::RenderItem::sortKey);
 
-        if (m_useFallback)
+        if (m_impl->m_useFallback)
         {
             if (!tryInitializeFallback(sdlWindow)
-                || !m_backendRenderer->beginFrame({.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 0.0F}))
+                || !m_impl->m_backendRenderer->beginFrame({.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 0.0F}))
             {
                 continue;
             }
 
-            for (auto& renderItem : m_renderQueue)
+            for (auto& renderItem : m_impl->m_renderQueue)
             {
                 renderItem.renderer->collect(renderItem.entity, renderItem.context);
 
-                m_batchManager->optimize();
-                const auto& fallbackBatches = m_batchManager->getBatches();
+                m_impl->m_batchManager->optimize();
+                const auto& fallbackBatches = m_impl->m_batchManager->getBatches();
                 for (const auto& batch : fallbackBatches)
                 {
-                    m_backendRenderer->drawBatch(batch, m_fallbackWhiteTextureTag);
+                    m_impl->m_backendRenderer->drawBatch(batch, m_impl->m_fallbackWhiteTextureTag);
                 }
 
-                m_stats.batchCount += static_cast<uint32_t>(fallbackBatches.size());
-                m_stats.vertexCount += static_cast<uint32_t>(m_batchManager->getTotalVertexCount());
-                m_batchManager->clear();
+                m_impl->m_stats.batchCount += static_cast<uint32_t>(fallbackBatches.size());
+                m_impl->m_stats.vertexCount += static_cast<uint32_t>(m_impl->m_batchManager->getTotalVertexCount());
+                m_impl->m_batchManager->clear();
             }
 
-            m_backendRenderer->endFrame();
+            m_impl->m_backendRenderer->endFrame();
             continue;
         }
 
         // Execute collected render commands
-        for (auto& item : m_renderQueue)
+        for (auto& item : m_impl->m_renderQueue)
         {
             item.renderer->collect(item.entity, item.context);
         }
 
-        m_batchManager->optimize();
+        m_impl->m_batchManager->optimize();
 
-        const auto& batches = m_batchManager->getBatches();
+        const auto& batches = m_impl->m_batchManager->getBatches();
         if (!batches.empty())
         {
-            if (m_useFallback)
+            if (m_impl->m_useFallback)
             {
                 if (tryInitializeFallback(sdlWindow)
-                    && m_backendRenderer->beginFrame({.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 0.0F}))
+                    && m_impl->m_backendRenderer->beginFrame({.r = 0.0F, .g = 0.0F, .b = 0.0F, .a = 0.0F}))
                 {
                     for (const auto& batch : batches)
                     {
-                        m_backendRenderer->drawBatch(batch, m_fallbackWhiteTextureTag);
+                        m_impl->m_backendRenderer->drawBatch(batch, m_impl->m_fallbackWhiteTextureTag);
                     }
-                    m_backendRenderer->endFrame();
+                    m_impl->m_backendRenderer->endFrame();
                 }
             }
             else
             {
-                m_commandBuffer->execute(sdlWindow, width, height, batches);
+                m_impl->m_commandBuffer->execute(sdlWindow, width, height, batches);
             }
-            m_stats.batchCount += static_cast<uint32_t>(batches.size());
-            m_stats.vertexCount += static_cast<uint32_t>(m_batchManager->getTotalVertexCount());
+            m_impl->m_stats.batchCount += static_cast<uint32_t>(batches.size());
+            m_impl->m_stats.vertexCount += static_cast<uint32_t>(m_impl->m_batchManager->getTotalVertexCount());
         }
     }
 
@@ -306,20 +314,20 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
         // Shift to positive range for unsigned sorting (int32_min -> 0)
         auto encodedZ = static_cast<uint64_t>(static_cast<int64_t>(zOrder) + 2147483648LL);
 
-        for (auto& renderer : m_renderers)
+        for (auto& renderer : m_impl->m_renderers)
         {
             if (renderer->canHandle(currentEntity))
             {
-                RenderItem item;
+                RenderSystemImpl::RenderItem item;
                 item.entity = currentEntity;
                 item.renderer = renderer.get();
                 item.context = entityContext;
 
                 // Build Key: High=Z, Low=Order
-                item.sortKey = (encodedZ << 32) | (m_submissionIndex & 0xFFFFFFFF);
+                item.sortKey = (encodedZ << 32) | (m_impl->m_submissionIndex & 0xFFFFFFFF);
 
-                m_renderQueue.push_back(item);
-                m_submissionIndex++;
+                m_impl->m_renderQueue.push_back(item);
+                m_impl->m_submissionIndex++;
             }
         }
 

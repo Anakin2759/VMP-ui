@@ -16,7 +16,8 @@
 
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Data.hpp"
+#include "../common/Tags.hpp"
 #include "../managers/BatchManager.hpp"
 
 #include <SDL3/SDL_gpu.h>
@@ -29,10 +30,7 @@ class CheckBoxRenderer : public core::IRenderer
 public:
     CheckBoxRenderer() = default;
 
-    bool canHandle(entt::entity entity) const override
-    {
-        return Registry::AnyOf<components::CheckBoxTag>(entity);
-    }
+    bool canHandle(entt::entity entity) const override { return Registry::AnyOf<components::CheckBoxTag>(entity); }
 
     void collect(entt::entity entity, core::RenderContext& context) override
     {
@@ -41,14 +39,14 @@ public:
         const auto* checkBox = Registry::TryGet<components::CheckBox>(entity);
         if (checkBox == nullptr) return;
 
-        constexpr float BOX_SIZE   = 16.0F;
+        constexpr float BOX_SIZE = 16.0F;
         constexpr float BOX_RADIUS = 3.0F;
         constexpr float BOX_MARGIN = 4.0F; // box 与左边缘距离
 
         render::UiPushConstants pushConst{};
         pushConst.screen_size[0] = context.screenWidth;
         pushConst.screen_size[1] = context.screenHeight;
-        pushConst.opacity        = context.alpha;
+        pushConst.opacity = context.alpha;
         pushConst.radius[0] = pushConst.radius[1] = pushConst.radius[2] = pushConst.radius[3] = BOX_RADIUS;
 
         // ── 方框背景 ──────────────────────────────────────────
@@ -59,8 +57,8 @@ public:
         pushConst.rect_size[0] = boxSize.x();
         pushConst.rect_size[1] = boxSize.y();
 
-        const Eigen::Vector4f boxColor{checkBox->boxColor.red, checkBox->boxColor.green,
-                                       checkBox->boxColor.blue, checkBox->boxColor.alpha};
+        const Eigen::Vector4f boxColor{
+            checkBox->boxColor.red, checkBox->boxColor.green, checkBox->boxColor.blue, checkBox->boxColor.alpha};
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConst);
         context.batchManager->addRect(boxPos, boxSize, boxColor);
 
@@ -76,8 +74,10 @@ public:
             fillPc.rect_size[1] = fillSize.y();
             fillPc.radius[0] = fillPc.radius[1] = fillPc.radius[2] = fillPc.radius[3] = 2.0F;
 
-            const Eigen::Vector4f checkColor{checkBox->checkColor.red, checkBox->checkColor.green,
-                                             checkBox->checkColor.blue, checkBox->checkColor.alpha};
+            const Eigen::Vector4f checkColor{checkBox->checkColor.red,
+                                             checkBox->checkColor.green,
+                                             checkBox->checkColor.blue,
+                                             checkBox->checkColor.alpha};
             context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, fillPc);
             context.batchManager->addRect(fillPos, fillSize, checkColor);
         }

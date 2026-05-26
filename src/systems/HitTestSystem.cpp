@@ -1,6 +1,9 @@
 #include "HitTestSystem.hpp"
 #include <algorithm>
 #include "../api/Utils.hpp"
+#include "../common/components/Data.hpp"
+#include "../common/components/Interaction.hpp"
+#include "../common/components/Layout.hpp"
 #include "../common/Tags.hpp"
 #include "../singleton/Dispatcher.hpp"
 #include "../core/RuntimeFacade.hpp"
@@ -48,8 +51,8 @@ void HitTestSystem::unregisterHandlersImpl()
 
 bool HitTestSystem::isPointInRect(const Vec2& point, const Vec2& pos, const Vec2& size)
 {
-    return point.x() >= pos.x() && point.x() < (pos.x() + size.x()) && point.y() >= pos.y() &&
-           point.y() < (pos.y() + size.y());
+    return point.x() >= pos.x() && point.x() < (pos.x() + size.x()) && point.y() >= pos.y()
+        && point.y() < (pos.y() + size.y());
 }
 
 Vec2 HitTestSystem::getAbsolutePosition(entt::entity entity)
@@ -196,8 +199,7 @@ void HitTestSystem::processPendingCacheInvalidationTags()
 
 bool HitTestSystem::isEntityInteractable(entt::entity entity)
 {
-    bool isInteractive =
-        Registry::AnyOf<components::Clickable, components::ScrollArea, components::SliderInfo>(entity);
+    bool isInteractive = Registry::AnyOf<components::Clickable, components::ScrollArea, components::SliderInfo>(entity);
 
     if (!isInteractive && Registry::AnyOf<components::TextEditTag>(entity))
     {

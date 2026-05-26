@@ -16,7 +16,8 @@
 
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Data.hpp"
+#include "../common/Tags.hpp"
 #include "../managers/BatchManager.hpp"
 
 #include <SDL3/SDL_gpu.h>
@@ -29,7 +30,7 @@ class DropDownRenderer : public core::IRenderer
 public:
     DropDownRenderer() = default;
 
-    bool canHandle(entt::entity entity) const override
+    [[nodiscard]] bool canHandle(entt::entity entity) const override
     {
         return Registry::AnyOf<components::DropDownTag>(entity);
     }
@@ -41,17 +42,17 @@ public:
         const auto* dropDown = Registry::TryGet<components::DropDown>(entity);
         if (dropDown == nullptr) return;
 
-        constexpr float ARROW_W  = 16.0F;
-        constexpr float RADIUS   = 4.0F;
-        constexpr float TRI_W    = 10.0F;  // 下箭头三角形宽度
-        constexpr float TRI_H    = 6.0F;   // 下箭头三角形高度
+        constexpr float ARROW_W = 16.0F;
+        constexpr float RADIUS = 4.0F;
+        constexpr float TRI_W = 10.0F; // 下箭头三角形宽度
+        constexpr float TRI_H = 6.0F;  // 下箭头三角形高度
 
         render::UiPushConstants pushConst{};
         pushConst.screen_size[0] = context.screenWidth;
         pushConst.screen_size[1] = context.screenHeight;
-        pushConst.rect_size[0]   = context.size.x();
-        pushConst.rect_size[1]   = context.size.y();
-        pushConst.opacity        = context.alpha;
+        pushConst.rect_size[0] = context.size.x();
+        pushConst.rect_size[1] = context.size.y();
+        pushConst.opacity = context.alpha;
         pushConst.radius[0] = pushConst.radius[1] = pushConst.radius[2] = pushConst.radius[3] = RADIUS;
 
         // ── 背景已由 ShapeRenderer 绘制，这里只画箭头标志 ─────
@@ -80,13 +81,16 @@ public:
         triPc.radius[0] = triPc.radius[1] = triPc.radius[2] = triPc.radius[3] = 0.0F;
         triPc.draw_mode = 0.0F;
 
-        const Eigen::Vector4f arrowColor{dropDown->arrowColor.red, dropDown->arrowColor.green,
-                                         dropDown->arrowColor.blue, dropDown->arrowColor.alpha};
+        const Eigen::Vector4f arrowColor{dropDown->arrowColor.red,
+                                         dropDown->arrowColor.green,
+                                         dropDown->arrowColor.blue,
+                                         dropDown->arrowColor.alpha};
 
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, triPc);
         const auto baseIndex = static_cast<uint16_t>(context.batchManager->currentVertexCount());
 
-        const auto makeVertex = [&](float posX, float posY, float uvX, float uvY) {
+        const auto makeVertex = [&](float posX, float posY, float uvX, float uvY)
+        {
             render::Vertex vtx{};
             vtx.position[0] = posX;
             vtx.position[1] = posY;
@@ -97,22 +101,22 @@ public:
             vtx.color[2] = arrowColor.z();
             vtx.color[3] = arrowColor.w();
             // 与 addRect 一致：写入逐顶点 SDF 参数，使 frag shader 视作矩形内部（body_mask≈1）
-            vtx.rect_size[0]     = TRI_W;
-            vtx.rect_size[1]     = TRI_H;
+            vtx.rect_size[0] = TRI_W;
+            vtx.rect_size[1] = TRI_H;
             vtx.radius[0] = vtx.radius[1] = vtx.radius[2] = vtx.radius[3] = 0.0F;
             vtx.shadow_params[0] = 0.0F;
             vtx.shadow_params[1] = 0.0F;
             vtx.shadow_params[2] = 0.0F;
             vtx.shadow_params[3] = context.alpha;
-            vtx.mode_params[0]   = 0.0F; // padding_flag = 0 → 走主体 SDF 分支
-            vtx.mode_params[1]   = 0.0F;
-            vtx.mode_params[2]   = 0.0F; // draw_mode = 填充
-            vtx.mode_params[3]   = 0.0F;
+            vtx.mode_params[0] = 0.0F; // padding_flag = 0 → 走主体 SDF 分支
+            vtx.mode_params[1] = 0.0F;
+            vtx.mode_params[2] = 0.0F; // draw_mode = 填充
+            vtx.mode_params[3] = 0.0F;
             return vtx;
         };
 
-        context.batchManager->addVertex(makeVertex(triX,                triY,         0.0F, 0.0F)); // 左上
-        context.batchManager->addVertex(makeVertex(triX + TRI_W,        triY,         1.0F, 0.0F)); // 右上
+        context.batchManager->addVertex(makeVertex(triX, triY, 0.0F, 0.0F));                          // 左上
+        context.batchManager->addVertex(makeVertex(triX + TRI_W, triY, 1.0F, 0.0F));                  // 右上
         context.batchManager->addVertex(makeVertex(triX + (TRI_W * 0.5F), triY + TRI_H, 0.5F, 1.0F)); // 下中
         context.batchManager->addIndex(baseIndex);
         context.batchManager->addIndex(static_cast<uint16_t>(baseIndex + 1));

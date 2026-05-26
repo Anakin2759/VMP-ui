@@ -19,7 +19,7 @@
 
 #include <entt/entt.hpp>
 
-#include "Components.hpp"
+#include "components/Window.hpp"
 #include "../core/RuntimeFacade.hpp"
 #include "../singleton/Registry.hpp"
 

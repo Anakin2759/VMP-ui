@@ -20,7 +20,8 @@
 #pragma once
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Data.hpp"
+#include "../common/components/Layout.hpp"
 #include "../common/CustomizationPoints.hpp"
 #include "../managers/IconManager.hpp"
 #include "../managers/FontManager.hpp"

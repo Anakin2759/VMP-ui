@@ -177,7 +177,6 @@ set(UI_SOURCES
 )
 set(UI_HEADERS
     # Components
-    common/Components.hpp
     common/CustomizationPoints.hpp
     common/Policies.hpp
     common/Tags.hpp

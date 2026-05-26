@@ -16,7 +16,8 @@
 #include <string>
 
 #include "api/Utils.hpp"
-#include "common/Components.hpp"
+#include "common/components/Data.hpp"
+#include "common/Tags.hpp"
 #include "core/TextUtils.hpp"
 #include "singleton/Registry.hpp"
 

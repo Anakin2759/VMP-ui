@@ -6,7 +6,9 @@
 #include <cmath>
 #include <string>
 
-#include "Components.hpp"
+#include "components/Layout.hpp"
+#include "components/Visual.hpp"
+#include "components/Window.hpp"
 #include "Policies.hpp"
 #include "Tags.hpp"
 #include "Types.hpp"

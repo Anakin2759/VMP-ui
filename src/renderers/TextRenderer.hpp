@@ -15,7 +15,9 @@
 #pragma once
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Data.hpp"
+#include "../common/components/Interaction.hpp"
+#include "../common/components/Layout.hpp"
 #include "../common/Tags.hpp"
 #include "../managers/TextTextureCache.hpp"
 #include "../managers/FontManager.hpp"
@@ -81,10 +83,7 @@ public:
         }
     }
 
-    int getPriority() const override
-    {
-        return 10;
-    }
+    int getPriority() const override { return 10; }
 
 private:
     struct FallbackTextBitmap
@@ -153,15 +152,15 @@ private:
 
     [[nodiscard]] bool isUsingFallbackBackend(const core::RenderContext& context) const
     {
-        return context.backendRenderer != nullptr &&
-               context.backendRenderer->getType() == interface::BackendType::FALLBACK;
+        return context.backendRenderer != nullptr
+            && context.backendRenderer->getType() == interface::BackendType::FALLBACK;
     }
 
     static std::string buildFallbackTextCacheKey(const std::string& text, const Eigen::Vector4f& color, float fontSize)
     {
-        return text + "_" + std::to_string(static_cast<int>(fontSize * 10.0F)) + "_" +
-               std::to_string(quantizeColor(color.x())) + "_" + std::to_string(quantizeColor(color.y())) + "_" +
-               std::to_string(quantizeColor(color.z())) + "_" + std::to_string(quantizeColor(color.w()));
+        return text + "_" + std::to_string(static_cast<int>(fontSize * 10.0F)) + "_"
+             + std::to_string(quantizeColor(color.x())) + "_" + std::to_string(quantizeColor(color.y())) + "_"
+             + std::to_string(quantizeColor(color.z())) + "_" + std::to_string(quantizeColor(color.w()));
     }
 
     const FallbackTextBitmap* getOrCreateFallbackTextBitmap(const std::string& text,
@@ -500,8 +499,9 @@ private:
         const size_t startIndex =
             std::min(static_cast<size_t>(scrollOffsetLines), lines.empty() ? size_t{0} : lines.size() - size_t{1});
         const size_t endIndex = std::min(startIndex + static_cast<size_t>(maxVisibleLines) + size_t{1}, lines.size());
-        const float startDrawY = args.textPos.y() - (scrollArea.scrollOffset.y() -
-                                                     (static_cast<float>(scrollOffsetLines) * args.lineHeight));
+        const float startDrawY =
+            args.textPos.y()
+            - (scrollArea.scrollOffset.y() - (static_cast<float>(scrollOffsetLines) * args.lineHeight));
 
         renderTextEditLines(args, lines, startIndex, endIndex, startDrawY);
 
@@ -520,8 +520,8 @@ private:
         const int visibleLineIndex = cursorInfo.lineIndex - scrollOffsetLines;
         drawTextEditCaret(
             {args.textPos.x() + cursorInfo.lineOffsetX,
-             args.textPos.y() + (static_cast<float>(visibleLineIndex) * args.lineHeight) -
-                 (scrollArea.scrollOffset.y() - (static_cast<float>(scrollOffsetLines) * args.lineHeight))},
+             args.textPos.y() + (static_cast<float>(visibleLineIndex) * args.lineHeight)
+                 - (scrollArea.scrollOffset.y() - (static_cast<float>(scrollOffsetLines) * args.lineHeight))},
             args.lineHeight,
             args.renderContext(),
             args.clippedContext());
@@ -531,8 +531,8 @@ private:
     {
         const int maxLines = args.lineHeight > 0.0F ? static_cast<int>(args.textSize.y() / args.lineHeight) : 0;
         const size_t startIndex = (maxLines > 0 && lines.size() > static_cast<size_t>(maxLines))
-                                      ? (lines.size() - static_cast<size_t>(maxLines))
-                                      : 0ULL;
+                                    ? (lines.size() - static_cast<size_t>(maxLines))
+                                    : 0ULL;
 
         renderTextEditLines(args, lines, startIndex, lines.size(), args.textPos.y());
 
@@ -800,9 +800,9 @@ private:
 
     [[nodiscard]] static policies::Alignment resolveWrappedTextHorizontalAlignment(policies::Alignment alignment)
     {
-        const uint8_t horizontalMask = static_cast<uint8_t>(policies::Alignment::LEFT) |
-                                       static_cast<uint8_t>(policies::Alignment::HCENTER) |
-                                       static_cast<uint8_t>(policies::Alignment::RIGHT);
+        const uint8_t horizontalMask = static_cast<uint8_t>(policies::Alignment::LEFT)
+                                     | static_cast<uint8_t>(policies::Alignment::HCENTER)
+                                     | static_cast<uint8_t>(policies::Alignment::RIGHT);
         const auto alignValue = static_cast<uint8_t>(alignment);
         auto horizontalAlign = static_cast<policies::Alignment>(alignValue & horizontalMask);
         if (horizontalAlign == policies::Alignment::NONE)

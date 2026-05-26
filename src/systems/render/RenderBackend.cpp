@@ -7,6 +7,7 @@
  */
 
 #include "../RenderSystem.hpp"
+#include "RenderSystemImpl.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -21,9 +22,12 @@
 #include "managers/FontManager.hpp"
 #include "managers/ImageManager.hpp"
 #include "managers/BatchManager.hpp"
+#include "managers/PipelineCache.hpp"
+#include "managers/TextTextureCache.hpp"
 #include "SDL3/SDL_stdinc.h"
 #include <utility>
 #include "common/Events.hpp"
+#include "common/components/Window.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -32,7 +36,9 @@
 #include "SDL3/SDL_init.h"
 #include <exception>
 #include "managers/CommandBuffer.hpp"
+#include "interface/IRenderer.hpp"
 #include "singleton/Registry.hpp"
+#include "singleton/Dispatcher.hpp"
 #include "../../renderers/FallbackBackendRenderer.hpp"
 #include "../../managers/IconManager.hpp"
 #include "../../managers/ResourceProvider.hpp"
@@ -98,25 +104,46 @@ ui::Result<ui::managers::BinaryResource> LoadUiResource(std::string_view resourc
 namespace ui::systems
 {
 
-RenderSystem::RenderSystem()
-    : m_deviceManager(std::make_unique<managers::DeviceManager>()),
-      m_fontManager(std::make_unique<managers::FontManager>()),
-      m_iconManager(std::make_unique<managers::IconManager>(m_deviceManager.get())),
-      m_imageManager(std::make_unique<managers::ImageManager>(m_deviceManager.get())), m_pipelineCache(nullptr),
-      m_textTextureCache(nullptr), m_batchManager(std::make_unique<managers::BatchManager>()), m_commandBuffer(nullptr),
-      m_backendRenderer(nullptr), m_forceFallback(
-#ifdef UI_FORCE_CPU_RENDER
-                                      true
-#else
-                                      IsTruthyEnvironmentValue(SDL_getenv("PESTMANKILL_FORCE_FALLBACK"))
-#endif
-                                  )
+const RenderSystem::RenderStats& RenderSystem::getStats() const
 {
-    m_stats.frameCount = 0;
-    m_stats.batchCount = 0;
-    m_stats.vertexCount = 0;
+    return m_impl->m_stats;
+}
 
-    if (m_forceFallback)
+void RenderSystem::registerHandlersImpl()
+{
+    Logger::info("[RenderSystem] Registering event handlers");
+    Dispatcher::Sink<events::WindowGraphicsContextSetEvent>().connect<&RenderSystem::onWindowsGraphicsContextSet>(
+        *this);
+    Dispatcher::Sink<events::WindowGraphicsContextUnsetEvent>().connect<&RenderSystem::onWindowsGraphicsContextUnset>(
+        *this);
+    Dispatcher::Sink<events::UpdateRendering>().connect<&RenderSystem::update>(*this);
+    Logger::info("[RenderSystem] Event handlers registered successfully");
+}
+
+void RenderSystem::unregisterHandlersImpl()
+{
+    Dispatcher::Sink<events::WindowGraphicsContextSetEvent>().disconnect<&RenderSystem::onWindowsGraphicsContextSet>(
+        *this);
+    Dispatcher::Sink<events::WindowGraphicsContextUnsetEvent>()
+        .disconnect<&RenderSystem::onWindowsGraphicsContextUnset>(*this);
+    Dispatcher::Sink<events::UpdateRendering>().disconnect<&RenderSystem::update>(*this);
+}
+
+interface::SystemPhase RenderSystem::getPhase()
+{
+    return interface::SystemPhase::Render;
+}
+
+RenderSystem::RenderSystem()
+    : m_impl(std::make_unique<RenderSystemImpl>(
+#ifdef UI_FORCE_CPU_RENDER
+          true
+#else
+          IsTruthyEnvironmentValue(SDL_getenv("PESTMANKILL_FORCE_FALLBACK"))
+#endif
+          ))
+{
+    if (m_impl->m_forceFallback)
     {
 #ifdef UI_FORCE_CPU_RENDER
         Logger::warn("[RenderSystem] 编译选项 UI_FORCE_CPU_RENDER 已启用，强制使用 CPU software 后端");
@@ -124,6 +151,17 @@ RenderSystem::RenderSystem()
         Logger::warn("[RenderSystem] 检测到环境变量 PESTMANKILL_FORCE_FALLBACK，强制启用 SDL_Renderer fallback 后端");
 #endif
     }
+}
+
+RenderSystemImpl::RenderSystemImpl(bool forceFallback)
+    : m_deviceManager(std::make_unique<managers::DeviceManager>()),
+      m_fontManager(std::make_unique<managers::FontManager>()),
+      m_iconManager(std::make_unique<managers::IconManager>(m_deviceManager.get())),
+      m_imageManager(std::make_unique<managers::ImageManager>(m_deviceManager.get())),
+      m_batchManager(std::make_unique<managers::BatchManager>()),
+      m_fallbackWhiteTextureTag(std::bit_cast<SDL_GPUTexture*>(&m_fallbackWhiteTextureCookie)),
+      m_forceFallback(forceFallback)
+{
 }
 
 RenderSystem::~RenderSystem()
@@ -138,20 +176,7 @@ RenderSystem::~RenderSystem()
     }
 }
 
-RenderSystem::RenderSystem(RenderSystem&& other) noexcept
-    : m_deviceManager(std::move(other.m_deviceManager)), m_fontManager(std::move(other.m_fontManager)),
-      m_iconManager(std::move(other.m_iconManager)), m_imageManager(std::move(other.m_imageManager)),
-      m_pipelineCache(std::move(other.m_pipelineCache)), m_textTextureCache(std::move(other.m_textTextureCache)),
-      m_batchManager(std::move(other.m_batchManager)), m_commandBuffer(std::move(other.m_commandBuffer)),
-      m_backendRenderer(std::move(other.m_backendRenderer)), m_renderers(std::move(other.m_renderers)),
-    m_stats(other.m_stats), m_whiteTexture(std::move(other.m_whiteTexture)), m_useFallback(other.m_useFallback),
-      m_forceFallback(other.m_forceFallback), m_backendSelectionLogged(other.m_backendSelectionLogged),
-      m_screenWidth(other.m_screenWidth), m_screenHeight(other.m_screenHeight)
-{
-    other.m_useFallback = false;
-    other.m_forceFallback = false;
-    other.m_backendSelectionLogged = false;
-}
+RenderSystem::RenderSystem(RenderSystem&& other) noexcept : m_impl(std::move(other.m_impl)) {}
 
 RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
 {
@@ -166,29 +191,7 @@ RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
             WriteStderr("[RenderSystem] move assignment cleanup failed\n");
         }
 
-        m_deviceManager = std::move(other.m_deviceManager);
-        m_fontManager = std::move(other.m_fontManager);
-        m_iconManager = std::move(other.m_iconManager);
-        m_imageManager = std::move(other.m_imageManager);
-        m_pipelineCache = std::move(other.m_pipelineCache);
-        m_textTextureCache = std::move(other.m_textTextureCache);
-        m_batchManager = std::move(other.m_batchManager);
-        m_commandBuffer = std::move(other.m_commandBuffer);
-        m_backendRenderer = std::move(other.m_backendRenderer);
-        m_renderers = std::move(other.m_renderers);
-        m_stats = other.m_stats;
-        m_whiteTexture = std::move(other.m_whiteTexture);
-        m_fallbackWhiteTextureTag = std::bit_cast<SDL_GPUTexture*>(&m_fallbackWhiteTextureCookie);
-        m_useFallback = other.m_useFallback;
-        m_forceFallback = other.m_forceFallback;
-        m_backendSelectionLogged = other.m_backendSelectionLogged;
-        m_screenWidth = other.m_screenWidth;
-        m_screenHeight = other.m_screenHeight;
-
-        other.m_iconManager = nullptr;
-        other.m_useFallback = false;
-        other.m_forceFallback = false;
-        other.m_backendSelectionLogged = false;
+        m_impl = std::move(other.m_impl);
     }
     return *this;
 }
@@ -205,7 +208,7 @@ void RenderSystem::onWindowsGraphicsContextSet(const events::WindowGraphicsConte
         return;
     }
 
-    if (m_useFallback)
+    if (m_impl->m_useFallback)
     {
         if (!tryInitializeFallback(sdlWindow))
         {
@@ -214,13 +217,13 @@ void RenderSystem::onWindowsGraphicsContextSet(const events::WindowGraphicsConte
         return;
     }
 
-    if (!m_deviceManager->claimWindow(sdlWindow))
+    if (!m_impl->m_deviceManager->claimWindow(sdlWindow))
     {
         Logger::error("[RenderSystem] 无法声明窗口 (ID: {})", windowID);
         return;
     }
 
-    if (auto pipeResult = m_pipelineCache->createPipeline(sdlWindow); !pipeResult.has_value())
+    if (auto pipeResult = m_impl->m_pipelineCache->createPipeline(sdlWindow); !pipeResult.has_value())
     {
         Logger::warn("[RenderSystem] 初始化时创建管线失败: {}", pipeResult.error().message());
     }
@@ -229,7 +232,7 @@ void RenderSystem::onWindowsGraphicsContextSet(const events::WindowGraphicsConte
 
 void RenderSystem::onWindowsGraphicsContextUnset(const events::WindowGraphicsContextUnsetEvent& event)
 {
-    if (m_useFallback)
+    if (m_impl->m_useFallback)
     {
         return;
     }
@@ -239,7 +242,7 @@ void RenderSystem::onWindowsGraphicsContextUnset(const events::WindowGraphicsCon
         SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID);
         if (sdlWindow != nullptr)
         {
-            m_deviceManager->unclaimWindow(sdlWindow);
+            m_impl->m_deviceManager->unclaimWindow(sdlWindow);
             Logger::info("已从 GPU 设备释放窗口 (ID: {})", windowComp->windowID);
         }
     }
@@ -249,60 +252,60 @@ void RenderSystem::cleanup()
 {
     Logger::info("[RenderSystem] cleanup() 开始");
 
-    if (m_backendRenderer)
+    if (m_impl->m_backendRenderer)
     {
-        m_backendRenderer->cleanup();
-        m_backendRenderer.reset();
+        m_impl->m_backendRenderer->cleanup();
+        m_impl->m_backendRenderer.reset();
     }
 
-    if (!m_deviceManager)
+    if (!m_impl->m_deviceManager)
     {
         Logger::info("[RenderSystem] m_deviceManager 为空，跳过 cleanup");
         return;
     }
 
-    SDL_GPUDevice* device = m_deviceManager->getDevice();
+    SDL_GPUDevice* device = m_impl->m_deviceManager->getDevice();
     if (device == nullptr)
     {
         Logger::info("[RenderSystem] GPU 设备为空，执行轻量清理");
-        m_renderers.clear();
-        m_commandBuffer.reset();
-        m_batchManager.reset();
-        m_pipelineCache.reset();
-        m_textTextureCache.reset();
-        m_fontManager.reset();
-        m_iconManager.reset();
-        m_imageManager.reset();
+        m_impl->m_renderers.clear();
+        m_impl->m_commandBuffer.reset();
+        m_impl->m_batchManager.reset();
+        m_impl->m_pipelineCache.reset();
+        m_impl->m_textTextureCache.reset();
+        m_impl->m_fontManager.reset();
+        m_impl->m_iconManager.reset();
+        m_impl->m_imageManager.reset();
         return;
     }
 
     Logger::info("[RenderSystem] 等待 GPU 空闲...");
     SDL_WaitForGPUIdle(device);
 
-    if (m_textTextureCache)
+    if (m_impl->m_textTextureCache)
     {
         Logger::info("[RenderSystem] 清理文本纹理缓存");
-        m_textTextureCache->clear();
+        m_impl->m_textTextureCache->clear();
     }
 
-    if (m_whiteTexture)
+    if (m_impl->m_whiteTexture)
     {
         Logger::info("[RenderSystem] 释放白色纹理");
-        m_whiteTexture.reset();
+        m_impl->m_whiteTexture.reset();
     }
 
     Logger::info("[RenderSystem] 清理渲染器");
-    m_renderers.clear();
-    m_commandBuffer.reset();
-    m_batchManager.reset();
-    m_pipelineCache.reset();
-    m_textTextureCache.reset();
-    m_fontManager.reset();
-    m_iconManager.reset();
-    m_imageManager.reset();
+    m_impl->m_renderers.clear();
+    m_impl->m_commandBuffer.reset();
+    m_impl->m_batchManager.reset();
+    m_impl->m_pipelineCache.reset();
+    m_impl->m_textTextureCache.reset();
+    m_impl->m_fontManager.reset();
+    m_impl->m_iconManager.reset();
+    m_impl->m_imageManager.reset();
 
     Logger::info("[RenderSystem] 清理设备管理器");
-    m_deviceManager->cleanup();
+    m_impl->m_deviceManager->cleanup();
     Logger::info("[RenderSystem] cleanup() 完成");
 }
 
@@ -316,52 +319,51 @@ void RenderSystem::ensureInitialized()
     }
 
     const bool commandLineForcesFallback = config::AppConfig::instance().forceFallbackRenderer();
-    if (!m_forceFallback && commandLineForcesFallback)
+    if (!m_impl->m_forceFallback && commandLineForcesFallback)
     {
-        m_forceFallback = true;
+        m_impl->m_forceFallback = true;
         Logger::warn("[RenderSystem] 命令行后端 cpu/software/fallback 已启用，强制使用 SDL_Renderer fallback 后端");
     }
 
-    if (m_forceFallback)
+    if (m_impl->m_forceFallback)
     {
-        m_useFallback = true;
+        m_impl->m_useFallback = true;
 
-        if (!m_backendSelectionLogged)
+        if (!m_impl->m_backendSelectionLogged)
         {
             Logger::info("[RenderSystem] 当前渲染后端: fallback (source={})",
                          commandLineForcesFallback ? "command-line" : "environment");
-            m_backendSelectionLogged = true;
+            m_impl->m_backendSelectionLogged = true;
         }
     }
-    else if (!m_deviceManager->initialize())
+    else if (!m_impl->m_deviceManager->initialize())
     {
         Logger::warn("Failed to initialize RenderSystem GPU backend, switching to fallback renderer");
-        m_useFallback = true;
+        m_impl->m_useFallback = true;
 
-        if (!m_backendSelectionLogged)
+        if (!m_impl->m_backendSelectionLogged)
         {
             Logger::info("[RenderSystem] 当前渲染后端: fallback (source=gpu-init-failure)");
-            m_backendSelectionLogged = true;
+            m_impl->m_backendSelectionLogged = true;
         }
     }
 
-    if (!m_useFallback && !m_backendSelectionLogged)
+    if (!m_impl->m_useFallback && !m_impl->m_backendSelectionLogged)
     {
-        Logger::info("[RenderSystem] 当前渲染后端: gpu ({})", m_deviceManager->getDriverName());
-        m_backendSelectionLogged = true;
+        Logger::info("[RenderSystem] 当前渲染后端: gpu ({})", m_impl->m_deviceManager->getDriverName());
+        m_impl->m_backendSelectionLogged = true;
     }
 
-    if (!m_fontManager->isLoaded())
+    if (!m_impl->m_fontManager->isLoaded())
     {
         constexpr std::string_view DEFAULT_FONT_RESOURCE = "assets/fonts/NotoSansSC-VariableFont_wght.ttf";
         if (auto fontResource = LoadUiResource(DEFAULT_FONT_RESOURCE); fontResource.has_value())
         {
             const auto& fontBytes = fontResource.value();
             std::vector<uint8_t> fontData(fontBytes.size());
-            std::ranges::transform(fontBytes.bytes,
-                                   fontData.begin(),
-                                   [](std::byte byte) { return std::to_integer<uint8_t>(byte); });
-            if (auto loadResult = m_fontManager->loadFromMemory(fontData.data(), fontData.size(), 14.0F);
+            std::ranges::transform(
+                fontBytes.bytes, fontData.begin(), [](std::byte byte) { return std::to_integer<uint8_t>(byte); });
+            if (auto loadResult = m_impl->m_fontManager->loadFromMemory(fontData.data(), fontData.size(), 14.0F);
                 !loadResult.has_value())
             {
                 Logger::error("[RenderSystem] 默认字体加载失败: {}", loadResult.error().message());
@@ -374,14 +376,14 @@ void RenderSystem::ensureInitialized()
         }
     }
 
-    if (m_useFallback)
+    if (m_impl->m_useFallback)
     {
-        if (m_backendRenderer == nullptr)
+        if (m_impl->m_backendRenderer == nullptr)
         {
-            m_backendRenderer = std::make_unique<renderers::FallbackBackendRenderer>();
+            m_impl->m_backendRenderer = std::make_unique<renderers::FallbackBackendRenderer>();
         }
 
-        if (m_renderers.empty())
+        if (m_impl->m_renderers.empty())
         {
             initializeRenderers();
         }
@@ -389,18 +391,19 @@ void RenderSystem::ensureInitialized()
         return;
     }
 
-    if (m_pipelineCache == nullptr)
+    if (m_impl->m_pipelineCache == nullptr)
     {
-        m_pipelineCache = std::make_unique<managers::PipelineCache>(*m_deviceManager);
-        m_pipelineCache->loadShaders();
+        m_impl->m_pipelineCache = std::make_unique<managers::PipelineCache>(*m_impl->m_deviceManager);
+        m_impl->m_pipelineCache->loadShaders();
     }
 
-    if (m_textTextureCache == nullptr)
+    if (m_impl->m_textTextureCache == nullptr)
     {
-        m_textTextureCache = std::make_unique<managers::TextTextureCache>(*m_deviceManager, *m_fontManager);
+        m_impl->m_textTextureCache =
+            std::make_unique<managers::TextTextureCache>(*m_impl->m_deviceManager, *m_impl->m_fontManager);
     }
 
-    if (m_iconManager)
+    if (m_impl->m_iconManager)
     {
         static bool iconsLoaded = false;
         if (!iconsLoaded)
@@ -419,7 +422,7 @@ void RenderSystem::ensureInitialized()
                 if (fontResource.has_value() && codepointResource.has_value())
                 {
                     auto loadResult = ui::cpo::load_icon_font_from_memory(
-                        *m_iconManager, "MaterialSymbols", fontResource->bytes, codepointResource->bytes, 24);
+                        *m_impl->m_iconManager, "MaterialSymbols", fontResource->bytes, codepointResource->bytes, 24);
                     if (loadResult.has_value())
                     {
                         Logger::info("[RenderSystem]默认图标字体加载完成");
@@ -453,12 +456,13 @@ void RenderSystem::ensureInitialized()
         }
     }
 
-    if (m_commandBuffer == nullptr)
+    if (m_impl->m_commandBuffer == nullptr)
     {
-        m_commandBuffer = std::make_unique<managers::CommandBuffer>(*m_deviceManager, *m_pipelineCache);
+        m_impl->m_commandBuffer =
+            std::make_unique<managers::CommandBuffer>(*m_impl->m_deviceManager, *m_impl->m_pipelineCache);
     }
 
-    if (m_renderers.empty())
+    if (m_impl->m_renderers.empty())
     {
         initializeRenderers();
     }
@@ -466,12 +470,12 @@ void RenderSystem::ensureInitialized()
 
 ui::Result<void> RenderSystem::tryInitializeFallback(SDL_Window* window)
 {
-    if (m_backendRenderer == nullptr)
+    if (m_impl->m_backendRenderer == nullptr)
     {
-        m_backendRenderer = std::make_unique<renderers::FallbackBackendRenderer>();
+        m_impl->m_backendRenderer = std::make_unique<renderers::FallbackBackendRenderer>();
     }
 
-    return m_backendRenderer->initialize(window);
+    return m_impl->m_backendRenderer->initialize(window);
 }
 
 } // namespace ui::systems

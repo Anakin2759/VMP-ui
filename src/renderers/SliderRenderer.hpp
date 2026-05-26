@@ -15,7 +15,7 @@
 #pragma once
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Data.hpp"
 #include "../managers/BatchManager.hpp"
 #include <SDL3/SDL_gpu.h>
 
@@ -37,7 +37,10 @@ public:
         }
 
         const auto* sliderPtr = Registry::TryGet<components::SliderInfo>(entity);
-        if (sliderPtr == nullptr) { return; }
+        if (sliderPtr == nullptr)
+        {
+            return;
+        }
         const auto& info = *sliderPtr;
 
         const bool isVertical = (info.vertical == policies::Orientation::VERTICAL);
@@ -48,16 +51,16 @@ public:
         const float thickness = info.trackThickness;
 
         // ---- 辅助 lambda：提交一个圆角矩形批次 ----
-        auto submitRect = [&](const Eigen::Vector2f& pos, const Eigen::Vector2f& size,
-                              const Color& color, float radiusVal)
+        auto submitRect =
+            [&](const Eigen::Vector2f& pos, const Eigen::Vector2f& size, const Color& color, float radiusVal)
         {
             render::UiPushConstants pushConst{};
             pushConst.screen_size[0] = context.screenWidth;
             pushConst.screen_size[1] = context.screenHeight;
-            pushConst.rect_size[0]   = size.x();
-            pushConst.rect_size[1]   = size.y();
+            pushConst.rect_size[0] = size.x();
+            pushConst.rect_size[1] = size.y();
             pushConst.radius[0] = pushConst.radius[1] = pushConst.radius[2] = pushConst.radius[3] = radiusVal;
-            pushConst.opacity   = context.alpha;
+            pushConst.opacity = context.alpha;
             context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConst);
             const Eigen::Vector4f col{color.red, color.green, color.blue, color.alpha * context.alpha};
             context.batchManager->addRect(pos, size, col);
@@ -74,20 +77,18 @@ public:
         {
             // 轨道：水平居中，全高
             const float trkX = trackPos.x() + ((trackW - thickness) * 0.5F);
-            submitRect({trkX, trackPos.y()}, {thickness, trackH},
-                       info.trackColor, thickness * 0.5F);
+            submitRect({trkX, trackPos.y()}, {thickness, trackH}, info.trackColor, thickness * 0.5F);
 
             // 填充（从底部往上）
             const float fillH = trackH * progress;
             if (fillH > 0.001F)
             {
-                submitRect({trkX, trackPos.y() + trackH - fillH}, {thickness, fillH},
-                           info.fillColor, thickness * 0.5F);
+                submitRect({trkX, trackPos.y() + trackH - fillH}, {thickness, fillH}, info.fillColor, thickness * 0.5F);
             }
 
             // 滑块圆形
-            const float thumbDia    = info.thumbSize;
-            const float thumbRad    = info.thumbRadius;
+            const float thumbDia = info.thumbSize;
+            const float thumbRad = info.thumbRadius;
             const float thumbX = trackPos.x() + ((trackW - thumbDia) * 0.5F);
             const float thumbY = (trackPos.y() + (trackH * (1.0F - progress))) - (thumbDia * 0.5F);
             submitRect({thumbX, thumbY}, {thumbDia, thumbDia}, info.thumbColor, thumbRad);
@@ -96,20 +97,18 @@ public:
         {
             // 轨道：垂直居中，全宽
             const float trkY = trackPos.y() + ((trackH - thickness) * 0.5F);
-            submitRect({trackPos.x(), trkY}, {trackW, thickness},
-                       info.trackColor, thickness * 0.5F);
+            submitRect({trackPos.x(), trkY}, {trackW, thickness}, info.trackColor, thickness * 0.5F);
 
             // 填充（从左往右）
             const float fillW = trackW * progress;
             if (fillW > 0.001F)
             {
-                submitRect({trackPos.x(), trkY}, {fillW, thickness},
-                           info.fillColor, thickness * 0.5F);
+                submitRect({trackPos.x(), trkY}, {fillW, thickness}, info.fillColor, thickness * 0.5F);
             }
 
             // 滑块圆形
-            const float thumbDia    = info.thumbSize;
-            const float thumbRad    = info.thumbRadius;
+            const float thumbDia = info.thumbSize;
+            const float thumbRad = info.thumbRadius;
             const float thumbX = (trackPos.x() + (trackW * progress)) - (thumbDia * 0.5F);
             const float thumbY = trackPos.y() + ((trackH - thumbDia) * 0.5F);
             submitRect({thumbX, thumbY}, {thumbDia, thumbDia}, info.thumbColor, thumbRad);

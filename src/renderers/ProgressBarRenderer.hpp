@@ -5,7 +5,7 @@
 #pragma once
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Data.hpp"
 #include "../managers/BatchManager.hpp"
 #include <SDL3/SDL_gpu.h>
 
@@ -41,8 +41,10 @@ public:
         pc.radius[3] = 4.0F;
         pc.opacity = context.alpha;
 
-        Eigen::Vector4f bgColor(
-            progressBar->backgroundColor.red, progressBar->backgroundColor.green, progressBar->backgroundColor.blue, progressBar->backgroundColor.alpha);
+        Eigen::Vector4f bgColor(progressBar->backgroundColor.red,
+                                progressBar->backgroundColor.green,
+                                progressBar->backgroundColor.blue,
+                                progressBar->backgroundColor.alpha);
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pc);
         context.batchManager->addRect(context.position, context.size, bgColor);
 
@@ -55,7 +57,10 @@ public:
         fillPc.rect_size[0] = fillSize.x();
         fillPc.rect_size[1] = fillSize.y();
 
-        Eigen::Vector4f fillColor(progressBar->fillColor.red, progressBar->fillColor.green, progressBar->fillColor.blue, progressBar->fillColor.alpha);
+        Eigen::Vector4f fillColor(progressBar->fillColor.red,
+                                  progressBar->fillColor.green,
+                                  progressBar->fillColor.blue,
+                                  progressBar->fillColor.alpha);
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, fillPc);
         context.batchManager->addRect(fillPos, fillSize, fillColor);
     }

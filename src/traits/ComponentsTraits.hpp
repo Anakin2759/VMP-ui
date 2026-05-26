@@ -15,9 +15,6 @@
 
 #pragma once
 
-#include "../common/Components.hpp"
-#include "../common/Tags.hpp"
-
 namespace ui::traits
 {
 

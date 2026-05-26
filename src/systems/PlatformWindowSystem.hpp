@@ -13,7 +13,7 @@
 
 #include <SDL3/SDL.h>
 
-#include "common/Components.hpp"
+#include "common/components/Window.hpp"
 #include "common/Events.hpp"
 #include "core/RuntimeFacade.hpp"
 #include "interface/Isystem.hpp"

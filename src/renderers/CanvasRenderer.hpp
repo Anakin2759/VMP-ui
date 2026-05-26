@@ -16,7 +16,7 @@
 #include <cmath>
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
-#include "../common/Components.hpp"
+#include "../common/components/Data.hpp"
 #include "../common/Tags.hpp"
 #include "../managers/BatchManager.hpp"
 #include <SDL3/SDL_gpu.h>
@@ -106,8 +106,8 @@ private:
     {
         const float startX = origin.x() + cmd.p1.x();
         const float startY = origin.y() + cmd.p1.y();
-        const float endX   = origin.x() + cmd.p2.x();
-        const float endY   = origin.y() + cmd.p2.y();
+        const float endX = origin.x() + cmd.p2.x();
+        const float endY = origin.y() + cmd.p2.y();
         renderSegment(startX, startY, endX, endY, cmd.lineWidth, toVec4(cmd.color, context.alpha), context);
     }
 
@@ -115,9 +115,9 @@ private:
                                  const Eigen::Vector2f& origin,
                                  core::RenderContext& context)
     {
-        const float posX   = origin.x() + cmd.p1.x();
-        const float posY   = origin.y() + cmd.p1.y();
-        const float width  = cmd.p2.x() - cmd.p1.x();
+        const float posX = origin.x() + cmd.p1.x();
+        const float posY = origin.y() + cmd.p1.y();
+        const float width = cmd.p2.x() - cmd.p1.x();
         const float height = cmd.p2.y() - cmd.p1.y();
 
         beginWhiteBatch(context);
@@ -128,11 +128,11 @@ private:
                                   const Eigen::Vector2f& origin,
                                   core::RenderContext& context)
     {
-        const float left    = origin.x() + cmd.p1.x();
-        const float top     = origin.y() + cmd.p1.y();
-        const float right   = origin.x() + cmd.p2.x();
-        const float bottom  = origin.y() + cmd.p2.y();
-        const float lineW   = cmd.lineWidth;
+        const float left = origin.x() + cmd.p1.x();
+        const float top = origin.y() + cmd.p1.y();
+        const float right = origin.x() + cmd.p2.x();
+        const float bottom = origin.y() + cmd.p2.y();
+        const float lineW = cmd.lineWidth;
         const Eigen::Vector4f col = toVec4(cmd.color, context.alpha);
 
         beginWhiteBatch(context);
@@ -148,20 +148,20 @@ private:
     {
         const float centerX = origin.x() + cmd.p1.x();
         const float centerY = origin.y() + cmd.p1.y();
-        const float radius  = cmd.p2.x();
+        const float radius = cmd.p2.x();
         const Eigen::Vector4f col = toVec4(cmd.color, context.alpha);
 
         render::UiPushConstants pushConst{};
         pushConst.screen_size[0] = context.screenWidth;
         pushConst.screen_size[1] = context.screenHeight;
-        pushConst.rect_size[0]   = 2.0F * radius;
-        pushConst.rect_size[1]   = 2.0F * radius;
-        pushConst.radius[0]      = radius;
-        pushConst.radius[1]      = radius;
-        pushConst.radius[2]      = radius;
-        pushConst.radius[3]      = radius;
-        pushConst.opacity        = context.alpha;
-        pushConst.draw_mode      = 0.0F;
+        pushConst.rect_size[0] = 2.0F * radius;
+        pushConst.rect_size[1] = 2.0F * radius;
+        pushConst.radius[0] = radius;
+        pushConst.radius[1] = radius;
+        pushConst.radius[2] = radius;
+        pushConst.radius[3] = radius;
+        pushConst.opacity = context.alpha;
+        pushConst.draw_mode = 0.0F;
 
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConst);
         context.batchManager->addRect({centerX - radius, centerY - radius}, {2.0F * radius, 2.0F * radius}, col);
@@ -173,22 +173,22 @@ private:
     {
         const float centerX = origin.x() + cmd.p1.x();
         const float centerY = origin.y() + cmd.p1.y();
-        const float radius  = cmd.p2.x();
-        const float lineW   = cmd.lineWidth;
+        const float radius = cmd.p2.x();
+        const float lineW = cmd.lineWidth;
         const Eigen::Vector4f col = toVec4(cmd.color, context.alpha);
 
         render::UiPushConstants pushConst{};
         pushConst.screen_size[0] = context.screenWidth;
         pushConst.screen_size[1] = context.screenHeight;
-        pushConst.rect_size[0]   = 2.0F * radius;
-        pushConst.rect_size[1]   = 2.0F * radius;
-        pushConst.radius[0]      = radius;
-        pushConst.radius[1]      = radius;
-        pushConst.radius[2]      = radius;
-        pushConst.radius[3]      = radius;
-        pushConst.opacity        = context.alpha;
-        pushConst.draw_mode      = 1.0F;
-        pushConst.stroke_width   = lineW;
+        pushConst.rect_size[0] = 2.0F * radius;
+        pushConst.rect_size[1] = 2.0F * radius;
+        pushConst.radius[0] = radius;
+        pushConst.radius[1] = radius;
+        pushConst.radius[2] = radius;
+        pushConst.radius[3] = radius;
+        pushConst.opacity = context.alpha;
+        pushConst.draw_mode = 1.0F;
+        pushConst.stroke_width = lineW;
 
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConst);
         context.batchManager->addRect({centerX - radius, centerY - radius}, {2.0F * radius, 2.0F * radius}, col);
@@ -207,8 +207,8 @@ private:
         {
             const float startX = origin.x() + cmd.points[i].x();
             const float startY = origin.y() + cmd.points[i].y();
-            const float endX   = origin.x() + cmd.points[i + 1].x();
-            const float endY   = origin.y() + cmd.points[i + 1].y();
+            const float endX = origin.x() + cmd.points[i + 1].x();
+            const float endY = origin.y() + cmd.points[i + 1].y();
             renderSegment(startX, startY, endX, endY, cmd.lineWidth, col, context);
         }
     }
@@ -235,20 +235,22 @@ private:
         }
     }
 
-    static void beginCapsuleBatch(float totalWidth, float totalHeight,
-                                  core::RenderContext& context)
+    static void beginCapsuleBatch(float totalWidth, float totalHeight, core::RenderContext& context)
     {
         render::UiPushConstants pushConst{};
         pushConst.screen_size[0] = context.screenWidth;
         pushConst.screen_size[1] = context.screenHeight;
-        pushConst.rect_size[0]   = totalWidth;
-        pushConst.rect_size[1]   = totalHeight;
-        pushConst.draw_mode      = 2.0F; // capsule SDF
-        pushConst.opacity        = context.alpha;
+        pushConst.rect_size[0] = totalWidth;
+        pushConst.rect_size[1] = totalHeight;
+        pushConst.draw_mode = 2.0F; // capsule SDF
+        pushConst.opacity = context.alpha;
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConst);
     }
 
-    static void renderSegment(float startX, float startY, float endX, float endY,
+    static void renderSegment(float startX,
+                              float startY,
+                              float endX,
+                              float endY,
                               float lineWidth,
                               const Eigen::Vector4f& col,
                               core::RenderContext& context)
@@ -261,7 +263,7 @@ private:
         const float tanX = dirX / len;
         const float tanY = dirY / len;
         const float normX = -tanY;
-        const float normY =  tanX;
+        const float normY = tanX;
 
         const float halfRadius = lineWidth * 0.5F;
         const float expand = halfRadius + 1.0F;
@@ -271,8 +273,8 @@ private:
         const float midX = (startX + endX) * 0.5F;
         const float midY = (startY + endY) * 0.5F;
 
-        const float halfTanX = tanX  * (totalW * 0.5F);
-        const float halfTanY = tanY  * (totalW * 0.5F);
+        const float halfTanX = tanX * (totalW * 0.5F);
+        const float halfTanY = tanY * (totalW * 0.5F);
         const float halfNrmX = normX * (totalH * 0.5F);
         const float halfNrmY = normY * (totalH * 0.5F);
 
@@ -287,17 +289,20 @@ private:
         const Eigen::Vector2f uvBotLeft{0.0F, 1.0F};
 
         beginCapsuleBatch(totalW, totalH, context);
-        context.batchManager->addOrientedQuad(vertTopLeft, vertTopRight, vertBotRight, vertBotLeft,
-                                              uvTopLeft, uvTopRight, uvBotRight, uvBotLeft, col);
+        context.batchManager->addOrientedQuad(
+            vertTopLeft, vertTopRight, vertBotRight, vertBotLeft, uvTopLeft, uvTopRight, uvBotRight, uvBotLeft, col);
     }
 
-    static void tessellateCubic(Vec2 ptA, Vec2 ptB, Vec2 ptC, Vec2 ptD,
-                                std::vector<Vec2>& out)
+    static void tessellateCubic(Vec2 ptA, Vec2 ptB, Vec2 ptC, Vec2 ptD, std::vector<Vec2>& out)
     {
         constexpr float FLATNESS_SQ = 0.25F; // 0.5px2
-        constexpr int   MAX_DEPTH   = 8;
+        constexpr int MAX_DEPTH = 8;
 
-        struct Seg { Vec2 ptA, ptB, ptC, ptD; int segDepth; };
+        struct Seg
+        {
+            Vec2 ptA, ptB, ptC, ptD;
+            int segDepth;
+        };
         std::vector<Seg> segStack;
         segStack.reserve(32);
         segStack.push_back({ptA, ptB, ptC, ptD, 0});

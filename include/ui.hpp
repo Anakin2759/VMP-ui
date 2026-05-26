@@ -17,7 +17,7 @@
 
 // NOLINTBEGIN(unused-included)
 // IWYU pragma: begin_exports
-#include "src/common/Components.hpp"
+
 #include "src/common/Events.hpp"
 #include "src/common/Policies.hpp"
 #include "src/common/Tags.hpp"

@@ -17,6 +17,10 @@
 #include "../interface/IRenderer.hpp"
 #include "../singleton/Registry.hpp"
 
+#include "../common/components/Data.hpp"
+#include "../common/components/Visual.hpp"
+#include "../common/Policies.hpp"
+
 #include "../common/Tags.hpp"
 #include "../managers/BatchManager.hpp"
 #include "../managers/DeviceManager.hpp"
@@ -119,8 +123,8 @@ private:
         // Debug log
         if (auto* baseInfo = Registry::TryGet<components::BaseInfo>(entity))
         {
-            if (bg->borderRadius.x() > 0.0F || bg->borderRadius.y() > 0.0f || bg->borderRadius.z() > 0.0f ||
-                bg->borderRadius.w() > 0.0f)
+            if (bg->borderRadius.x() > 0.0F || bg->borderRadius.y() > 0.0f || bg->borderRadius.z() > 0.0f
+                || bg->borderRadius.w() > 0.0f)
             {
                 Logger::debug("[ShapeRenderer] Entity '{}': borderRadius=({:.1f}, {:.1f}, {:.1f}, {:.1f})",
                               baseInfo->alias,
