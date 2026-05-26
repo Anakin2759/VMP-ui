@@ -250,6 +250,7 @@ void RenderSystem::onWindowsGraphicsContextUnset(const events::WindowGraphicsCon
 
 void RenderSystem::cleanup()
 {
+    if (!m_impl) return;
     Logger::info("[RenderSystem] cleanup() 开始");
 
     if (m_impl->m_backendRenderer)
