@@ -141,6 +141,7 @@ set(UI_SOURCES
     core/Application.cpp
     core/EventLoop.cpp
     core/RuntimeFacade.cpp
+    core/WorkerMailbox.cpp
     core/SystemManager.cpp
     systems/LayoutSystem.cpp
     systems/HitTestSystem.cpp

@@ -136,8 +136,8 @@ private:
         return static_cast<shortcut::Mod>(result);
     }
 
-    inline static std::vector<Entry>   s_shortcuts{}; // NOLINT(readability-identifier-naming)
-    inline static shortcut::ShortcutId s_nextId{1};   // NOLINT(readability-identifier-naming)
+    inline static std::vector<Entry>   s_shortcuts{}; 
+    inline static shortcut::ShortcutId s_nextId{1};   
 };
 
 } // namespace ui::systems

@@ -30,7 +30,7 @@ namespace ui::cpo
 {
 
 // NOLINTBEGIN(readability-identifier-naming)
-void tag_invoke();
+void tag_invoke(); // 声明一个无定义的 tag_invoke，所有 CPO 实现都通过重载此函数实现
 
 template <typename Tag, typename... Args>
 concept TagInvocable = requires(Tag tag, Args&&... args) { tag_invoke(tag, std::forward<Args>(args)...); };
@@ -80,7 +80,9 @@ struct BackendSupports
         return false;
     }
 };
-
+/**
+ * @brief 测量文本宽度的 CPO，接受一个文本测量器对象、文本内容和可选的字体大小，返回文本的像素宽度。
+ */
 struct MeasureTextWidth
 {
     template <typename TextMeasurer>

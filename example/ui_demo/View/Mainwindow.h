@@ -66,11 +66,11 @@ inline void CreateMainWindow() // NOLINT
 {
     auto gameWindow = ui::factory::CreateWindow("UI Controls Demo", "gameWindow");
 
-    gameWindow | WindowFlag(ui::policies::WindowFlag::DEFAULT) | Size(1200.0F, 800.0F)
+    gameWindow | WindowFlag(ui::policies::WindowFlag::DEFAULT) | Size(1200.0F, 960.0F)
         | BackgroundColor({0.1F, 0.1F, 0.12F, 1.0F}) | BorderRadius(4.0F)
         | LayoutDirection(ui::policies::LayoutDirection::VERTICAL) | Spacing(10.0F) | Padding(10.0F);
 
-    gameWindow | WindowFlag(ui::policies::WindowFlag::DEFAULT) | Size(1200.0F, 800.0F)
+    gameWindow | WindowFlag(ui::policies::WindowFlag::DEFAULT) | Size(1200.0F, 960.0F)
         | BackgroundColor({0.10F, 0.10F, 0.12F, 1.0F}) | BorderRadius(4.0F)
         | LayoutDirection(ui::policies::LayoutDirection::VERTICAL) | Spacing(8.0F) | Padding(8.0F);
 
@@ -441,6 +441,253 @@ inline void CreateMainWindow() // NOLINT
 
         inputRow | AddChild(chatInput) | AddChild(sendBtn);
         chatPanel | AddChild(inputRow);
+    }
+
+    // =========================================================================
+    // Row 4 — Animation Demo
+    // =========================================================================
+    auto row4 = ui::factory::CreateHBoxLayout("row4");
+    row4 | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 160.0F) | Spacing(8.0F);
+    gameWindow | AddChild(row4);
+
+    {
+        auto animPanel = ui::factory::CreateVBoxLayout("animPanel");
+        animPanel | panelStyle | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL);
+        row4 | AddChild(animPanel);
+
+        animPanel | AddChild(
+            detail::MakeSectionTitle("Animation Demo: Alpha / Slide / Scale / Color / Loop / PingPong", "animTitle"));
+
+        auto demoRow = ui::factory::CreateHBoxLayout("animDemoRow");
+        demoRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL) | Spacing(10.0F);
+        animPanel | AddChild(demoRow);
+
+        // --- 1. Alpha (淡入 / 淡出) ---
+        {
+            auto item = ui::factory::CreateVBoxLayout("animItem_alpha");
+            item | FixedSize(170.0F, 112.0F) | BackgroundColor({0.10F, 0.10F, 0.14F, 0.8F}) | BorderRadius(6.0F)
+                | BorderColor({0.25F, 0.25F, 0.32F, 0.8F}) | BorderThickness(1.0F) | Padding(6.0F) | Spacing(4.0F);
+
+            auto box = ui::factory::CreateLabel("Alpha", "animBox_alpha");
+            box | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 48.0F)
+                | BackgroundColor({0.20F, 0.50F, 0.85F, 1.0F}) | BorderRadius(4.0F)
+                | TextAlignment(ui::policies::Alignment::CENTER) | FontSize(12.0F)
+                | TextColor({1.0F, 1.0F, 1.0F, 1.0F});
+
+            auto btnRow = ui::factory::CreateHBoxLayout("animAlphaBtnRow");
+            btnRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 26.0F)
+                | Spacing(4.0F);
+
+            auto fadeOutBtn = ui::factory::CreateButton("淡出", "animFadeOutBtn");
+            fadeOutBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.20F, 0.50F, 0.85F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() {
+                      ui::animation::StartAlphaAnimation(
+                          box, 1.0F, 0.0F,
+                          {400.0F, ui::policies::Easing::EASE_OUT_QUAD, ui::policies::Play::ONCE});
+                  });
+
+            auto fadeInBtn = ui::factory::CreateButton("淡入", "animFadeInBtn");
+            fadeInBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.20F, 0.50F, 0.85F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() {
+                      ui::animation::StartAlphaAnimation(
+                          box, 0.0F, 1.0F,
+                          {400.0F, ui::policies::Easing::EASE_IN_QUAD, ui::policies::Play::ONCE});
+                  });
+
+            btnRow | AddChild(fadeOutBtn) | AddChild(fadeInBtn);
+            item | AddChild(box) | AddChild(btnRow);
+            demoRow | AddChild(item);
+        }
+
+        // --- 2. Slide (RenderOffset 左右滑动) ---
+        {
+            auto item = ui::factory::CreateVBoxLayout("animItem_slide");
+            item | FixedSize(170.0F, 112.0F) | BackgroundColor({0.10F, 0.10F, 0.14F, 0.8F}) | BorderRadius(6.0F)
+                | BorderColor({0.25F, 0.25F, 0.32F, 0.8F}) | BorderThickness(1.0F) | Padding(6.0F) | Spacing(4.0F);
+
+            auto box = ui::factory::CreateLabel("Slide", "animBox_slide");
+            box | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 48.0F)
+                | BackgroundColor({0.20F, 0.65F, 0.40F, 1.0F}) | BorderRadius(4.0F)
+                | TextAlignment(ui::policies::Alignment::CENTER) | FontSize(12.0F)
+                | TextColor({1.0F, 1.0F, 1.0F, 1.0F});
+
+            auto btnRow = ui::factory::CreateHBoxLayout("animSlideBtnRow");
+            btnRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 26.0F)
+                | Spacing(4.0F);
+
+            auto leftBtn = ui::factory::CreateButton("← 左移", "animSlideLeftBtn");
+            leftBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.20F, 0.65F, 0.40F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() {
+                      ui::animation::StartRenderOffsetAnimation(
+                          box, {30.0F, 0.0F}, {-30.0F, 0.0F},
+                          {500.0F, ui::policies::Easing::EASE_IN_OUT_QUAD});
+                  });
+
+            auto rightBtn = ui::factory::CreateButton("右移 →", "animSlideRightBtn");
+            rightBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.20F, 0.65F, 0.40F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() {
+                      ui::animation::StartRenderOffsetAnimation(
+                          box, {-30.0F, 0.0F}, {30.0F, 0.0F},
+                          {500.0F, ui::policies::Easing::EASE_IN_OUT_QUAD});
+                  });
+
+            btnRow | AddChild(leftBtn) | AddChild(rightBtn);
+            item | AddChild(box) | AddChild(btnRow);
+            demoRow | AddChild(item);
+        }
+
+        // --- 3. Scale (放大 / 缩小) ---
+        {
+            auto item = ui::factory::CreateVBoxLayout("animItem_scale");
+            item | FixedSize(170.0F, 112.0F) | BackgroundColor({0.10F, 0.10F, 0.14F, 0.8F}) | BorderRadius(6.0F)
+                | BorderColor({0.25F, 0.25F, 0.32F, 0.8F}) | BorderThickness(1.0F) | Padding(6.0F) | Spacing(4.0F);
+
+            auto box = ui::factory::CreateLabel("Scale", "animBox_scale");
+            box | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 48.0F)
+                | BackgroundColor({0.70F, 0.35F, 0.80F, 1.0F}) | BorderRadius(4.0F)
+                | TextAlignment(ui::policies::Alignment::CENTER) | FontSize(12.0F)
+                | TextColor({1.0F, 1.0F, 1.0F, 1.0F});
+
+            auto btnRow = ui::factory::CreateHBoxLayout("animScaleBtnRow");
+            btnRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 26.0F)
+                | Spacing(4.0F);
+
+            auto upBtn = ui::factory::CreateButton("放大", "animScaleUpBtn");
+            upBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.70F, 0.35F, 0.80F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() {
+                      ui::animation::StartScaleAnimation(
+                          box, {1.0F, 1.0F}, {1.35F, 1.35F},
+                          {300.0F, ui::policies::Easing::EASE_OUT_SINE});
+                  });
+
+            auto downBtn = ui::factory::CreateButton("缩小", "animScaleDownBtn");
+            downBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.70F, 0.35F, 0.80F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() {
+                      ui::animation::StartScaleAnimation(
+                          box, {1.35F, 1.35F}, {1.0F, 1.0F},
+                          {300.0F, ui::policies::Easing::EASE_IN_SINE});
+                  });
+
+            btnRow | AddChild(upBtn) | AddChild(downBtn);
+            item | AddChild(box) | AddChild(btnRow);
+            demoRow | AddChild(item);
+        }
+
+        // --- 4. Color (颜色渐变) ---
+        {
+            auto item = ui::factory::CreateVBoxLayout("animItem_color");
+            item | FixedSize(170.0F, 112.0F) | BackgroundColor({0.10F, 0.10F, 0.14F, 0.8F}) | BorderRadius(6.0F)
+                | BorderColor({0.25F, 0.25F, 0.32F, 0.8F}) | BorderThickness(1.0F) | Padding(6.0F) | Spacing(4.0F);
+
+            auto box = ui::factory::CreateLabel("Color", "animBox_color");
+            box | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 48.0F)
+                | BackgroundColor({0.85F, 0.45F, 0.15F, 1.0F}) | BorderRadius(4.0F)
+                | TextAlignment(ui::policies::Alignment::CENTER) | FontSize(12.0F)
+                | TextColor({1.0F, 1.0F, 1.0F, 1.0F});
+
+            auto btnRow = ui::factory::CreateHBoxLayout("animColorBtnRow");
+            btnRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 26.0F)
+                | Spacing(4.0F);
+
+            auto toBlueBtn = ui::factory::CreateButton("→蓝", "animColorBlueBtn");
+            toBlueBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.85F, 0.45F, 0.15F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() {
+                      ui::animation::StartColorAnimation(
+                          box, {0.85F, 0.45F, 0.15F, 1.0F}, {0.20F, 0.50F, 0.85F, 1.0F},
+                          {600.0F, ui::policies::Easing::EASE_IN_OUT_SINE});
+                  });
+
+            auto toOrangeBtn = ui::factory::CreateButton("→橙", "animColorOrangeBtn");
+            toOrangeBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.85F, 0.45F, 0.15F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() {
+                      ui::animation::StartColorAnimation(
+                          box, {0.20F, 0.50F, 0.85F, 1.0F}, {0.85F, 0.45F, 0.15F, 1.0F},
+                          {600.0F, ui::policies::Easing::EASE_IN_OUT_SINE});
+                  });
+
+            btnRow | AddChild(toBlueBtn) | AddChild(toOrangeBtn);
+            item | AddChild(box) | AddChild(btnRow);
+            demoRow | AddChild(item);
+        }
+
+        // --- 5. Loop (循环闪烁) ---
+        {
+            auto item = ui::factory::CreateVBoxLayout("animItem_loop");
+            item | FixedSize(170.0F, 112.0F) | BackgroundColor({0.10F, 0.10F, 0.14F, 0.8F}) | BorderRadius(6.0F)
+                | BorderColor({0.25F, 0.25F, 0.32F, 0.8F}) | BorderThickness(1.0F) | Padding(6.0F) | Spacing(4.0F);
+
+            auto box = ui::factory::CreateLabel("Loop", "animBox_loop");
+            box | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 48.0F)
+                | BackgroundColor({0.85F, 0.70F, 0.10F, 1.0F}) | BorderRadius(4.0F)
+                | TextAlignment(ui::policies::Alignment::CENTER) | FontSize(12.0F)
+                | TextColor({0.10F, 0.10F, 0.10F, 1.0F});
+
+            auto btnRow = ui::factory::CreateHBoxLayout("animLoopBtnRow");
+            btnRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 26.0F)
+                | Spacing(4.0F);
+
+            auto startBtn = ui::factory::CreateButton("播放", "animLoopStartBtn");
+            startBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.85F, 0.70F, 0.10F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | TextColor({0.10F, 0.10F, 0.10F, 1.0F})
+                | OnClick([box]() {
+                      ui::animation::StartAlphaAnimation(
+                          box, 1.0F, 0.15F,
+                          {800.0F, ui::policies::Easing::EASE_IN_OUT_SINE, ui::policies::Play::LOOP});
+                  });
+
+            auto stopBtn = ui::factory::CreateButton("停止", "animLoopStopBtn");
+            stopBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.50F, 0.40F, 0.10F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() { ui::animation::StopAnimation(box); });
+
+            btnRow | AddChild(startBtn) | AddChild(stopBtn);
+            item | AddChild(box) | AddChild(btnRow);
+            demoRow | AddChild(item);
+        }
+
+        // --- 6. PingPong (呼吸缩放) ---
+        {
+            auto item = ui::factory::CreateVBoxLayout("animItem_pingpong");
+            item | FixedSize(170.0F, 112.0F) | BackgroundColor({0.10F, 0.10F, 0.14F, 0.8F}) | BorderRadius(6.0F)
+                | BorderColor({0.25F, 0.25F, 0.32F, 0.8F}) | BorderThickness(1.0F) | Padding(6.0F) | Spacing(4.0F);
+
+            auto box = ui::factory::CreateLabel("PingPong", "animBox_pingpong");
+            box | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 48.0F)
+                | BackgroundColor({0.80F, 0.20F, 0.30F, 1.0F}) | BorderRadius(4.0F)
+                | TextAlignment(ui::policies::Alignment::CENTER) | FontSize(12.0F)
+                | TextColor({1.0F, 1.0F, 1.0F, 1.0F});
+
+            auto btnRow = ui::factory::CreateHBoxLayout("animPingPongBtnRow");
+            btnRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 26.0F)
+                | Spacing(4.0F);
+
+            auto startBtn = ui::factory::CreateButton("播放", "animPingPongStartBtn");
+            startBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.80F, 0.20F, 0.30F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() {
+                      ui::animation::StartScaleAnimation(
+                          box, {0.85F, 0.85F}, {1.15F, 1.15F},
+                          {500.0F, ui::policies::Easing::EASE_IN_OUT_SINE, ui::policies::Play::PINGPONG});
+                  });
+
+            auto stopBtn = ui::factory::CreateButton("停止", "animPingPongStopBtn");
+            stopBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
+                | BackgroundColor({0.50F, 0.15F, 0.20F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
+                | OnClick([box]() { ui::animation::StopAnimation(box); });
+
+            btnRow | AddChild(startBtn) | AddChild(stopBtn);
+            item | AddChild(box) | AddChild(btnRow);
+            demoRow | AddChild(item);
+        }
     }
 
     gameWindow | Show();

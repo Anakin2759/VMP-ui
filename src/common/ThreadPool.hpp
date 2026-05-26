@@ -185,8 +185,11 @@ public:
         }
     }
 
-private:
-    explicit ThreadPool(std::size_t workerCount)
+    /**
+     * @brief 构造并启动线程池（多实例支持，每个 UiRuntime 独立持有）
+     * @param workerCount Worker 数量，0 = 自动选择（hardware_concurrency - 1）
+     */
+    explicit ThreadPool(std::size_t workerCount = 0)
     {
         if constexpr (isMultithreaded())
         {
@@ -216,6 +219,7 @@ private:
         }
     }
 
+private:
     // asio::thread_pool 仅在多线程模式下构造
     std::unique_ptr<asio::thread_pool> m_pool;
     std::atomic<uint32_t> m_inFlight{0}; ///< submitDetached 的飞行任务计数，Wait() 使用

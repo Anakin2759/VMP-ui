@@ -89,11 +89,13 @@ private:
 
                 // 5. 应用到具体的动画属性组件
                 bool dirty = false;
-                dirty |= updatePosition(entity, val);
-                dirty |= updateAlpha(entity, val);
-                dirty |= updateScale(entity, val);
-                dirty |= updateRenderOffset(entity, val);
-                dirty |= updateColor(entity, val);
+                dirty |= updatePosition(entity, val); // 位置动画通常会影响布局，因此单独标记布局脏
+                dirty |= updateAlpha(entity, val);    // 透明度动画可能影响渲染，但不影响布局
+                dirty |= updateScale(
+                    entity, val); // 缩放动画可能影响布局和渲染，但这里假设它只影响渲染（如果需要布局影响，可以在
+                                  // updateScale 内部调用 MarkLayoutDirty）
+                dirty |= updateRenderOffset(entity, val); // 渲染偏移动画通常只影响渲染，不影响布局
+                dirty |= updateColor(entity, val);        // 颜色动画可能影响渲染，但不影响布局
 
                 if (dirty)
                 {

@@ -124,7 +124,8 @@ struct RenderTask
             return;
         }
         remainingTime = delayTime;
-        // 常规帧刷新顺序：先布局，再渲染，最后提交帧尾状态。
+        // 常规帧刷新顺序：补间动画更新，再布局，再渲染，最后提交帧尾状态。
+        Dispatcher::Trigger<ui::events::UpdateEvent>();
         Dispatcher::Trigger<ui::events::UpdateLayout>();
         Dispatcher::Trigger<ui::events::UpdateRendering>();
         Dispatcher::Trigger<ui::events::EndFrame>(); // 帧结束时批量应用状态更新
@@ -162,7 +163,7 @@ struct QueuedTask
         // tryMailbox() 为 nullptr 时（未激活 UiRuntimeScope 的帧/测试场景）静默跳过。
         if (auto* mailbox = RuntimeFacade::current().tryMailbox())
         {
-            mailbox->drain(RuntimeFacade::current().enttRegistry());
+            mailbox->flush(RuntimeFacade::current().enttRegistry());
         }
 
         // 队列阶段先推进帧上下文，再驱动定时器与缓冲事件派发。

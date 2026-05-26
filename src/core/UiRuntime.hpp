@@ -32,12 +32,12 @@ public:
     UiRuntime() = default;
 
     /**
-     * @brief 析构前等待所有捕获了 &m_mailbox 的 worker 任务完成，防止 UAF。
+     * @brief 析构前等待本运行时所属线程池中全部 worker 任务完成，防止 UAF（R1 方案 D）。
      * @see ThreadPool::wait()
      */
     ~UiRuntime()
     {
-        utils::ThreadPool::instance().wait();
+        m_threadPool.wait(); // 等待所属 worker 完成后再销毁 m_mailbox
     }
 
     UiRuntime(const UiRuntime&) = delete;
@@ -64,6 +64,8 @@ private:
     friend class UiRuntimeScope;
     friend class RuntimeFacade;
 
+    /// 每个运行时独立的线程池，声明在最前保证最后析构（workers 停止后 mailbox/registry 才释放）
+    utils::ThreadPool m_threadPool;
     Registry    m_registry;
     Dispatcher  m_dispatcher;
     WorkerMailbox m_mailbox;
