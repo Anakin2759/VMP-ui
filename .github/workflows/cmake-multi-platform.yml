@@ -155,7 +155,8 @@ jobs:
         if: matrix.install_clang_19 == true
         run: |
           sudo apt-get update -q
-          sudo apt-get install -yq clang-19
+          # clang-19-tools 包含 clang-scan-deps，CMake C++23 模块扫描必需
+          sudo apt-get install -yq clang-19 clang-tools-19
 
       - name: Check GCC version
         if: matrix.install_gcc_15 == true

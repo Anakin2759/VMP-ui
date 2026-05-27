@@ -13,6 +13,11 @@ target_include_directories(example_ui_demo PRIVATE
 
 target_link_libraries(example_ui_demo PRIVATE ui)
 
+# MinGW 忽略 #pragma comment，ASIO 的 ws2_32/mswsock 需显式链接
+if(MINGW)
+    target_link_libraries(example_ui_demo PRIVATE ws2_32 mswsock)
+endif()
+
 target_compile_definitions(example_ui_demo PRIVATE
     SDL_MAIN_HANDLED
 )
