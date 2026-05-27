@@ -87,7 +87,10 @@ public:
     {
         if constexpr (isMultithreaded())
         {
-            if (!m_pool) { return 0; }
+            if (!m_pool)
+            {
+                return 0;
+            }
             return std::thread::hardware_concurrency();
         }
         return 0;
@@ -105,25 +108,29 @@ public:
         using Result = std::invoke_result_t<Callable, Args...>;
         auto task = std::make_shared<std::packaged_task<Result()>>(
             [func = std::forward<Callable>(callable),
-             tup  = std::tuple<std::decay_t<Args>...>(std::forward<Args>(args)...)]() mutable -> Result
+             tup = std::tuple<std::decay_t<Args>...>(std::forward<Args>(args)...)]() mutable -> Result
             { return std::apply(std::move(func), std::move(tup)); });
 
         std::future<Result> future = task->get_future();
 
         if constexpr (isMultithreaded())
         {
-            asio::post(*m_pool, [task]() noexcept
-            {
-                try { (*task)(); }
-                catch (const std::exception& ex)
-                {
-                    Logger::error("[ThreadPool] Worker caught exception: {}", ex.what());
-                }
-                catch (...)
-                {
-                    Logger::error("[ThreadPool] Worker caught unknown exception.");
-                }
-            });
+            asio::post(*m_pool,
+                       [task]() noexcept
+                       {
+                           try
+                           {
+                               (*task)();
+                           }
+                           catch (const std::exception& ex)
+                           {
+                               Logger::error("[ThreadPool] Worker caught exception: {}", ex.what());
+                           }
+                           catch (...)
+                           {
+                               Logger::error("[ThreadPool] Worker caught unknown exception.");
+                           }
+                       });
         }
         else
         {
@@ -163,21 +170,24 @@ public:
         {
             m_inFlight.fetch_add(1, std::memory_order_relaxed);
             asio::post(*m_pool,
-                [this,
-                 func = std::forward<Callable>(callable),
-                 tup  = std::tuple<std::decay_t<Args>...>(std::forward<Args>(args)...)]() mutable noexcept
-                {
-                    try { std::apply(std::move(func), std::move(tup)); }
-                    catch (const std::exception& ex)
-                    {
-                        Logger::error("[ThreadPool] Worker caught exception: {}", ex.what());
-                    }
-                    catch (...)
-                    {
-                        Logger::error("[ThreadPool] Worker caught unknown exception.");
-                    }
-                    m_inFlight.fetch_sub(1, std::memory_order_release);
-                });
+                       [this,
+                        func = std::forward<Callable>(callable),
+                        tup = std::tuple<std::decay_t<Args>...>(std::forward<Args>(args)...)]() mutable noexcept
+                       {
+                           try
+                           {
+                               std::apply(std::move(func), std::move(tup));
+                           }
+                           catch (const std::exception& ex)
+                           {
+                               Logger::error("[ThreadPool] Worker caught exception: {}", ex.what());
+                           }
+                           catch (...)
+                           {
+                               Logger::error("[ThreadPool] Worker caught unknown exception.");
+                           }
+                           m_inFlight.fetch_sub(1, std::memory_order_release);
+                       });
         }
         else
         {

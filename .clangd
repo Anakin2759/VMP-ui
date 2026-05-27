@@ -19,6 +19,31 @@ Index:
   Background: Build
 
 ---
+# tests/ 目录下的单元测试文件在未启用 ENABLE_BUILD_TESTS 时不会出现在
+# compile_commands.json 中，需手动补全 GTest / SDL / EnTT 等路径与宏，
+# 避免 clangd 因找不到头文件产生大量误报。
+If:
+  PathMatch: [tests/.*\.cpp, tests/.*\.hpp]
+
+CompileFlags:
+  Add:
+    - "-I."
+    - "-Isrc"
+    - "-Iinclude"
+    - "-Ithird_party/googletest/googletest/include"
+    - "-Ithird_party/googletest/googlemock/include"
+    - "-Ithird_party/entt/src"
+    - "-Ithird_party/asio/include"
+    - "-Ithird_party/eigen-5.0.0"
+    - "-Ithird_party/spdlog/include"
+    - "-Ithird_party/SDL/include"
+    - "-DASIO_STANDALONE"
+    - "-DASIO_DISABLE_STD_EXECUTION"
+    - "-DSDL_MAIN_HANDLED"
+    - "-DNOMINMAX"
+    - "-DWIN32_LEAN_AND_MEAN"
+
+---
 # 公共聚合头（include/ui.hpp）没有自己的 TU，clangd 无法从 compile_commands 推断。
 # 在此显式补全所需 include 路径与宏，确保独立打开时也能解析所有传递依赖。
 If:

@@ -106,8 +106,8 @@ struct Color
     {
         auto clamp = [](float vertical) -> uint8_t
         { return static_cast<uint8_t>(std::clamp(vertical, 0.0F, 1.0F) * 255.0F); };
-        return (static_cast<uint32_t>(clamp(red)) << 24U) | (static_cast<uint32_t>(clamp(green)) << 16U) |
-               (static_cast<uint32_t>(clamp(blue)) << 8U) | static_cast<uint32_t>(clamp(alpha));
+        return (static_cast<uint32_t>(clamp(red)) << 24U) | (static_cast<uint32_t>(clamp(green)) << 16U)
+             | (static_cast<uint32_t>(clamp(blue)) << 8U) | static_cast<uint32_t>(clamp(alpha));
     }
 
     /**
@@ -126,9 +126,9 @@ struct Color
      */
     static Color fromRGBA(uint8_t redVal, uint8_t greenVal, uint8_t blueVal, uint8_t alphaVal = 255)
     {
-        return Color(static_cast<float>(redVal)   / 255.0F,
+        return Color(static_cast<float>(redVal) / 255.0F,
                      static_cast<float>(greenVal) / 255.0F,
-                     static_cast<float>(blueVal)  / 255.0F,
+                     static_cast<float>(blueVal) / 255.0F,
                      static_cast<float>(alphaVal) / 255.0F);
     }
 
@@ -143,16 +143,16 @@ struct Color
     [[nodiscard]] Color multiplyAlpha(float factor) const { return Color(red, green, blue, alpha * factor); }
 
     // 预定义颜色 // NOLINT(readability-identifier-naming)
-    static constexpr Color White()       { return {1.0F, 1.0F, 1.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
-    static constexpr Color Black()       { return {0.0F, 0.0F, 0.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
-    static constexpr Color Red()         { return {1.0F, 0.0F, 0.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
-    static constexpr Color Green()       { return {0.0F, 1.0F, 0.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
-    static constexpr Color Blue()        { return {0.0F, 0.0F, 1.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
-    static constexpr Color Yellow()      { return {1.0F, 1.0F, 0.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
-    static constexpr Color Cyan()        { return {0.0F, 1.0F, 1.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
-    static constexpr Color Magenta()     { return {1.0F, 0.0F, 1.0F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color White() { return {1.0F, 1.0F, 1.0F, 1.0F}; }       // NOLINT(readability-identifier-naming)
+    static constexpr Color Black() { return {0.0F, 0.0F, 0.0F, 1.0F}; }       // NOLINT(readability-identifier-naming)
+    static constexpr Color Red() { return {1.0F, 0.0F, 0.0F, 1.0F}; }         // NOLINT(readability-identifier-naming)
+    static constexpr Color Green() { return {0.0F, 1.0F, 0.0F, 1.0F}; }       // NOLINT(readability-identifier-naming)
+    static constexpr Color Blue() { return {0.0F, 0.0F, 1.0F, 1.0F}; }        // NOLINT(readability-identifier-naming)
+    static constexpr Color Yellow() { return {1.0F, 1.0F, 0.0F, 1.0F}; }      // NOLINT(readability-identifier-naming)
+    static constexpr Color Cyan() { return {0.0F, 1.0F, 1.0F, 1.0F}; }        // NOLINT(readability-identifier-naming)
+    static constexpr Color Magenta() { return {1.0F, 0.0F, 1.0F, 1.0F}; }     // NOLINT(readability-identifier-naming)
     static constexpr Color Transparent() { return {0.0F, 0.0F, 0.0F, 0.0F}; } // NOLINT(readability-identifier-naming)
-    static constexpr Color Gray()        { return {0.5F, 0.5F, 0.5F, 1.0F}; } // NOLINT(readability-identifier-naming)
+    static constexpr Color Gray() { return {0.5F, 0.5F, 0.5F, 1.0F}; }        // NOLINT(readability-identifier-naming)
 };
 
 // ===================== 矩形类型 =====================
@@ -229,10 +229,10 @@ struct Rect
  */
 struct EdgeInsets
 {
-    float top    = 0.0F;
-    float right  = 0.0F;
+    float top = 0.0F;
+    float right = 0.0F;
     float bottom = 0.0F;
-    float left   = 0.0F;
+    float left = 0.0F;
 
     constexpr EdgeInsets() = default;
     constexpr explicit EdgeInsets(float all) : top(all), right(all), bottom(all), left(all) {}
@@ -292,9 +292,9 @@ inline float Lerp(float from, float dest, float alpha)
 
 inline Color Lerp(const Color& from, const Color& dest, float alpha)
 {
-    return {Lerp(from.red,   dest.red,   alpha),
+    return {Lerp(from.red, dest.red, alpha),
             Lerp(from.green, dest.green, alpha),
-            Lerp(from.blue,  dest.blue,  alpha),
+            Lerp(from.blue, dest.blue, alpha),
             Lerp(from.alpha, dest.alpha, alpha)};
 }
 
@@ -355,10 +355,10 @@ public:
 
     ~CallbackWrapper() = default;
 
-    CallbackWrapper(CallbackWrapper&&) noexcept            = default;
+    CallbackWrapper(CallbackWrapper&&) noexcept = default;
     CallbackWrapper& operator=(CallbackWrapper&&) noexcept = default;
 
-    CallbackWrapper(const CallbackWrapper&)            = default;
+    CallbackWrapper(const CallbackWrapper&) = default;
     CallbackWrapper& operator=(const CallbackWrapper&) = default;
 
     template <typename... Args>

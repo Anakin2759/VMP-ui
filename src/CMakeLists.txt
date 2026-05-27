@@ -480,6 +480,11 @@ endif()
 # Windows: DWM 透明合成 + 窗口子类化
 if(WIN32)
     target_link_libraries(ui PRIVATE dwmapi comctl32)
+    # MinGW/GCC 会忽略 #pragma comment(lib, ...)，ASIO 的 ws2_32/mswsock
+    # 以及 uxtheme 均需在此显式链接。
+    if(MINGW)
+        target_link_libraries(ui PRIVATE ws2_32 mswsock uxtheme)
+    endif()
 endif()
 
 # Linux: X11 / Wayland 后端

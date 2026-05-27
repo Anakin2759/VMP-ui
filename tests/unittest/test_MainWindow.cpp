@@ -49,9 +49,9 @@ void ConfigureTextBrowser(entt::entity browser, bool& submitCalled, std::string&
 {
     using namespace ui::chains;
 
-    browser | TextEditContent("ok") | TextColor(Color::Red()) | PasswordMode(policies::TextFlag::PASSWORD) |
-        OnSubmit([&submitCalled]() { submitCalled = true; }) |
-        OnTextChanged([&changedText](const std::string& value) { changedText = value; });
+    browser | TextEditContent("ok") | TextColor(Color::Red()) | PasswordMode(policies::TextFlag::PASSWORD)
+        | OnSubmit([&submitCalled]() { submitCalled = true; })
+        | OnTextChanged([&changedText](const std::string& value) { changedText = value; });
 }
 
 void ExpectTextBrowserCallbacks(components::TextEdit& textEdit, bool& submitCalled, std::string& changedText)
@@ -107,9 +107,9 @@ TEST_F(UiIntegrationTest, DslBuildsWidgetTreeWithinUiModule)
     const auto editor = factory::CreateLineEdit("seed", "placeholder", "name_input");
 
     root | Spacing(12.0F) | Padding(8.0F) | AddChild(button) | AddChild(editor);
-    button | FixedSize(180.0F, 44.0F) | BackgroundColor(Color::Blue()) | BorderRadius(6.0F) |
-        BorderColor(Color::White()) | BorderThickness(2.0F) | Text("Ready") | FontSize(18.0F) |
-        TextAlignment(policies::Alignment::CENTER) | Show();
+    button | FixedSize(180.0F, 44.0F) | BackgroundColor(Color::Blue()) | BorderRadius(6.0F)
+        | BorderColor(Color::White()) | BorderThickness(2.0F) | Text("Ready") | FontSize(18.0F)
+        | TextAlignment(policies::Alignment::CENTER) | Show();
 
     const auto& rootHierarchy = Registry::Get<components::Hierarchy>(root);
     const auto& rootLayout = Registry::Get<components::LayoutInfo>(root);

@@ -31,8 +31,7 @@ template <typename T>
 using Result = std::expected<T, std::error_code>;
 
 /// @brief 显式错误包装，调用点更醒目。
-[[nodiscard]] inline std::unexpected<std::error_code>
-MakeError(std::error_code ec) noexcept
+[[nodiscard]] inline std::unexpected<std::error_code> MakeError(std::error_code ec) noexcept
 {
     return std::unexpected<std::error_code>{ec};
 }
@@ -40,8 +39,7 @@ MakeError(std::error_code ec) noexcept
 /// @brief 任何 is_error_code_enum 特化过的错误枚举均可直接传入。
 template <typename E>
     requires std::is_error_code_enum_v<E>
-[[nodiscard]] inline std::unexpected<std::error_code>
-MakeError(E e) noexcept
+[[nodiscard]] inline std::unexpected<std::error_code> MakeError(E e) noexcept
 {
     return std::unexpected<std::error_code>{make_error_code(e)};
 }

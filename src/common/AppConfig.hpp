@@ -63,8 +63,8 @@ public:
      *   --backend <name>
      *   -b <name>
      *
-        * 未识别的参数会被忽略，避免影响调用方自身的解析逻辑。
-        * 后端名称按小写约定传入。
+     * 未识别的参数会被忽略，避免影响调用方自身的解析逻辑。
+     * 后端名称按小写约定传入。
      */
     void parseCommandLine(std::span<char* const> argv)
     {

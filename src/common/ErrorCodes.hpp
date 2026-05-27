@@ -32,44 +32,44 @@ enum class ui_errc : int
     // 0 保留：成功（不应被使用，std::error_code{} 默认即 0 / null category）
 
     // 1xx：参数与上下文
-    invalid_entity        = 1,
-    invalid_argument      = 2,
-    registry_unavailable  = 3,
-    not_implemented       = 4,
+    invalid_entity = 1,
+    invalid_argument = 2,
+    registry_unavailable = 3,
+    not_implemented = 4,
 
     // 2xx：层级与生命周期
-    hierarchy_cycle       = 100,
-    hierarchy_detached    = 101,
+    hierarchy_cycle = 100,
+    hierarchy_detached = 101,
     entity_already_exists = 102,
 
     // 3xx：资源加载
-    asset_not_found       = 200,
-    asset_load_failed     = 201,
-    asset_decode_failed   = 202,
-    asset_upload_failed   = 203,
-    atlas_full            = 204,
-    glyph_render_failed   = 205,
-    file_open_failed      = 206,
+    asset_not_found = 200,
+    asset_load_failed = 201,
+    asset_decode_failed = 202,
+    asset_upload_failed = 203,
+    atlas_full = 204,
+    glyph_render_failed = 205,
+    file_open_failed = 206,
 
     // 4xx：GPU / 渲染
-    device_unavailable    = 300,
-    pipeline_unavailable  = 301,
+    device_unavailable = 300,
+    pipeline_unavailable = 301,
     shader_compile_failed = 302,
     swapchain_unavailable = 303,
-    backend_unavailable   = 304,
-    window_claim_failed   = 305,
-    buffer_map_failed     = 306,
+    backend_unavailable = 304,
+    window_claim_failed = 305,
+    buffer_map_failed = 306,
 
     // 5xx：主题与样式
-    theme_not_found       = 400,
-    theme_type_mismatch   = 401,
+    theme_not_found = 400,
+    theme_type_mismatch = 401,
 
     // 6xx：脚本
-    script_parse_error    = 500,
-    script_runtime_error  = 501,
+    script_parse_error = 500,
+    script_runtime_error = 501,
 
     // 9xx：兜底
-    unknown               = 900,
+    unknown = 900,
 };
 
 /// @brief 统一 UI 错误分类。name() 固定返回 "ui"。

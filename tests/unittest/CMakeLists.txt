@@ -34,6 +34,11 @@ target_link_libraries(ui_tests PRIVATE
     GTest::gmock_main  # 如果你自己没写 main 函数，用这个
     GTest::gtest_main
 )
+
+# MinGW 忽略 #pragma comment，ASIO 所需的 ws2_32/mswsock 需显式链接
+if(MINGW)
+    target_link_libraries(ui_tests PRIVATE ws2_32 mswsock)
+endif()
 target_compile_options(ui_tests PRIVATE
     # GCC
     $<$<AND:$<CXX_COMPILER_ID:GNU>,$<CONFIG:Debug>>:-Wall -Wextra -Wpedantic -O0 -g>
