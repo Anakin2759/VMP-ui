@@ -98,6 +98,8 @@ jobs:
           -DCMAKE_CXX_COMPILER=g++
           -DCMAKE_BUILD_TYPE=Release
           -DENABLE_LTO=OFF
+          "-DCMAKE_C_FLAGS=-D_WIN32_WINNT=0x0A00"
+          "-DCMAKE_CXX_FLAGS=-D_WIN32_WINNT=0x0A00"
 
       - name: Build
         shell: msys2 {0}
@@ -117,9 +119,10 @@ jobs:
             c_compiler: gcc-15
             cxx_compiler: g++-15
             install_gcc_15: true
-          - compiler: Clang
-            c_compiler: clang
-            cxx_compiler: clang++
+          - compiler: Clang 19
+            c_compiler: clang-19
+            cxx_compiler: clang++-19
+            install_clang_19: true
     steps:
       - uses: actions/checkout@v4
 
@@ -147,6 +150,12 @@ jobs:
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update -q
           sudo apt-get install -yq gcc-15 g++-15
+
+      - name: Install Clang 19
+        if: matrix.install_clang_19 == true
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq clang-19
 
       - name: Check GCC version
         if: matrix.install_gcc_15 == true
