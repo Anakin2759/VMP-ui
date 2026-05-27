@@ -1,4 +1,4 @@
-# PmkUi 架构锐评与优化路线（2026-05）
+# VMP-ui 架构锐评与优化路线（2026-05）
 
 > 基于 `src/` 全量扫描：137 个源文件 / 23,036 行 / 49 处 `RuntimeFacade::current()`。
 > 评估对象：UI 静态库 `src/`（不含 example / tests / third_party）。
@@ -150,7 +150,7 @@
 - **OP-D 是骨干手术**，会触动所有 System 的构造签名与 `SystemManager`。建议先经"架构师 Agent"产出修改规划表后再落地。
 - **OP-C** 编译期 phase 化要先确认 `entt::poly` 类型擦除后仍能通过 `if constexpr (requires{...})` 读取静态成员；不行就退化为注册期手动表。
 - **OP-A** 不要一次性删伞头，先 deprecate 一个迭代周期，观察 `example/` 与 `client/View/` 影响面。
-- 任何涉及 `Registry::current()` 改造的 PR 都需要 `cmake --build d:/test/PMK/build --config Debug` 全绿 + 90/90 测试用例通过基线。
+- 任何涉及 `Registry::current()` 改造的 PR 都需要 `cmake --build d:/test/VMP-ui/build --config Debug` 全绿 + 90/90 测试用例通过基线。
 
 ---
 

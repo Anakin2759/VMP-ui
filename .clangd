@@ -26,13 +26,13 @@ If:
 
 CompileFlags:
   Add:
-    - "-ID:/test/PMK"
-    - "-ID:/test/PMK/src"
-    - "-ID:/test/PMK/include"
-    - "-ID:/test/PMK/third_party/entt/src"
-    - "-ID:/test/PMK/third_party/asio/include"
-    - "-ID:/test/PMK/third_party/eigen-5.0.0"
-    - "-ID:/test/PMK/third_party/spdlog/include"
+    - "-I."
+    - "-Isrc"
+    - "-Iinclude"
+    - "-Ithird_party/entt/src"
+    - "-Ithird_party/asio/include"
+    - "-Ithird_party/eigen-5.0.0"
+    - "-Ithird_party/spdlog/include"
     - "-DASIO_STANDALONE"
     - "-DASIO_DISABLE_STD_EXECUTION"
     - "-DNOMINMAX"

@@ -5,7 +5,7 @@
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-03-23
  * @version 0.3
- * @brief PmkUi 公共日志接口实现
+ * @brief VMP-ui 公共日志接口实现
  *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
@@ -61,12 +61,23 @@ void LogImpl(Level level, std::string_view message)
     // 转发到内部 spdlog Logger
     switch (level)
     {
-    case Level::DEBUG:    ui::Logger::debug("{}", message);            break;
-    case Level::INFO:     ui::Logger::info("{}", message);             break;
-    case Level::WARNING:  ui::Logger::warn("{}", message);             break;
-    case Level::ERROR:    ui::Logger::error("{}", message);            break;
-    case Level::CRITICAL: ui::Logger::error("[CRITICAL] {}", message); break;
-    default: break;
+        case Level::DEBUG:
+            ui::Logger::debug("{}", message);
+            break;
+        case Level::INFO:
+            ui::Logger::info("{}", message);
+            break;
+        case Level::WARNING:
+            ui::Logger::warn("{}", message);
+            break;
+        case Level::ERROR:
+            ui::Logger::error("{}", message);
+            break;
+        case Level::CRITICAL:
+            ui::Logger::error("[CRITICAL] {}", message);
+            break;
+        default:
+            break;
     }
 
     // 如果有外部回调也一并通知
@@ -77,4 +88,3 @@ void LogImpl(Level level, std::string_view message)
 }
 
 } // namespace ui::log
-

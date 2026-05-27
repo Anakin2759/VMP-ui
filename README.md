@@ -1,4 +1,4 @@
-# PmkUi
+# VMP-ui
 
 > **⚠ Learning / Practice Project — Features are incomplete and APIs may change without notice.**
 

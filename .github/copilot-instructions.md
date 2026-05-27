@@ -1,4 +1,4 @@
-# PmkUi — Copilot 指引
+# VMP-ui — Copilot 指引
 
 ## 项目概览
 

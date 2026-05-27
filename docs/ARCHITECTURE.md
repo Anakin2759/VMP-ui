@@ -1,4 +1,4 @@
-# PmkUi 架构主线文档
+# VMP-ui 架构主线文档
 
 > 版本：v0.4 · 日期：2026-05-25  
 > 项目：从 PestManKill 独立的 C++23 自研 ECS UI 静态库
@@ -24,7 +24,7 @@
 
 ## 1. 项目概览
 
-PmkUi 是一个基于 **EnTT ECS + SDL3 GPU + Yoga Flexbox** 的 C++23 UI 静态库，目标是为游戏/工具应用提供可嵌入的声明式 UI 框架。
+VMP-ui 是一个基于 **EnTT ECS + SDL3 GPU + Yoga Flexbox** 的 C++23 UI 静态库，目标是为游戏/工具应用提供可嵌入的声明式 UI 框架。
 
 **核心特性**
 

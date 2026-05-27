@@ -5,7 +5,7 @@
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-03-23
  * @version 0.3
- * @brief PmkUi 公共日志接口
+ * @brief VMP-ui 公共日志接口
  *
  * 客户端可通过 ui::log::SetCallback 注入自定义输出函数，
  * 也可直接调用 ui::log::Info / Debug / Warning / Error / Critical
@@ -26,7 +26,7 @@
 #include "Chains.hpp"
 
 #ifdef ERROR
-    #undef ERROR
+#undef ERROR
 #endif
 
 namespace ui::log
@@ -37,15 +37,15 @@ namespace ui::log
 enum class Level : std::uint8_t
 {
     NO_DEBUG = 0,
-    DEBUG    = 1,
-    INFO     = 2,
-    WARNING  = 3,
-    ERROR    = 4,
+    DEBUG = 1,
+    INFO = 2,
+    WARNING = 3,
+    ERROR = 4,
     CRITICAL = 5
 };
 
 /// 自定义回调类型：接收日志级别与已格式化的消息
-using Callback = void(*)(Level, std::string_view);
+using Callback = void (*)(Level, std::string_view);
 
 // ---- 配置接口 ------------------------------------------------------
 
@@ -64,11 +64,26 @@ void LogImpl(Level level, std::string_view message);
 
 // ---- string_view 重载（运行时字符串，无 consteval 约束）-------------
 
-inline void Debug(std::string_view message)    { LogImpl(Level::DEBUG,    message); }
-inline void Info(std::string_view message)     { LogImpl(Level::INFO,     message); }
-inline void Warning(std::string_view message)  { LogImpl(Level::WARNING,  message); }
-inline void Error(std::string_view message)    { LogImpl(Level::ERROR,    message); }
-inline void Critical(std::string_view message) { LogImpl(Level::CRITICAL, message); }
+inline void Debug(std::string_view message)
+{
+    LogImpl(Level::DEBUG, message);
+}
+inline void Info(std::string_view message)
+{
+    LogImpl(Level::INFO, message);
+}
+inline void Warning(std::string_view message)
+{
+    LogImpl(Level::WARNING, message);
+}
+inline void Error(std::string_view message)
+{
+    LogImpl(Level::ERROR, message);
+}
+inline void Critical(std::string_view message)
+{
+    LogImpl(Level::CRITICAL, message);
+}
 
 // ---- 格式化日志接口（编译期格式字符串）------------------------------
 
@@ -139,38 +154,31 @@ inline auto LogCritical(std::string_view message)
 template <typename... Args>
 inline auto LogDebug(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity)
-                 { ui::log::Debug(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Debug(msg); }};
 }
 
 template <typename... Args>
 inline auto LogInfo(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity)
-                 { ui::log::Info(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Info(msg); }};
 }
 
 template <typename... Args>
 inline auto LogWarning(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity)
-                 { ui::log::Warning(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Warning(msg); }};
 }
 
 template <typename... Args>
 inline auto LogError(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity)
-                 { ui::log::Error(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Error(msg); }};
 }
 
 template <typename... Args>
 inline auto LogCritical(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity)
-                 { ui::log::Critical(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Critical(msg); }};
 }
 
 } // namespace ui::chains
-
-

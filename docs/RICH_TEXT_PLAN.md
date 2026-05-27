@@ -1,4 +1,4 @@
-# PmkUi 富文本处理架构规划
+# VMP-ui 富文本处理架构规划
 
 > **日期**：2026-05-27  
 > **输入来源**：需求文档、`src/` 源码阅读（Data.hpp / Policies.hpp / FontManager.hpp / TextTextureCache.hpp / TextRenderer.hpp / TextRenderHelper.hpp / TextUtils.hpp / FontAtlasManager.hpp）  
