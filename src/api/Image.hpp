@@ -23,7 +23,11 @@
 
 namespace ui::image
 {
-
+/**
+ * @brief 设置 Image 组件的图片路径。路径变更会重置加载状态，触发资源系统重新加载。
+ * @param entity 实体ID
+ * @param path 图片文件路径（相对于资源目录，支持 bmp/png/jpeg 等格式
+ */
 inline void SetImagePath(entt::entity entity, std::string_view path)
 {
     if (!Registry::Valid(entity)) return;
@@ -50,15 +54,12 @@ inline void SetImageUV(entt::entity entity, Vec2 uvMin, Vec2 uvMax)
 
 } // namespace ui::image
 
-namespace ui::actions
-{
-namespace image
+namespace ui::actions::image
 {
 inline constexpr EntityAction<&ui::image::SetImagePath> SET_IMAGE_PATH_ACTION{};
 inline constexpr EntityAction<&ui::image::SetImageTint> SET_IMAGE_TINT_ACTION{};
 inline constexpr EntityAction<&ui::image::SetImageUV> SET_IMAGE_UV_ACTION{};
-} // namespace image
-} // namespace ui::actions
+} // namespace ui::actions::image
 
 namespace ui::chains
 {
