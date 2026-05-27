@@ -12,6 +12,16 @@ if(MSVC)
     
 endif()
 
+# Linux + Clang (非 MSVC 前端): 强制使用 libc++，避免与 libstdc++ ABI 混用。
+# macOS Clang 默认已是 libc++，此处为 no-op 但无害。
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+        AND NOT CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"
+        AND NOT WIN32)
+    add_compile_options(-stdlib=libc++)
+    add_link_options(-stdlib=libc++)
+    message(STATUS "[Clang] Using libc++ (LLVM C++ standard library)")
+endif()
+
 option(ENABLE_BUILD_TESTS "Enable building of unit tests" OFF)
 option(BUILD_EXAMPLES "Enable building examples" ON)
 option(ENABLE_LTO "Enable IPO/LTO for Release and RelWithDebInfo builds" ON)
