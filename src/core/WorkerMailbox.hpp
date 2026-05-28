@@ -88,10 +88,10 @@ class WorkerMailbox
 public:
     WorkerMailbox() = default;
     ~WorkerMailbox() = default;
-    WorkerMailbox(const WorkerMailbox&)            = delete;
+    WorkerMailbox(const WorkerMailbox&) = delete;
     WorkerMailbox& operator=(const WorkerMailbox&) = delete;
-    WorkerMailbox(WorkerMailbox&&)                 = delete;
-    WorkerMailbox& operator=(WorkerMailbox&&)      = delete;
+    WorkerMailbox(WorkerMailbox&&) = delete;
+    WorkerMailbox& operator=(WorkerMailbox&&) = delete;
 
     /**
      * @brief 从任意线程安全地投递一条命令（多写端）
@@ -142,7 +142,7 @@ public:
     }
 
 private:
-    mutable std::mutex              m_mutex;       ///< 保护写缓冲区
+    mutable std::mutex m_mutex;                       ///< 保护写缓冲区
     std::vector<worker::WorkerCommand> m_writeBuffer; ///< Worker 写入端（受锁保护）
     std::vector<worker::WorkerCommand> m_readBuffer;  ///< 主线程读出端（flush 后无锁访问）
 };

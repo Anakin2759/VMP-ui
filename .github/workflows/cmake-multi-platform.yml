@@ -120,12 +120,12 @@ jobs:
             cxx_compiler: g++-15
             install_gcc_15: true
             install_llvm: false
-          - compiler: Clang 20
-            c_compiler: clang-20
-            cxx_compiler: clang++-20
+          - compiler: Clang 22
+            c_compiler: clang-22
+            cxx_compiler: clang++-22
             install_gcc_15: false
             install_llvm: true
-            llvm_version: 20
+            llvm_version: 22
     steps:
       - uses: actions/checkout@v4
 
