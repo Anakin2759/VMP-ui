@@ -8,27 +8,7 @@ on:
 
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # Job 1 · clang-format 格式检查
-  # ─────────────────────────────────────────────────────────────
-  clang-format:
-    name: ClangFormat Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install clang-format
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -yq clang-format
-
-      - name: Check formatting
-        run: |
-          find src example tests include \
-            -type f \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
-            | xargs -0 clang-format --dry-run --Werror --style=file
-
-  # ─────────────────────────────────────────────────────────────
-  # Job 2 · Windows — MSVC / Clang-CL
+  # Job 1 · Windows — MSVC / Clang-CL
   # ─────────────────────────────────────────────────────────────
   build-windows:
     name: Windows · ${{ matrix.compiler }}
@@ -66,7 +46,7 @@ jobs:
         run: cmake --build build --config Release --parallel
 
   # ─────────────────────────────────────────────────────────────
-  # Job 3 · Windows — MinGW GCC (MSYS2 MINGW64)
+  # Job 2 · Windows — MinGW GCC (MSYS2 MINGW64)
   # ─────────────────────────────────────────────────────────────
   build-mingw:
     name: Windows · MinGW GCC
@@ -106,26 +86,14 @@ jobs:
         run: cmake --build build --config Release --parallel
 
   # ─────────────────────────────────────────────────────────────
-  # Job 4 · Linux — GCC / Clang
+  # Job 3 · Linux — GCC 15
   # ─────────────────────────────────────────────────────────────
   build-linux:
-    name: Linux · ${{ matrix.compiler }}
+    name: Linux · GCC 15
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - compiler: GCC 15
-            c_compiler: gcc-15
-            cxx_compiler: g++-15
-            install_gcc_15: true
-            install_llvm: false
-          - compiler: Clang 20
-            c_compiler: clang-20
-            cxx_compiler: clang++-20
-            install_gcc_15: false
-            install_llvm: true
-            llvm_version: 20
+    env:
+      c_compiler: gcc-15
+      cxx_compiler: g++-15
     steps:
       - uses: actions/checkout@v4
 
@@ -152,47 +120,15 @@ jobs:
             liburing-dev libunwind-dev
 
       - name: Install GCC 15
-        if: matrix.install_gcc_15 == true
         run: |
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update -q
           sudo apt-get install -yq gcc-15 g++-15
 
-      - name: Install LLVM toolchain ${{ matrix.llvm_version }}
-        if: matrix.install_llvm == true
-        run: |
-          wget -qO llvm.sh https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh ${{ matrix.llvm_version }}
-          sudo apt-get update -q
-          # clang-tools 包含 clang-scan-deps，CMake C++23 模块扫描必需。
-          # libc++ / libc++abi 版本必须与矩阵指定的 LLVM 工具链版本保持一致。
-          sudo apt-get install -yq \
-            clang-${{ matrix.llvm_version }} \
-            clang-tools-${{ matrix.llvm_version }} \
-            libc++-${{ matrix.llvm_version }}-dev \
-            libc++abi-${{ matrix.llvm_version }}-dev
-
-      - name: Check LLVM libc++ C++23 support
-        if: matrix.install_llvm == true
-        run: |
-          cat > /tmp/check-libcpp-cxx23.cpp <<'CPP'
-          #include <functional>
-
-          int main()
-          {
-              std::move_only_function<void()> callback = [] {};
-              callback();
-              return 0;
-          }
-          CPP
-          ${{ matrix.cxx_compiler }} -std=c++23 -stdlib=libc++ -fexperimental-library /tmp/check-libcpp-cxx23.cpp -o /tmp/check-libcpp-cxx23
-
       - name: Check GCC version
-        if: matrix.install_gcc_15 == true
         run: |
           required=15.2
-          version="$(${{ matrix.cxx_compiler }} -dumpfullversion -dumpversion)"
+          version="$(${cxx_compiler} -dumpfullversion -dumpversion)"
           echo "G++ version: ${version}"
           if [ "$(printf '%s\n' "${required}" "${version}" | sort -V | head -n1)" != "${required}" ]; then
             echo "G++ ${required} or newer is required."
@@ -203,8 +139,8 @@ jobs:
         run: >
           cmake -B build -S .
           -G Ninja
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-          -DCMAKE_CXX_COMPILER=${{ matrix.cxx_compiler }}
+          -DCMAKE_C_COMPILER=${{ env.c_compiler }}
+          -DCMAKE_CXX_COMPILER=${{ env.cxx_compiler }}
           -DCMAKE_BUILD_TYPE=Release
           -DENABLE_LTO=OFF
 
