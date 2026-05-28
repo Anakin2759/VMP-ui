@@ -119,10 +119,13 @@ jobs:
             c_compiler: gcc-15
             cxx_compiler: g++-15
             install_gcc_15: true
+            install_llvm: false
           - compiler: Clang 19
             c_compiler: clang-19
             cxx_compiler: clang++-19
-            install_clang_19: true
+            install_gcc_15: false
+            install_llvm: true
+            llvm_version: 19
     steps:
       - uses: actions/checkout@v4
 
@@ -151,13 +154,17 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -yq gcc-15 g++-15
 
-      - name: Install Clang 19
-        if: matrix.install_clang_19 == true
+      - name: Install LLVM toolchain ${{ matrix.llvm_version }}
+        if: matrix.install_llvm == true
         run: |
           sudo apt-get update -q
-          # clang-19-tools 包含 clang-scan-deps，CMake C++23 模块扫描必需
-          # libc++-19-dev / libc++abi-19-dev 提供 LLVM libc++ 标准库
-          sudo apt-get install -yq clang-19 clang-tools-19 libc++-19-dev libc++abi-19-dev
+          # clang-tools 包含 clang-scan-deps，CMake C++23 模块扫描必需。
+          # libc++ / libc++abi 版本必须与矩阵指定的 LLVM 工具链版本保持一致。
+          sudo apt-get install -yq \
+            clang-${{ matrix.llvm_version }} \
+            clang-tools-${{ matrix.llvm_version }} \
+            libc++-${{ matrix.llvm_version }}-dev \
+            libc++abi-${{ matrix.llvm_version }}-dev
 
       - name: Check GCC version
         if: matrix.install_gcc_15 == true
