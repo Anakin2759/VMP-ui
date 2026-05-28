@@ -286,4 +286,9 @@ struct CanvasTag
     using is_tags_tag = void;
 };
 
+struct ThemedTag
+{
+    using is_tags_tag = void;
+};
+
 } // namespace ui::components

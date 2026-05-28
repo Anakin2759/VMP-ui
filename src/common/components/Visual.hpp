@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <optional>
+
 #include "../Types.hpp"
 #include "../Policies.hpp"
 
@@ -92,6 +94,18 @@ struct Targetable
     using is_component_tag = void;
     int priority = 0;
     policies::Feature selectable = policies::Feature::DISABLED;
+};
+
+struct ThemeStyleState
+{
+    using is_component_tag = void;
+    std::optional<Color> managedBackgroundColor;
+    std::optional<Vec4> managedBackgroundRadius;
+    std::optional<Color> managedBorderColor;
+    std::optional<Vec4> managedBorderRadius;
+    std::optional<Color> managedTextColor;
+    std::optional<Color> managedIndicatorColor;
+    std::optional<Color> managedAuxiliaryColor;
 };
 
 } // namespace ui::components

@@ -65,9 +65,7 @@ public:
      * @param callback 触发时执行的回调（支持 lambda）
      * @return 快捷键 ID，可用于 Unregister
      */
-    static shortcut::ShortcutId registerKey(int32_t key,
-                                            shortcut::Mod mod,
-                                            shortcut::Callback callback)
+    static shortcut::ShortcutId registerKey(int32_t key, shortcut::Mod mod, shortcut::Callback callback)
     {
         const shortcut::ShortcutId newId = s_nextId++;
         s_shortcuts.push_back(Entry{newId, key, mod, std::move(callback)});
@@ -80,7 +78,8 @@ public:
      */
     static void unregister(shortcut::ShortcutId shortcutId)
     {
-        auto iter = std::find_if(s_shortcuts.begin(), s_shortcuts.end(),
+        auto iter = std::find_if(s_shortcuts.begin(),
+                                 s_shortcuts.end(),
                                  [shortcutId](const Entry& entry) { return entry.id == shortcutId; });
         if (iter != s_shortcuts.end())
         {
@@ -91,18 +90,15 @@ public:
     /**
      * @brief 清除所有已注册快捷键
      */
-    static void clearAll()
-    {
-        s_shortcuts.clear();
-    }
+    static void clearAll() { s_shortcuts.clear(); }
 
 private:
     struct Entry
     {
-        shortcut::ShortcutId  id;
-        int32_t               key;       // SDL 虚拟键码
-        shortcut::Mod         mod;       // 修饰键掩码
-        shortcut::Callback    callback;
+        shortcut::ShortcutId id;
+        int32_t key;       // SDL 虚拟键码
+        shortcut::Mod mod; // 修饰键掩码
+        shortcut::Callback callback;
     };
 
     void onRawKeyInput(const ui::events::RawKeyInput& event)
@@ -129,15 +125,19 @@ private:
     {
         // 直接使用 Mod 枚举掩码（数值与 SDL_KMOD_* 完全一致，无需包含 SDL 头）
         uint16_t result = 0;
-        if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::SHIFT)) != 0) result |= static_cast<uint16_t>(shortcut::Mod::SHIFT);
-        if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::CTRL))  != 0) result |= static_cast<uint16_t>(shortcut::Mod::CTRL);
-        if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::ALT))   != 0) result |= static_cast<uint16_t>(shortcut::Mod::ALT);
-        if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::GUI))   != 0) result |= static_cast<uint16_t>(shortcut::Mod::GUI);
+        if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::SHIFT)) != 0)
+            result |= static_cast<uint16_t>(shortcut::Mod::SHIFT);
+        if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::CTRL)) != 0)
+            result |= static_cast<uint16_t>(shortcut::Mod::CTRL);
+        if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::ALT)) != 0)
+            result |= static_cast<uint16_t>(shortcut::Mod::ALT);
+        if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::GUI)) != 0)
+            result |= static_cast<uint16_t>(shortcut::Mod::GUI);
         return static_cast<shortcut::Mod>(result);
     }
 
-    inline static std::vector<Entry>   s_shortcuts{}; 
-    inline static shortcut::ShortcutId s_nextId{1};   
+    inline static std::vector<Entry> s_shortcuts{};
+    inline static shortcut::ShortcutId s_nextId{1};
 };
 
 } // namespace ui::systems

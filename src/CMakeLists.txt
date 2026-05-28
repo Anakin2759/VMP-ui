@@ -168,6 +168,7 @@ set(UI_SOURCES
     api/Controls.cpp
     api/Canvas.cpp
     api/Table.cpp
+    api/Theme.cpp
     api/Shortcut.cpp
     api/Log.cpp
     managers/ImageManager.cpp
@@ -198,6 +199,7 @@ set(UI_HEADERS
     systems/ActionSystem.hpp
     systems/TimerSystem.hpp
     systems/ShortcutSystem.hpp
+    systems/ThemeSystem.hpp
     
     # Managers
     managers/DeviceManager.hpp
@@ -252,6 +254,7 @@ set(UI_HEADERS
     api/Controls.hpp
     api/Canvas.hpp
     api/Table.hpp
+    api/Theme.hpp
     api/Shortcut.hpp
     managers/ImageManager.hpp
     systems/ShortcutSystem.hpp
@@ -271,6 +274,7 @@ target_include_directories(ui
     PUBLIC
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 if(_UI_DO_SHADER_COMPILE)

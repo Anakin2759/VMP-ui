@@ -660,15 +660,15 @@ entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_
     Registry::Emplace<components::CheckBoxTag>(entity);
     auto& checkBox = Registry::Emplace<components::CheckBox>(entity);
     checkBox.checked = checked;
-    checkBox.label   = label;
+    checkBox.label = label;
     auto& text = Registry::Emplace<components::Text>(entity);
-    text.content   = label;
+    text.content = label;
     text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
     auto& padding = Registry::GetOrEmplace<components::Padding>(entity);
     padding.values = {0.0F, 0.0F, 0.0F, 24.0F}; // Top, Right, Bottom, Left
     auto& size = Registry::Get<components::Size>(entity);
     size.sizePolicy = policies::Size::AUTO;
-    size.size       = {120.0F, 22.0F};
+    size.size = {120.0F, 22.0F};
     auto& clickable = Registry::Emplace<components::Clickable>(entity);
     clickable.onClick = [entity]()
     {
@@ -703,7 +703,7 @@ entt::entity FindWindowRoot(entt::entity entity)
     return entt::null;
 }
 
-} // namespace (DropDown internal helpers)
+} // namespace
 
 void CloseDropDownPopup(entt::entity ddEntity)
 {
@@ -717,43 +717,44 @@ void CloseDropDownPopup(entt::entity ddEntity)
 
     const entt::entity popupToDestroy = dropDown->popupEntity;
     dropDown->popupEntity = entt::null;
-    dropDown->open        = false;
+    dropDown->open = false;
     ui::utils::MarkVisualChanged(ddEntity);
 
-    ui::utils::InvokeTask([popupToDestroy]()
-    {
-        if (!Registry::Valid(popupToDestroy)) return;
-
-        const auto* popupHier = Registry::TryGet<components::Hierarchy>(popupToDestroy);
-        if (popupHier != nullptr && popupHier->parent != entt::null)
+    ui::utils::InvokeTask(
+        [popupToDestroy]()
         {
-            hierarchy::RemoveChild(popupHier->parent, popupToDestroy);
-        }
+            if (!Registry::Valid(popupToDestroy)) return;
 
-        std::vector<entt::entity> toDestroy;
-        std::vector<entt::entity> stack{popupToDestroy};
-        while (!stack.empty())
-        {
-            const entt::entity cur = stack.back();
-            stack.pop_back();
-            if (!Registry::Valid(cur)) continue;
-            toDestroy.push_back(cur);
-            if (const auto* hier = Registry::TryGet<components::Hierarchy>(cur))
+            const auto* popupHier = Registry::TryGet<components::Hierarchy>(popupToDestroy);
+            if (popupHier != nullptr && popupHier->parent != entt::null)
             {
-                for (const entt::entity child : hier->children)
+                hierarchy::RemoveChild(popupHier->parent, popupToDestroy);
+            }
+
+            std::vector<entt::entity> toDestroy;
+            std::vector<entt::entity> stack{popupToDestroy};
+            while (!stack.empty())
+            {
+                const entt::entity cur = stack.back();
+                stack.pop_back();
+                if (!Registry::Valid(cur)) continue;
+                toDestroy.push_back(cur);
+                if (const auto* hier = Registry::TryGet<components::Hierarchy>(cur))
                 {
-                    stack.push_back(child);
+                    for (const entt::entity child : hier->children)
+                    {
+                        stack.push_back(child);
+                    }
                 }
             }
-        }
-        for (entt::entity ent : std::ranges::reverse_view(toDestroy))
-        {
-            if (Registry::Valid(ent))
+            for (entt::entity ent : std::ranges::reverse_view(toDestroy))
             {
-                Registry::Destroy(ent);
+                if (Registry::Valid(ent))
+                {
+                    Registry::Destroy(ent);
+                }
             }
-        }
-    });
+        });
 }
 
 namespace
@@ -768,30 +769,21 @@ void OpenDropDownPopup(entt::entity ddEntity)
 
     const Rect ddRect = ui::utils::GetEntityRect(ddEntity);
 
-    constexpr float ITEM_H   = 26.0F;
+    constexpr float ITEM_H = 26.0F;
     constexpr float ITEM_PAD = 6.0F;
     const float popupW = ddRect.width();
     const float popupH = ITEM_H * static_cast<float>(dropDown->options.size());
 
     const auto popup = CreateBaseWidget("__dd_popup__");
     auto& popupPos = Registry::Get<components::Position>(popup);
-    popupPos.value          = {ddRect.x(), ddRect.y() + ddRect.height()};
+    popupPos.value = {ddRect.x(), ddRect.y() + ddRect.height()};
     popupPos.positionPolicy = policies::Position::ABSOLUTE_POS;
 
     auto& popupSize = Registry::Get<components::Size>(popup);
     popupSize.sizePolicy = policies::Size::FIXED;
-    popupSize.size       = {popupW, popupH};
+    popupSize.size = {popupW, popupH};
 
-    auto& popupBg = Registry::Emplace<components::Background>(popup);
-    popupBg.color        = Color{0.13F, 0.13F, 0.18F, 0.97F};
-    popupBg.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
-    popupBg.enabled      = policies::Feature::ENABLED;
-
-    auto& popupBorder = Registry::Emplace<components::Border>(popup);
-    popupBorder.color        = Color{0.35F, 0.35F, 0.50F, 1.0F};
-    popupBorder.thickness    = 1.0F;
-    popupBorder.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
-    popupBorder.enabled      = policies::Feature::ENABLED;
+    Registry::Emplace<components::DropDownPopupPanel>(popup).owner = ddEntity;
 
     Registry::Emplace<components::ZOrderIndex>(popup).value = 1000;
 
@@ -803,28 +795,24 @@ void OpenDropDownPopup(entt::entity ddEntity)
     for (int idx = 0; idx < optCount; ++idx)
     {
         const std::string& optText = dropDown->options.at(static_cast<std::size_t>(idx));
-        const bool isSelected      = (idx == dropDown->selectedIndex);
 
-        const auto optBtn = CreateBaseWidget("");
+        const auto optBtn = CreateBaseWidget("__dd_option__");
         Registry::Emplace<components::Clickable>(optBtn);
+        auto& popupItem = Registry::Emplace<components::DropDownPopupItem>(optBtn);
+        popupItem.owner = ddEntity;
+        popupItem.optionIndex = idx;
 
         auto& btnText = Registry::Emplace<components::Text>(optBtn);
-        btnText.content   = optText;
+        btnText.content = optText;
         btnText.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
 
         auto& btnSize = Registry::Get<components::Size>(optBtn);
         btnSize.sizePolicy = policies::Size::FIXED;
-        btnSize.size       = {popupW, ITEM_H};
+        btnSize.size = {popupW, ITEM_H};
 
         auto& btnPad = Registry::GetOrEmplace<components::Padding>(optBtn);
         btnPad.values = {0.0F, 0.0F, 0.0F, ITEM_PAD};
 
-        if (isSelected)
-        {
-            auto& selBg = Registry::Emplace<components::Background>(optBtn);
-            selBg.color   = Color{0.25F, 0.45F, 0.80F, 0.40F};
-            selBg.enabled = policies::Feature::ENABLED;
-        }
         Registry::Emplace<components::Hoverable>(optBtn);
 
         Registry::Get<components::Clickable>(optBtn).onClick = [ddEntity, idx]()
@@ -849,11 +837,11 @@ void OpenDropDownPopup(entt::entity ddEntity)
 
     hierarchy::AddChild(windowRoot, popup);
     dropDown->popupEntity = popup;
-    dropDown->open        = true;
+    dropDown->open = true;
     ui::utils::MarkLayoutAndVisualChanged(windowRoot);
 }
 
-} // namespace (DropDown helpers)
+} // namespace
 // NOLINTEND(readability-*,misc-*)
 
 entt::entity CreateDropDown(const std::vector<std::string>& options, int selectedIndex, std::string_view alias)
@@ -861,10 +849,10 @@ entt::entity CreateDropDown(const std::vector<std::string>& options, int selecte
     auto entity = CreateBaseWidget(alias);
     Registry::Emplace<components::DropDownTag>(entity);
     auto& dropDown = Registry::Emplace<components::DropDown>(entity);
-    dropDown.options       = options;
+    dropDown.options = options;
     dropDown.selectedIndex = selectedIndex;
     auto& text = Registry::Emplace<components::Text>(entity);
-    text.content   = dropDown.selectedText();
+    text.content = dropDown.selectedText();
     text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
     auto& padding = Registry::GetOrEmplace<components::Padding>(entity);
     padding.values = {0.0F, 20.0F, 0.0F, 6.0F};
@@ -884,7 +872,7 @@ entt::entity CreateDropDown(const std::vector<std::string>& options, int selecte
     };
     auto& size = Registry::Get<components::Size>(entity);
     size.sizePolicy = policies::Size::AUTO;
-    size.size       = {140.0F, 26.0F};
+    size.size = {140.0F, 26.0F};
     return entity;
 }
 
@@ -914,10 +902,7 @@ entt::entity CreateProgressBar(std::string_view alias)
     return entity;
 }
 
-entt::entity CreateImageFromPath(std::string_view path,
-                                 float defaultWidth,
-                                 float defaultHeight,
-                                 std::string_view alias)
+entt::entity CreateImageFromPath(std::string_view path, float defaultWidth, float defaultHeight, std::string_view alias)
 {
     auto entity = CreateBaseWidget(alias);
     Registry::Emplace<components::ImageTag>(entity);

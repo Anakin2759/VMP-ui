@@ -13,13 +13,10 @@ add_executable(ui_tests
     test_HierarchyCoverage.cpp
     test_result.cpp
     test_DragDrop.cpp
+    test_ThemeSystem.cpp
+    test_UmbrellaHeader.cpp
 )
 target_compile_features(ui_tests PRIVATE cxx_std_23)
-
-target_include_directories(ui_tests PRIVATE
-    ${CMAKE_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-)
 target_compile_definitions(ui_tests PRIVATE
     ASIO_STANDALONE         # 告诉 Asio 不使用 Boost
     SDL_MAIN_HANDLED       # 防止 SDL 篡改 main 入口
@@ -57,6 +54,15 @@ target_compile_options(ui_tests PRIVATE
     $<$<AND:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>,$<CONFIG:Release>>:/EHsc /O2 /DNDEBUG>
 
 )
+
+set_source_files_properties(${CMAKE_SOURCE_DIR}/include/ui.hpp PROPERTIES LANGUAGE CXX)
+add_library(ui_public_header_check OBJECT ${CMAKE_SOURCE_DIR}/include/ui.hpp)
+target_compile_features(ui_public_header_check PRIVATE cxx_std_23)
+target_link_libraries(ui_public_header_check PRIVATE ui)
+target_compile_options(ui_public_header_check PRIVATE
+    $<$<CXX_COMPILER_ID:Clang>:/clang:-Wno-pragma-once-outside-header>
+)
+add_dependencies(ui_tests ui_public_header_check)
 
 include(GoogleTest)
 gtest_discover_tests(ui_tests)

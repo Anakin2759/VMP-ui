@@ -15,15 +15,14 @@
 
 #pragma once
 #include "../interface/IRenderer.hpp"
+#include "../api/Theme.hpp"
 #include "../singleton/Registry.hpp"
 
-#include "../common/components/Data.hpp"
 #include "../common/components/Visual.hpp"
 #include "../common/Policies.hpp"
 
 #include "../common/Tags.hpp"
 #include "../managers/BatchManager.hpp"
-#include "../managers/DeviceManager.hpp"
 #include <SDL3/SDL_gpu.h>
 
 namespace ui::renderers
@@ -69,11 +68,6 @@ public:
     }
 
 private:
-    // 焦点边框颜色常量
-    static inline const Eigen::Vector4f FOCUS_BORDER_COLOR{0.2F, 0.6F, 1.0F, 1.0F};
-
-    // 焦点边框最小粗细
-    static constexpr float FOCUS_BORDER_MIN_THICKNESS = 2.0F;
     /**
      * @brief 初始化基础推送常量
      *
@@ -105,8 +99,8 @@ private:
 
     void renderBackground(entt::entity entity, core::RenderContext& context)
     {
-        const auto* bg = Registry::TryGet<components::Background>(entity);
-        if (!bg || bg->enabled != policies::Feature::ENABLED)
+        const auto* background = Registry::TryGet<components::Background>(entity);
+        if (background == nullptr || background->enabled != policies::Feature::ENABLED)
         {
             return;
         }
@@ -115,29 +109,14 @@ private:
         render::UiPushConstants pushConstants{};
         initBasicPushConstants(pushConstants, context, context.size);
 
-        pushConstants.radius[0] = bg->borderRadius.x();
-        pushConstants.radius[1] = bg->borderRadius.y();
-        pushConstants.radius[2] = bg->borderRadius.z();
-        pushConstants.radius[3] = bg->borderRadius.w();
-
-        // Debug log
-        if (auto* baseInfo = Registry::TryGet<components::BaseInfo>(entity))
-        {
-            if (bg->borderRadius.x() > 0.0F || bg->borderRadius.y() > 0.0f || bg->borderRadius.z() > 0.0f
-                || bg->borderRadius.w() > 0.0f)
-            {
-                Logger::debug("[ShapeRenderer] Entity '{}': borderRadius=({:.1f}, {:.1f}, {:.1f}, {:.1f})",
-                              baseInfo->alias,
-                              bg->borderRadius.x(),
-                              bg->borderRadius.y(),
-                              bg->borderRadius.z(),
-                              bg->borderRadius.w());
-            }
-        }
+        pushConstants.radius[0] = background->borderRadius.x();
+        pushConstants.radius[1] = background->borderRadius.y();
+        pushConstants.radius[2] = background->borderRadius.z();
+        pushConstants.radius[3] = background->borderRadius.w();
 
         // 处理阴影
         const auto* shadow = Registry::TryGet<components::Shadow>(entity);
-        if (shadow && shadow->enabled == policies::Feature::ENABLED)
+        if (shadow != nullptr && shadow->enabled == policies::Feature::ENABLED)
         {
             pushConstants.shadow_soft = shadow->softness;
             pushConstants.shadow_offset_x = shadow->offset.x();
@@ -148,7 +127,8 @@ private:
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConstants);
 
         // 添加矩形
-        Eigen::Vector4f color(bg->color.red, bg->color.green, bg->color.blue, bg->color.alpha);
+        Eigen::Vector4f color(
+            background->color.red, background->color.green, background->color.blue, background->color.alpha);
         context.batchManager->addRect(context.position, context.size, color);
     }
 
@@ -158,7 +138,7 @@ private:
         const bool focused = Registry::AnyOf<components::FocusedTag>(entity);
 
         // 早期返回：既没有焦点也没有有效边框
-        if (!focused && (!border || border->thickness <= 0.0F))
+        if (!focused && (border == nullptr || border->thickness <= 0.0F))
         {
             return;
         }
@@ -173,15 +153,14 @@ private:
             thickness = border->thickness;
         }
 
-        // 焦点状态覆盖边框样式
+        // 焦点状态仅提升边框粗细；颜色由 ThemeSystem 写入 Border 组件
         if (focused)
         {
-            color = FOCUS_BORDER_COLOR;
-            thickness = std::max(thickness, FOCUS_BORDER_MIN_THICKNESS);
+            thickness = std::max(thickness, theme::CurrentTheme().focusBorderMinThickness);
         }
 
         // 渲染边框线条
-        if (thickness > 0.0f)
+        if (thickness > 0.0F)
         {
             renderRoundedBorder(entity, context, color, thickness);
         }
@@ -205,16 +184,16 @@ private:
             pushConstants.radius[3] = border->borderRadius.w();
         }
 
-        if (const auto* bg = Registry::TryGet<components::Background>(entity))
+        if (const auto* background = Registry::TryGet<components::Background>(entity))
         {
             const float radiusSum =
                 pushConstants.radius[0] + pushConstants.radius[1] + pushConstants.radius[2] + pushConstants.radius[3];
             if (radiusSum <= 0.0F)
             {
-                pushConstants.radius[0] = bg->borderRadius.x();
-                pushConstants.radius[1] = bg->borderRadius.y();
-                pushConstants.radius[2] = bg->borderRadius.z();
-                pushConstants.radius[3] = bg->borderRadius.w();
+                pushConstants.radius[0] = background->borderRadius.x();
+                pushConstants.radius[1] = background->borderRadius.y();
+                pushConstants.radius[2] = background->borderRadius.z();
+                pushConstants.radius[3] = background->borderRadius.w();
             }
         }
 

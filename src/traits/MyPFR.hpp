@@ -14,6 +14,7 @@
  */
 
 #pragma once
+#include <array>
 #include <cstddef>
 #include <string_view>
 #include <tuple>
@@ -34,9 +35,9 @@ struct AnyType
 };
 
 // =============================================================================
-// CountFields - 编译期统计聚合结构体字段数，上限 kMaxFields 避免无限递归
+// CountFields - 编译期统计聚合结构体字段数，上限 MAX_FIELD_COUNT 避免无限递归
 // =============================================================================
-inline constexpr std::size_t kMaxFields = 16; // NOLINT
+inline constexpr std::size_t MAX_FIELD_COUNT = 16;
 
 template <typename T, std::size_t... Is>
 constexpr bool IsConstructibleN(std::index_sequence<Is...> /*seq*/) noexcept
@@ -44,18 +45,137 @@ constexpr bool IsConstructibleN(std::index_sequence<Is...> /*seq*/) noexcept
     return requires { T{((void)Is, AnyType{})...}; };
 }
 
-template <typename T, std::size_t N = 0>
-constexpr std::size_t CountFields() noexcept
+template <typename T, std::size_t Lo, std::size_t Hi>
+constexpr std::size_t CountFieldsImpl() noexcept
 {
-    if constexpr (N < kMaxFields && IsConstructibleN<T>(std::make_index_sequence<N + 1>{}))
+    if constexpr (Lo >= Hi)
     {
-        return CountFields<T, N + 1>(); // NOLINT
+        return Lo;
+    }
+    constexpr std::size_t MID = (Lo + Hi + 1) / 2;
+    if constexpr (IsConstructibleN<T>(std::make_index_sequence<MID>{}))
+    {
+        return CountFieldsImpl<T, MID, Hi>();
     }
     else
     {
-        return N;
+        return CountFieldsImpl<T, Lo, MID - 1>();
     }
 }
+
+template <typename T>
+constexpr std::size_t CountFields() noexcept
+{
+    return CountFieldsImpl<T, 0, MAX_FIELD_COUNT>();
+}
+
+template <typename T, std::size_t Count>
+struct TupleAccessor;
+
+template <typename T>
+struct TupleAccessor<T, 0>
+{
+    static auto tieMembers(T& /*value*/) noexcept
+    {
+        return std::tuple<>{};
+    }
+};
+
+template <typename T>
+struct TupleAccessor<T, 1>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1] = value; return std::tie(v1); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 2>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2] = value; return std::tie(v1, v2); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 3>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3] = value; return std::tie(v1, v2, v3); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 4>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4] = value; return std::tie(v1, v2, v3, v4); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 5>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5] = value; return std::tie(v1, v2, v3, v4, v5); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 6>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6] = value; return std::tie(v1, v2, v3, v4, v5, v6); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 7>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 8>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7, v8); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 9>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7, v8, v9); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 10>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 11>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 12>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 13>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 14>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 15>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15); }
+};
+
+template <typename T>
+struct TupleAccessor<T, 16>
+{
+    static auto tieMembers(T& value) noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16] = value; return std::tie(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16); }
+};
 
 // =============================================================================
 // PfrAccessor - 通过结构化绑定将聚合体成员解包为 tuple
@@ -64,30 +184,12 @@ constexpr std::size_t CountFields() noexcept
 struct PfrAccessor
 {
     template <typename T>
-    static auto tieMembers(T& val) noexcept // NOLINT
+    static auto tieMembers(T& value) noexcept
     {
-        constexpr std::size_t N = CountFields<std::remove_cvref_t<T>>(); // NOLINT
-
-        // clang-format off
-        if constexpr (N == 0)  { return std::tuple<>{}; }
-        else if constexpr (N == 1)  { auto& [v1] = val; return std::tie(v1); }
-        else if constexpr (N == 2)  { auto& [v1,v2] = val; return std::tie(v1,v2); }
-        else if constexpr (N == 3)  { auto& [v1,v2,v3] = val; return std::tie(v1,v2,v3); }
-        else if constexpr (N == 4)  { auto& [v1,v2,v3,v4] = val; return std::tie(v1,v2,v3,v4); }
-        else if constexpr (N == 5)  { auto& [v1,v2,v3,v4,v5] = val; return std::tie(v1,v2,v3,v4,v5); }
-        else if constexpr (N == 6)  { auto& [v1,v2,v3,v4,v5,v6] = val; return std::tie(v1,v2,v3,v4,v5,v6); }
-        else if constexpr (N == 7)  { auto& [v1,v2,v3,v4,v5,v6,v7] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7); }
-        else if constexpr (N == 8)  { auto& [v1,v2,v3,v4,v5,v6,v7,v8] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7,v8); }
-        else if constexpr (N == 9)  { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7,v8,v9); }
-        else if constexpr (N == 10) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7,v8,v9,v10); }
-        else if constexpr (N == 11) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11); }
-        else if constexpr (N == 12) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12); }
-        else if constexpr (N == 13) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13); }
-        else if constexpr (N == 14) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14); }
-        else if constexpr (N == 15) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15); }
-        else if constexpr (N == 16) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16] = val; return std::tie(v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16); }
-        else { static_assert(N <= kMaxFields, "Member count exceeds kMaxFields. Increase kMaxFields and extend PfrAccessor."); return std::tuple<>{}; }
-        // clang-format on
+        constexpr std::size_t FIELD_COUNT = CountFields<std::remove_cvref_t<T>>();
+        static_assert(FIELD_COUNT <= MAX_FIELD_COUNT,
+                  "Member count exceeds MAX_FIELD_COUNT. Increase MAX_FIELD_COUNT and extend TupleAccessor.");
+        return TupleAccessor<T, FIELD_COUNT>::tieMembers(value);
     }
 };
 
@@ -95,20 +197,32 @@ struct PfrAccessor
 template <typename T>
 auto StructureToTuple(T& obj) noexcept
 {
+    static_assert(std::is_aggregate_v<std::remove_cvref_t<T>>, "StructureToTuple requires an aggregate type");
     return PfrAccessor::tieMembers(obj);
 }
 
 // ForEachField - 对每个字段调用 func(field)，支持 const 对象
 template <typename T, typename F>
-constexpr void ForEachField(T&& obj, F&& func) // NOLINT
+constexpr void ForEachField(T& obj, F&& func)
 {
     auto tup = StructureToTuple(obj);
     std::apply([&func](auto&&... fields) { (func(std::forward<decltype(fields)>(fields)), ...); }, tup);
 }
 
+// ForEachFieldWithIndex - 对每个字段调用 func(field, index_constant)，支持编译期索引
+template <typename T, typename F>
+constexpr void ForEachFieldWithIndex(T& obj, F&& func)
+{
+    auto tup = StructureToTuple(obj);
+    [&]<std::size_t... Is>(std::index_sequence<Is...>)
+    {
+        (std::forward<F>(func)(std::get<Is>(tup), std::integral_constant<std::size_t, Is>{}), ...);
+    }(std::make_index_sequence<std::tuple_size_v<decltype(tup)>>{});
+}
+
 // field_get - 按索引获取成员引用（避免与 std::get 产生 ADL 冲突）
 template <std::size_t I, typename T>
-constexpr decltype(auto) field_get(T& obj) noexcept // NOLINT
+constexpr decltype(auto) FieldGet(T& obj) noexcept
 {
     return std::get<I>(StructureToTuple(obj));
 }
@@ -123,28 +237,21 @@ struct NameParser
     {
         // 目标：从函数签名中切出 "field_name"
         // Clang:  "... [M = obj.field_name]"
-        // GCC:    "... {M = obj.field_name}"
-        // MSVC:   "... <{obj.field_name}>(void)"
+        // GCC / MSVC: "... {M = obj.field_name}" / "... <{obj.field_name}>(void)"
 #if defined(__clang__)
         const std::size_t end = sig.find_last_of(']');
-        const std::size_t start = sig.find_last_of('.', end) + 1;
-#elif defined(__GNUC__)
-        const std::size_t end = sig.find_last_of('}');
-        const std::size_t start = sig.find_last_of('.', end) + 1;
-#elif defined(_MSC_VER)
-        const std::size_t end = sig.find_last_of('}');
-        const std::size_t start = sig.find_last_of('.', end) + 1;
 #else
-        const std::size_t end = sig.size();
-        const std::size_t start = 0;
+        const std::size_t end = sig.find_last_of('}');
 #endif
-        if (start == std::string_view::npos || start >= end) return sig;
-        return sig.substr(start, end - start);
+        if (end == std::string_view::npos) return sig;
+        const std::size_t dot = sig.rfind('.', end);
+        if (dot == std::string_view::npos || dot + 1 >= end) return sig;
+        return sig.substr(dot + 1, end - dot - 1);
     }
 };
 
-template <auto& M>
-constexpr std::string_view get_name_impl() noexcept // NOLINT
+template <auto& Member>
+constexpr std::string_view GetNameImpl() noexcept
 {
 #if defined(_MSC_VER) && !defined(__clang__)
     return NameParser::cleanup({__FUNCSIG__, sizeof(__FUNCSIG__) - 1});
@@ -154,44 +261,229 @@ constexpr std::string_view get_name_impl() noexcept // NOLINT
 }
 
 template <typename T>
-extern const T fake_dummy_obj;
+inline constexpr T FAKE_DUMMY_OBJECT = {};
+
+template <typename T, std::size_t Count>
+struct NameAccessorImpl;
+
+template <typename T>
+struct NameAccessorImpl<T, 0>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 1>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 1>{GetNameImpl<v1>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 2>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 2>{GetNameImpl<v1>(), GetNameImpl<v2>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 3>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 3>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 4>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 4>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 5>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 5>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 6>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 6>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 7>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 7>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 8>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 8>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>(), GetNameImpl<v8>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 9>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 9>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>(), GetNameImpl<v8>(), GetNameImpl<v9>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 10>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 10>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>(), GetNameImpl<v8>(), GetNameImpl<v9>(), GetNameImpl<v10>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 11>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 11>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>(), GetNameImpl<v8>(), GetNameImpl<v9>(), GetNameImpl<v10>(), GetNameImpl<v11>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 12>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 12>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>(), GetNameImpl<v8>(), GetNameImpl<v9>(), GetNameImpl<v10>(), GetNameImpl<v11>(), GetNameImpl<v12>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 13>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 13>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>(), GetNameImpl<v8>(), GetNameImpl<v9>(), GetNameImpl<v10>(), GetNameImpl<v11>(), GetNameImpl<v12>(), GetNameImpl<v13>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 14>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 14>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>(), GetNameImpl<v8>(), GetNameImpl<v9>(), GetNameImpl<v10>(), GetNameImpl<v11>(), GetNameImpl<v12>(), GetNameImpl<v13>(), GetNameImpl<v14>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 15>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 15>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>(), GetNameImpl<v8>(), GetNameImpl<v9>(), GetNameImpl<v10>(), GetNameImpl<v11>(), GetNameImpl<v12>(), GetNameImpl<v13>(), GetNameImpl<v14>(), GetNameImpl<v15>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
+
+template <typename T>
+struct NameAccessorImpl<T, 16>
+{
+    template <std::size_t I>
+    static constexpr std::string_view getName() noexcept
+    {
+        constexpr auto NAMES = []() noexcept { auto& [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16] = FAKE_DUMMY_OBJECT<T>; return std::array<std::string_view, 16>{GetNameImpl<v1>(), GetNameImpl<v2>(), GetNameImpl<v3>(), GetNameImpl<v4>(), GetNameImpl<v5>(), GetNameImpl<v6>(), GetNameImpl<v7>(), GetNameImpl<v8>(), GetNameImpl<v9>(), GetNameImpl<v10>(), GetNameImpl<v11>(), GetNameImpl<v12>(), GetNameImpl<v13>(), GetNameImpl<v14>(), GetNameImpl<v15>(), GetNameImpl<v16>()}; }();
+        if constexpr (I < NAMES.size()) return NAMES[I];
+        return "out_of_range";
+    }
+};
 
 template <typename T>
 struct NameAccessor
 {
     template <std::size_t I>
-    static constexpr std::string_view get_name() noexcept // NOLINT
+    static constexpr std::string_view getName() noexcept
     {
-        constexpr std::size_t COUNT = CountFields<T>();
-
-        // clang-format off
-        if      constexpr (COUNT == 1)  { auto& [v1] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); }
-        else if constexpr (COUNT == 2)  { auto& [v1,v2] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); }
-        else if constexpr (COUNT == 3)  { auto& [v1,v2,v3] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); }
-        else if constexpr (COUNT == 4)  { auto& [v1,v2,v3,v4] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); }
-        else if constexpr (COUNT == 5)  { auto& [v1,v2,v3,v4,v5] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); }
-        else if constexpr (COUNT == 6)  { auto& [v1,v2,v3,v4,v5,v6] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); }
-        else if constexpr (COUNT == 7)  { auto& [v1,v2,v3,v4,v5,v6,v7] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); }
-        else if constexpr (COUNT == 8)  { auto& [v1,v2,v3,v4,v5,v6,v7,v8] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); if constexpr (I==7) return get_name_impl<v8>(); }
-        else if constexpr (COUNT == 9)  { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); if constexpr (I==7) return get_name_impl<v8>(); if constexpr (I==8) return get_name_impl<v9>(); }
-        else if constexpr (COUNT == 10) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); if constexpr (I==7) return get_name_impl<v8>(); if constexpr (I==8) return get_name_impl<v9>(); if constexpr (I==9) return get_name_impl<v10>(); }
-        else if constexpr (COUNT == 11) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); if constexpr (I==7) return get_name_impl<v8>(); if constexpr (I==8) return get_name_impl<v9>(); if constexpr (I==9) return get_name_impl<v10>(); if constexpr (I==10) return get_name_impl<v11>(); }
-        else if constexpr (COUNT == 12) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); if constexpr (I==7) return get_name_impl<v8>(); if constexpr (I==8) return get_name_impl<v9>(); if constexpr (I==9) return get_name_impl<v10>(); if constexpr (I==10) return get_name_impl<v11>(); if constexpr (I==11) return get_name_impl<v12>(); }
-        else if constexpr (COUNT == 13) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); if constexpr (I==7) return get_name_impl<v8>(); if constexpr (I==8) return get_name_impl<v9>(); if constexpr (I==9) return get_name_impl<v10>(); if constexpr (I==10) return get_name_impl<v11>(); if constexpr (I==11) return get_name_impl<v12>(); if constexpr (I==12) return get_name_impl<v13>(); }
-        else if constexpr (COUNT == 14) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); if constexpr (I==7) return get_name_impl<v8>(); if constexpr (I==8) return get_name_impl<v9>(); if constexpr (I==9) return get_name_impl<v10>(); if constexpr (I==10) return get_name_impl<v11>(); if constexpr (I==11) return get_name_impl<v12>(); if constexpr (I==12) return get_name_impl<v13>(); if constexpr (I==13) return get_name_impl<v14>(); }
-        else if constexpr (COUNT == 15) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); if constexpr (I==7) return get_name_impl<v8>(); if constexpr (I==8) return get_name_impl<v9>(); if constexpr (I==9) return get_name_impl<v10>(); if constexpr (I==10) return get_name_impl<v11>(); if constexpr (I==11) return get_name_impl<v12>(); if constexpr (I==12) return get_name_impl<v13>(); if constexpr (I==13) return get_name_impl<v14>(); if constexpr (I==14) return get_name_impl<v15>(); }
-        else if constexpr (COUNT == 16) { auto& [v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16] = fake_dummy_obj<T>; if constexpr (I==0) return get_name_impl<v1>(); if constexpr (I==1) return get_name_impl<v2>(); if constexpr (I==2) return get_name_impl<v3>(); if constexpr (I==3) return get_name_impl<v4>(); if constexpr (I==4) return get_name_impl<v5>(); if constexpr (I==5) return get_name_impl<v6>(); if constexpr (I==6) return get_name_impl<v7>(); if constexpr (I==7) return get_name_impl<v8>(); if constexpr (I==8) return get_name_impl<v9>(); if constexpr (I==9) return get_name_impl<v10>(); if constexpr (I==10) return get_name_impl<v11>(); if constexpr (I==11) return get_name_impl<v12>(); if constexpr (I==12) return get_name_impl<v13>(); if constexpr (I==13) return get_name_impl<v14>(); if constexpr (I==14) return get_name_impl<v15>(); if constexpr (I==15) return get_name_impl<v16>(); }
-        // clang-format on
-
-        return "out_of_range";
+        constexpr std::size_t FIELD_COUNT = CountFields<T>();
+        return NameAccessorImpl<T, FIELD_COUNT>::template getName<I>();
     }
 };
 
 // field_name<I, T>() - 获取第 I 个成员的名称字符串
 template <std::size_t I, typename T>
-constexpr std::string_view field_name() noexcept // NOLINT
+constexpr std::string_view FieldName() noexcept
 {
-    return NameAccessor<std::remove_cvref_t<T>>::template get_name<I>();
+    return NameAccessor<std::remove_cvref_t<T>>::template getName<I>();
 }
 
 } // namespace ui::traits

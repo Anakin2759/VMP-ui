@@ -24,6 +24,7 @@
 #include "../systems/ActionSystem.hpp"
 #include "../systems/TimerSystem.hpp"
 #include "../systems/ShortcutSystem.hpp"
+#include "../systems/ThemeSystem.hpp"
 namespace ui
 {
 SystemManager::SystemManager()
@@ -57,6 +58,9 @@ SystemManager::SystemManager()
 
     Logger::info("[SystemManager] 正在注册 TimerSystem...");
     m_systems.emplace_back(systems::TimerSystem{});
+
+    Logger::info("[SystemManager] 正在注册 ThemeSystem...");
+    m_systems.emplace_back(systems::ThemeSystem{});
 
     Logger::info("[SystemManager] 正在注册 ShortcutSystem...");
     m_systems.emplace_back(systems::ShortcutSystem{});

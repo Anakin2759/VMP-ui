@@ -86,8 +86,9 @@ void RenderSystem::initializeRenderers()
     m_impl->m_renderers.push_back(std::make_unique<renderers::SliderRenderer>());
     m_impl->m_renderers.push_back(std::make_unique<renderers::TextRenderer>());
     if (m_impl->m_iconManager)
+    {
         m_impl->m_renderers.push_back(std::make_unique<renderers::IconRenderer>(m_impl->m_iconManager.get()));
-
+    }
     m_impl->m_renderers.push_back(std::make_unique<renderers::ScrollBarRenderer>());
     m_impl->m_renderers.push_back(std::make_unique<renderers::ImageRenderer>());
     m_impl->m_renderers.push_back(std::make_unique<renderers::CanvasRenderer>());

@@ -120,7 +120,7 @@ struct Icon
 
     // 字体图标相关字段（type == Font 时使用）
     const void* fontHandle = nullptr; // IconFont 字体句柄
-    uint32_t codepoint = 0;     // Unicode 码点（如 0xF015 表示 home 图标）
+    uint32_t codepoint = 0;           // Unicode 码点（如 0xF015 表示 home 图标）
 
     // 通用字段
     Vec2 size{DEFAULT_SIZE, DEFAULT_SIZE};                     // 图标尺寸
@@ -178,7 +178,7 @@ struct TableInfo
     Color cellTextColor{0.15F, 0.15F, 0.18F, 1.0F}; // 数据单元格文字颜色
     float rowHeight = 28.0F;
     float headerHeight = 32.0F;
-    std::vector<float> columnWidths;  ///< 每列宽度（或比例权重），空则均等分
+    std::vector<float> columnWidths; ///< 每列宽度（或比例权重），空则均等分
     policies::TableColumnSizing columnSizing = policies::TableColumnSizing::EQUAL; ///< 列宽分配策略
     std::vector<float> minColumnWidths; ///< 各列最小宽度（可为空；不足 columnCount 时后补 0）
     float minRowHeight = 0.0F;          ///< 行最小高度（0 表示不限制）
@@ -305,6 +305,19 @@ struct DropDown
         int idx = std::clamp(selectedIndex, 0, static_cast<int>(options.size()) - 1);
         return options[static_cast<std::size_t>(idx)];
     }
+};
+
+struct DropDownPopupPanel
+{
+    using is_component_tag = void;
+    entt::entity owner = entt::null;
+};
+
+struct DropDownPopupItem
+{
+    using is_component_tag = void;
+    entt::entity owner = entt::null;
+    int optionIndex = -1;
 };
 
 // ===================== Canvas 绘图组件 =====================
