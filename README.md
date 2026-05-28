@@ -4,6 +4,8 @@
 
 C++23 ECS-based UI static library. Built on [EnTT](https://github.com/skypjack/entt) + [SDL3](https://github.com/libsdl-org/SDL) GPU + [Yoga](https://yogalayout.dev/) Flexbox layout.
 
+Vermin must perish
+
 ---
 
 [中文说明](#pmkui-中文) | English
