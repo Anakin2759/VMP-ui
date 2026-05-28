@@ -97,7 +97,8 @@ entt::entity CreateTextBrowser(std::string_view initialText = "",
  * @return entt::entity 创建的实体
  */
 entt::entity CreateCheckBox(const std::string& label, bool checked = false, std::string_view alias = "");
-entt::entity CreateDropDown(const std::vector<std::string>& options, int selectedIndex = 0, std::string_view alias = "");
+entt::entity
+    CreateDropDown(const std::vector<std::string>& options, int selectedIndex = 0, std::string_view alias = "");
 
 /// @brief 关闭 DropDown 弹出层（若已打开），下一帧销毁弹出实体
 /// @note StateSystem 在「点击外部」时调用此函数实现失焦自动关闭

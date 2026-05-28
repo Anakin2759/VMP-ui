@@ -181,10 +181,8 @@ SDL_GPUTexture* ImageManager::loadWithSdlBmp(const std::string& path, SDL_GPUDev
     return tex;
 }
 
-SDL_GPUTexture* ImageManager::uploadToGpu(SDL_GPUDevice* device,
-                                          const unsigned char* pixels,
-                                          uint32_t width,
-                                          uint32_t height)
+SDL_GPUTexture*
+    ImageManager::uploadToGpu(SDL_GPUDevice* device, const unsigned char* pixels, uint32_t width, uint32_t height)
 {
     // 创建 GPU 纹理
     SDL_GPUTextureCreateInfo texInfo = {};

@@ -87,35 +87,29 @@ void DrawFilledCircle(entt::entity entity, Vec2 center, float radius, Color colo
                              .points = {}});
 }
 
-void DrawPolyline(entt::entity entity,
-                  std::vector<Vec2> points,
-                  Color color,
-                  float lineWidth)
+void DrawPolyline(entt::entity entity, std::vector<Vec2> points, Color color, float lineWidth)
 {
     if (!Registry::Valid(entity) || points.size() < 2) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
     components::CanvasDrawCommand cmd;
-    cmd.type      = components::CanvasDrawType::POLYLINE;
-    cmd.color     = color;
+    cmd.type = components::CanvasDrawType::POLYLINE;
+    cmd.color = color;
     cmd.lineWidth = lineWidth;
-    cmd.points    = std::move(points);
+    cmd.points = std::move(points);
     list.commands.push_back(std::move(cmd));
 }
 
-void DrawCubicBezier(entt::entity entity,
-                     Vec2 startPos, Vec2 cp1, Vec2 cp2, Vec2 endPos,
-                     Color color,
-                     float lineWidth)
+void DrawCubicBezier(entt::entity entity, Vec2 startPos, Vec2 cp1, Vec2 cp2, Vec2 endPos, Color color, float lineWidth)
 {
     if (!Registry::Valid(entity)) return;
     auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
     components::CanvasDrawCommand cmd;
-    cmd.type      = components::CanvasDrawType::CUBIC_BEZIER;
-    cmd.p1        = startPos;
-    cmd.p2        = cp1;
-    cmd.p3        = cp2;
-    cmd.p4        = endPos;
-    cmd.color     = color;
+    cmd.type = components::CanvasDrawType::CUBIC_BEZIER;
+    cmd.p1 = startPos;
+    cmd.p2 = cp1;
+    cmd.p3 = cp2;
+    cmd.p4 = endPos;
+    cmd.color = color;
     cmd.lineWidth = lineWidth;
     list.commands.push_back(std::move(cmd));
 }
@@ -150,12 +144,16 @@ Painter& Painter::cubicTo(Vec2 cp1, Vec2 cp2, Vec2 endPos)
     }
     // 自适应细分三次贝塞尔曲线，目标弦误差 ≤ 0.5 px
     constexpr float FLATNESS_SQ = 0.5F * 0.5F;
-    constexpr int   MAX_DEPTH   = 8;
+    constexpr int MAX_DEPTH = 8;
 
     const Vec2 startPos = m_cursor;
 
     // 迭代细分（栈实现，避免递归调用开销）
-    struct Seg { Vec2 ptA, ptB, ptC, ptD; int segDepth; };
+    struct Seg
+    {
+        Vec2 ptA, ptB, ptC, ptD;
+        int segDepth;
+    };
     std::vector<Seg> segStack;
     segStack.push_back({.ptA = startPos, .ptB = cp1, .ptC = cp2, .ptD = endPos, .segDepth = 0});
 

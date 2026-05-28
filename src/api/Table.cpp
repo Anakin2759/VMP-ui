@@ -85,8 +85,7 @@ namespace
             columnWeight = std::max(0.0F, info.columnWidths.at(static_cast<size_t>(columnIndex)));
         }
         const float proportionalWidth = (columnWeight / totalWeight) * visibleWidth;
-        widths.at(static_cast<size_t>(columnIndex)) =
-            std::max(proportionalWidth, MinColumnWidthAt(info, columnIndex));
+        widths.at(static_cast<size_t>(columnIndex)) = std::max(proportionalWidth, MinColumnWidthAt(info, columnIndex));
     }
     return widths;
 }
@@ -119,8 +118,9 @@ namespace
     const float flexWidth = (flexCount > 0) ? (remainingWidth / static_cast<float>(flexCount)) : 0.0F;
     for (int columnIndex = 0; columnIndex < columnCount; ++columnIndex)
     {
-        const bool hasFixedWidth = !info.columnWidths.empty() && columnIndex < static_cast<int>(info.columnWidths.size())
-                                   && info.columnWidths.at(static_cast<size_t>(columnIndex)) > 0.0F;
+        const bool hasFixedWidth = !info.columnWidths.empty()
+                                && columnIndex < static_cast<int>(info.columnWidths.size())
+                                && info.columnWidths.at(static_cast<size_t>(columnIndex)) > 0.0F;
         if (!hasFixedWidth)
         {
             widths.at(static_cast<size_t>(columnIndex)) = std::max(flexWidth, MinColumnWidthAt(info, columnIndex));
@@ -234,15 +234,15 @@ std::vector<float> ComputeColumnWidths(const components::TableInfo& info, float 
 
     switch (info.columnSizing)
     {
-    case policies::TableColumnSizing::FIXED:
-        return ComputeFixedColumnWidths(info, visibleWidth);
-    case policies::TableColumnSizing::PROPORTIONAL:
-        return ComputeProportionalColumnWidths(info, visibleWidth);
-    case policies::TableColumnSizing::ADAPTIVE:
-        return ComputeAdaptiveColumnWidths(info, visibleWidth);
-    case policies::TableColumnSizing::EQUAL:
-    default:
-        return ComputeEqualColumnWidths(info, visibleWidth);
+        case policies::TableColumnSizing::FIXED:
+            return ComputeFixedColumnWidths(info, visibleWidth);
+        case policies::TableColumnSizing::PROPORTIONAL:
+            return ComputeProportionalColumnWidths(info, visibleWidth);
+        case policies::TableColumnSizing::ADAPTIVE:
+            return ComputeAdaptiveColumnWidths(info, visibleWidth);
+        case policies::TableColumnSizing::EQUAL:
+        default:
+            return ComputeEqualColumnWidths(info, visibleWidth);
     }
 }
 
@@ -257,8 +257,7 @@ void SetCellWidget(entt::entity tableEntity, int row, int col, entt::entity widg
     auto& cell = info->cells.at(static_cast<size_t>(row)).at(static_cast<size_t>(col));
 
     // 替换旧实体：从 Hierarchy 中移除旧 widget
-    if (cell.cellEntity != entt::null && cell.cellEntity != widgetEntity
-        && Registry::Valid(cell.cellEntity))
+    if (cell.cellEntity != entt::null && cell.cellEntity != widgetEntity && Registry::Valid(cell.cellEntity))
     {
         auto* parentHierarchy = Registry::TryGet<components::Hierarchy>(tableEntity);
         if (parentHierarchy != nullptr)
@@ -279,8 +278,8 @@ void SetCellWidget(entt::entity tableEntity, int row, int col, entt::entity widg
 
     // 加入表格的 Hierarchy（若不已存在）
     auto& parentHierarchy = Registry::GetOrEmplace<components::Hierarchy>(tableEntity);
-    const bool alreadyChild = std::ranges::find(parentHierarchy.children, widgetEntity)
-                              != parentHierarchy.children.end();
+    const bool alreadyChild =
+        std::ranges::find(parentHierarchy.children, widgetEntity) != parentHierarchy.children.end();
     if (!alreadyChild)
     {
         auto& childHierarchy = Registry::GetOrEmplace<components::Hierarchy>(widgetEntity);

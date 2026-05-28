@@ -1,12 +1,12 @@
 /**
  * ************************************************************************
- * 
+ *
  * @file RuntimeFacade.hpp
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-05-18
  * @version 0.1
  * @brief 运行时上下文门面 - 提供全局访问点和上下文管理功能
- * 
+ *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
  * For study and research only, no reprinting.
@@ -42,13 +42,14 @@ class RuntimeFacade
 public:
     struct ActiveRuntimeState
     {
-        Registry*       registry   = nullptr;
-        Dispatcher*     dispatcher = nullptr;
-        WorkerMailbox*  mailbox    = nullptr; ///< C18 修复：每帧 drain 所需的 mailbox 指针
+        Registry* registry = nullptr;
+        Dispatcher* dispatcher = nullptr;
+        WorkerMailbox* mailbox = nullptr; ///< C18 修复：每帧 drain 所需的 mailbox 指针
     };
     /**
      * @brief windowId 和 entity 的双向映射服务
-     * 由于窗口实体的生命周期和 SDL 窗口的生命周期不完全绑定（例如，窗口销毁后实体可能短暂存在直到帧结束），因此需要提供一个独立的服务来管理两者的映射关系，并在窗口销毁时及时
+     * 由于窗口实体的生命周期和 SDL
+     * 窗口的生命周期不完全绑定（例如，窗口销毁后实体可能短暂存在直到帧结束），因此需要提供一个独立的服务来管理两者的映射关系，并在窗口销毁时及时
      */
     class WindowLookupService
     {
@@ -115,10 +116,7 @@ public:
         dispatcher().raw().enqueue(std::forward<Event>(event));
     }
 
-    void update() const
-    {
-        dispatcher().raw().update();
-    }
+    void update() const { dispatcher().raw().update(); }
 
     template <traits::Events Event>
     void update() const

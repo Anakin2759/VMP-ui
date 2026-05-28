@@ -10,7 +10,8 @@
     GPU 后端回退方案实现：
     - 直接在 DeviceManager 内部维护一个后端列表（如 D3D12、Vulkan），并在初始化时逐个尝试创建 GPU 设备。
     - 如果当前后端无法声明窗口（例如在 VM 中 D3D12 无法渲染），则自动切换到下一个后端并重试，直到成功或所有后端均失败。
-    - 尝试后备方案使用 cmrc 内嵌资源库的 swiftshader 库提供的 vulkan 实现，确保在没有物理 GPU 的环境中也能提供基本的渲染支持。
+    - 尝试后备方案使用 cmrc 内嵌资源库的 swiftshader 库提供的 vulkan 实现，确保在没有物理 GPU
+ 的环境中也能提供基本的渲染支持。
     - CPU/software fallback 由 RenderSystem 的 FallbackBackendRenderer 处理，不属于 SDL_GPU 后端列表。
     - 虚拟机环境可能遇到初始化成功，但无法声明窗口的情况（例如 D3D12 在某些 VM 中无法渲染）。
     - 在这种情况下，DeviceManager 将自动切换到下一个后端（如 Vulkan）并重试声明窗口，确保应用能够继续运行而不是崩溃。
@@ -59,7 +60,7 @@ public:
     {
         m_backends = {{.name = "direct3d12",
                        .configure =
-                       [](SDL_PropertiesID props)
+                           [](SDL_PropertiesID props)
                        {
                            SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, "direct3d12");
                            SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, true);
@@ -200,9 +201,8 @@ private:
             return;
         }
 
-        auto it = std::find_if(m_backends.begin(),
-                               m_backends.end(),
-                               [&](const BackendConfig& cfg) { return cfg.name == preferred; });
+        auto it = std::find_if(
+            m_backends.begin(), m_backends.end(), [&](const BackendConfig& cfg) { return cfg.name == preferred; });
         if (it == m_backends.end())
         {
             Logger::warn("未知 GPU 后端 \"{}\"，使用默认顺序。可选: direct3d12 / vulkan", preferred);

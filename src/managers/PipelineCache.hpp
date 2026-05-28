@@ -214,7 +214,7 @@ public:
         if (m_pipeline == nullptr)
         {
             Logger::error("图形管线创建失败: {}", SDL_GetError());
-            m_creationFailed = true; // 标记失败，阻止后续重试
+            m_creationFailed = true;                         // 标记失败，阻止后续重试
             return MakeError(ui_errc::pipeline_unavailable); // 管线失败则不创建采样器，避免下次 guard 失效导致重复重试
         }
 

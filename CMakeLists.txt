@@ -19,7 +19,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang"
         AND NOT WIN32)
     add_compile_options(-stdlib=libc++)
     add_link_options(-stdlib=libc++)
-    message(STATUS "[Clang] Using libc++ (LLVM C++ standard library)")
+    # libc++ 将部分 C++23 API（含 std::move_only_function）标记为实验性，
+    # 必须显式启用 -fexperimental-library 才能解锁，否则报 no member named 'move_only_function'。
+    add_compile_options(-fexperimental-library)
+    add_link_options(-fexperimental-library)
+    message(STATUS "[Clang] Using libc++ with -fexperimental-library (C++23 std::move_only_function 等 API)")
 endif()
 
 option(ENABLE_BUILD_TESTS "Enable building of unit tests" OFF)

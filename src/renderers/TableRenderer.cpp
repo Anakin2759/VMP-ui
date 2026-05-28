@@ -147,9 +147,8 @@ void TableRenderer::renderHeaderBackground(const components::TableInfo& info,
     }
 
     context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
-    context.batchManager->addRect({state.tableX, state.tableY},
-                                  {state.totalWidth, info.headerHeight},
-                                  toVec4(info.headerBgColor, context.alpha));
+    context.batchManager->addRect(
+        {state.tableX, state.tableY}, {state.totalWidth, info.headerHeight}, toVec4(info.headerBgColor, context.alpha));
 }
 
 void TableRenderer::renderHeaderText(const components::TableInfo& info,
@@ -173,8 +172,8 @@ void TableRenderer::renderHeaderText(const components::TableInfo& info,
         {
             uint32_t textWidth = 0;
             uint32_t textHeight = 0;
-            SDL_GPUTexture* textTexture = context.textTextureCache->getOrUpload(
-                header, headerTextColor, textWidth, textHeight, HEADER_FONT_SIZE);
+            SDL_GPUTexture* textTexture =
+                context.textTextureCache->getOrUpload(header, headerTextColor, textWidth, textHeight, HEADER_FONT_SIZE);
             if (textTexture != nullptr)
             {
                 const float scale = context.fontManager->getOversampleScale();
@@ -243,10 +242,8 @@ void TableRenderer::renderBodyGrid(const components::TableInfo& info,
             // 只绘制在可见区域内的分隔线
             if (columnX > state.tableX && columnX < state.tableX + state.totalWidth)
             {
-                context.batchManager->beginBatch(
-                    context.whiteTexture, context.currentScissor, state.pushConstants);
-                context.batchManager->addRect(
-                    {columnX - 0.5F, state.bodyY}, {1.0F, state.bodyHeight}, state.gridColor);
+                context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
+                context.batchManager->addRect({columnX - 0.5F, state.bodyY}, {1.0F, state.bodyHeight}, state.gridColor);
             }
         }
     }
@@ -258,10 +255,8 @@ void TableRenderer::renderBodyGrid(const components::TableInfo& info,
         rowY += state.effectiveRowHeight;
         if (rowY > state.bodyY && rowY < state.bodyY + state.bodyHeight)
         {
-            context.batchManager->beginBatch(
-                context.whiteTexture, context.currentScissor, state.pushConstants);
-            context.batchManager->addRect(
-                {state.tableX, rowY - 0.5F}, {state.totalWidth, 1.0F}, state.gridColor);
+            context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
+            context.batchManager->addRect({state.tableX, rowY - 0.5F}, {state.totalWidth, 1.0F}, state.gridColor);
         }
     }
 }
@@ -311,8 +306,8 @@ void TableRenderer::renderCellTexture(const std::string& text,
 
     uint32_t textWidth = 0;
     uint32_t textHeight = 0;
-    SDL_GPUTexture* textTexture = context.textTextureCache->getOrUpload(
-        text, cellColor, textWidth, textHeight, CELL_FONT_SIZE);
+    SDL_GPUTexture* textTexture =
+        context.textTextureCache->getOrUpload(text, cellColor, textWidth, textHeight, CELL_FONT_SIZE);
     if (textTexture == nullptr)
     {
         return;
@@ -350,8 +345,7 @@ void TableRenderer::renderHeaderSeparators(const components::TableInfo& info,
         {
             if (columnX > state.tableX && columnX < state.tableX + state.totalWidth)
             {
-                context.batchManager->beginBatch(
-                    context.whiteTexture, context.currentScissor, state.pushConstants);
+                context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
                 context.batchManager->addRect(
                     {columnX - 0.5F, state.tableY}, {1.0F, info.headerHeight}, state.gridColor);
             }

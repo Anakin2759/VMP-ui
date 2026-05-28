@@ -186,7 +186,7 @@ jobs:
               return 0;
           }
           CPP
-          ${{ matrix.cxx_compiler }} -std=c++23 -stdlib=libc++ /tmp/check-libcpp-cxx23.cpp -o /tmp/check-libcpp-cxx23
+          ${{ matrix.cxx_compiler }} -std=c++23 -stdlib=libc++ -fexperimental-library /tmp/check-libcpp-cxx23.cpp -o /tmp/check-libcpp-cxx23
 
       - name: Check GCC version
         if: matrix.install_gcc_15 == true

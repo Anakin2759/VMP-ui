@@ -66,19 +66,19 @@ public:
                     const render::UiPushConstants& pushConstants)
     {
         // 从 UiPushConstants 提取逐实体字段到 m_pendingQuadParams，addRect 时写入顶点属性
-        m_pendingQuadParams.rect_size[0]    = pushConstants.rect_size[0];
-        m_pendingQuadParams.rect_size[1]    = pushConstants.rect_size[1];
-        m_pendingQuadParams.radius[0]       = pushConstants.radius[0];
-        m_pendingQuadParams.radius[1]       = pushConstants.radius[1];
-        m_pendingQuadParams.radius[2]       = pushConstants.radius[2];
-        m_pendingQuadParams.radius[3]       = pushConstants.radius[3];
-        m_pendingQuadParams.shadow_soft     = pushConstants.shadow_soft;
+        m_pendingQuadParams.rect_size[0] = pushConstants.rect_size[0];
+        m_pendingQuadParams.rect_size[1] = pushConstants.rect_size[1];
+        m_pendingQuadParams.radius[0] = pushConstants.radius[0];
+        m_pendingQuadParams.radius[1] = pushConstants.radius[1];
+        m_pendingQuadParams.radius[2] = pushConstants.radius[2];
+        m_pendingQuadParams.radius[3] = pushConstants.radius[3];
+        m_pendingQuadParams.shadow_soft = pushConstants.shadow_soft;
         m_pendingQuadParams.shadow_offset_x = pushConstants.shadow_offset_x;
         m_pendingQuadParams.shadow_offset_y = pushConstants.shadow_offset_y;
-        m_pendingQuadParams.opacity         = pushConstants.opacity;
-        m_pendingQuadParams.padding_flag    = pushConstants.padding;
-        m_pendingQuadParams.stroke_width    = pushConstants.stroke_width;
-        m_pendingQuadParams.draw_mode       = pushConstants.draw_mode;
+        m_pendingQuadParams.opacity = pushConstants.opacity;
+        m_pendingQuadParams.padding_flag = pushConstants.padding;
+        m_pendingQuadParams.stroke_width = pushConstants.stroke_width;
+        m_pendingQuadParams.draw_mode = pushConstants.draw_mode;
 
         // 检查是否可以与当前批次合并（只比较纹理 + 裁剪区域）
         if (m_currentBatch.has_value())
@@ -92,8 +92,8 @@ public:
                 {
                     const SDL_Rect& nextScissor = scissor.value();
                     const SDL_Rect& currentScissor = m_currentBatch->scissorRect.value();
-                    canMerge = (nextScissor.x == currentScissor.x && nextScissor.y == currentScissor.y &&
-                                nextScissor.w == currentScissor.w && nextScissor.h == currentScissor.h);
+                    canMerge = (nextScissor.x == currentScissor.x && nextScissor.y == currentScissor.y
+                                && nextScissor.w == currentScissor.w && nextScissor.h == currentScissor.h);
                 }
                 else if (scissor.has_value() != m_currentBatch->scissorRect.has_value())
                 {
@@ -155,10 +155,14 @@ public:
      * @param uv0~uv3 对应的 UV 坐标（编码局部坐标，由调用方计算）
      * @param color  顶点颜色
      */
-    void addOrientedQuad(const Eigen::Vector2f& vert0, const Eigen::Vector2f& vert1,
-                         const Eigen::Vector2f& vert2, const Eigen::Vector2f& vert3,
-                         const Eigen::Vector2f& uvVert0, const Eigen::Vector2f& uvVert1,
-                         const Eigen::Vector2f& uvVert2, const Eigen::Vector2f& uvVert3,
+    void addOrientedQuad(const Eigen::Vector2f& vert0,
+                         const Eigen::Vector2f& vert1,
+                         const Eigen::Vector2f& vert2,
+                         const Eigen::Vector2f& vert3,
+                         const Eigen::Vector2f& uvVert0,
+                         const Eigen::Vector2f& uvVert1,
+                         const Eigen::Vector2f& uvVert2,
+                         const Eigen::Vector2f& uvVert3,
                          const Eigen::Vector4f& color)
     {
         if (!m_currentBatch.has_value())
@@ -183,20 +187,20 @@ public:
             vtx.color[1] = color.y();
             vtx.color[2] = color.z();
             vtx.color[3] = color.w();
-            vtx.rect_size[0]     = m_pendingQuadParams.rect_size[0];
-            vtx.rect_size[1]     = m_pendingQuadParams.rect_size[1];
-            vtx.radius[0]        = m_pendingQuadParams.radius[0];
-            vtx.radius[1]        = m_pendingQuadParams.radius[1];
-            vtx.radius[2]        = m_pendingQuadParams.radius[2];
-            vtx.radius[3]        = m_pendingQuadParams.radius[3];
+            vtx.rect_size[0] = m_pendingQuadParams.rect_size[0];
+            vtx.rect_size[1] = m_pendingQuadParams.rect_size[1];
+            vtx.radius[0] = m_pendingQuadParams.radius[0];
+            vtx.radius[1] = m_pendingQuadParams.radius[1];
+            vtx.radius[2] = m_pendingQuadParams.radius[2];
+            vtx.radius[3] = m_pendingQuadParams.radius[3];
             vtx.shadow_params[0] = m_pendingQuadParams.shadow_soft;
             vtx.shadow_params[1] = m_pendingQuadParams.shadow_offset_x;
             vtx.shadow_params[2] = m_pendingQuadParams.shadow_offset_y;
             vtx.shadow_params[3] = m_pendingQuadParams.opacity;
-            vtx.mode_params[0]   = m_pendingQuadParams.padding_flag;
-            vtx.mode_params[1]   = m_pendingQuadParams.stroke_width;
-            vtx.mode_params[2]   = m_pendingQuadParams.draw_mode;
-            vtx.mode_params[3]   = 0.0F;
+            vtx.mode_params[0] = m_pendingQuadParams.padding_flag;
+            vtx.mode_params[1] = m_pendingQuadParams.stroke_width;
+            vtx.mode_params[2] = m_pendingQuadParams.draw_mode;
+            vtx.mode_params[3] = 0.0F;
             m_currentBatch->vertices.push_back(vtx);
         }
 
@@ -274,20 +278,20 @@ public:
         // 写入逐实体 SDF 参数到所有 4 个顶点
         for (auto& vtx : vertices)
         {
-            vtx.rect_size[0]     = m_pendingQuadParams.rect_size[0];
-            vtx.rect_size[1]     = m_pendingQuadParams.rect_size[1];
-            vtx.radius[0]        = m_pendingQuadParams.radius[0];
-            vtx.radius[1]        = m_pendingQuadParams.radius[1];
-            vtx.radius[2]        = m_pendingQuadParams.radius[2];
-            vtx.radius[3]        = m_pendingQuadParams.radius[3];
+            vtx.rect_size[0] = m_pendingQuadParams.rect_size[0];
+            vtx.rect_size[1] = m_pendingQuadParams.rect_size[1];
+            vtx.radius[0] = m_pendingQuadParams.radius[0];
+            vtx.radius[1] = m_pendingQuadParams.radius[1];
+            vtx.radius[2] = m_pendingQuadParams.radius[2];
+            vtx.radius[3] = m_pendingQuadParams.radius[3];
             vtx.shadow_params[0] = m_pendingQuadParams.shadow_soft;
             vtx.shadow_params[1] = m_pendingQuadParams.shadow_offset_x;
             vtx.shadow_params[2] = m_pendingQuadParams.shadow_offset_y;
             vtx.shadow_params[3] = m_pendingQuadParams.opacity;
-            vtx.mode_params[0]   = m_pendingQuadParams.padding_flag;
-            vtx.mode_params[1]   = m_pendingQuadParams.stroke_width;
-            vtx.mode_params[2]   = m_pendingQuadParams.draw_mode;
-            vtx.mode_params[3]   = 0.0F;
+            vtx.mode_params[0] = m_pendingQuadParams.padding_flag;
+            vtx.mode_params[1] = m_pendingQuadParams.stroke_width;
+            vtx.mode_params[2] = m_pendingQuadParams.draw_mode;
+            vtx.mode_params[3] = 0.0F;
         }
 
         for (const auto& val : vertices)
@@ -360,21 +364,21 @@ public:
 private:
     struct PendingQuadParams
     {
-        float rect_size[2]     = {0.0F, 0.0F};
-        float radius[4]        = {0.0F, 0.0F, 0.0F, 0.0F};
-        float shadow_soft      = 0.0F;
-        float shadow_offset_x  = 0.0F;
-        float shadow_offset_y  = 0.0F;
-        float opacity          = 1.0F;
-        float padding_flag     = 0.0F;
-        float stroke_width     = 0.0F;
-        float draw_mode        = 0.0F;
+        float rect_size[2] = {0.0F, 0.0F};
+        float radius[4] = {0.0F, 0.0F, 0.0F, 0.0F};
+        float shadow_soft = 0.0F;
+        float shadow_offset_x = 0.0F;
+        float shadow_offset_y = 0.0F;
+        float opacity = 1.0F;
+        float padding_flag = 0.0F;
+        float stroke_width = 0.0F;
+        float draw_mode = 0.0F;
     };
 
-    std::pmr::monotonic_buffer_resource m_bufferResource;                       // 帧内内存池资源
-    std::optional<std::pmr::vector<render::RenderBatch>> m_batches;             // 存储所有渲染批次
-    std::optional<render::RenderBatch> m_currentBatch;                          // 当前正在构建的批次
-    PendingQuadParams m_pendingQuadParams{};                                     // 当前逐实体 SDF 参数
+    std::pmr::monotonic_buffer_resource m_bufferResource;           // 帧内内存池资源
+    std::optional<std::pmr::vector<render::RenderBatch>> m_batches; // 存储所有渲染批次
+    std::optional<render::RenderBatch> m_currentBatch;              // 当前正在构建的批次
+    PendingQuadParams m_pendingQuadParams{};                        // 当前逐实体 SDF 参数
 };
 
 } // namespace ui::managers

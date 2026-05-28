@@ -485,14 +485,14 @@ public:
         // 创建 RGBA 位图（初始化为透明）
         result.resize(static_cast<size_t>(outWidth) * static_cast<size_t>(outHeight) * 4, 0);
         blendTextBitmap(layouts,
-                {.baseline = baseline,
-                 .outWidth = outWidth,
-                 .outHeight = outHeight,
-                 .red = red,
-                 .green = green,
-                 .blue = blue,
-                 .alpha = alpha},
-                result);
+                        {.baseline = baseline,
+                         .outWidth = outWidth,
+                         .outHeight = outHeight,
+                         .red = red,
+                         .green = green,
+                         .blue = blue,
+                         .alpha = alpha},
+                        result);
 
         return result;
     }
@@ -724,7 +724,8 @@ private:
     {
     public:
         FontSizeGuard(FontManager& manager, float targetSize)
-            : m_manager(manager), m_oldSize(manager.m_fontSize), m_needRestore(std::abs(targetSize - manager.m_fontSize) > 0.1F)
+            : m_manager(manager), m_oldSize(manager.m_fontSize),
+              m_needRestore(std::abs(targetSize - manager.m_fontSize) > 0.1F)
         {
             if (m_needRestore)
             {
@@ -796,7 +797,8 @@ private:
 
     static uint8_t glyphAlphaAt(const GlyphInfo& glyph, int xOffset, int yOffset)
     {
-        const auto pixelIndex = (static_cast<size_t>(yOffset) * static_cast<size_t>(glyph.width)) + static_cast<size_t>(xOffset);
+        const auto pixelIndex =
+            (static_cast<size_t>(yOffset) * static_cast<size_t>(glyph.width)) + static_cast<size_t>(xOffset);
         return glyph.bitmap.at(pixelIndex);
     }
 
@@ -812,11 +814,8 @@ private:
         }
     }
 
-    static void blendAlphaGlyph(const GlyphLayout& layout,
-                                int baseline,
-                                int outWidth,
-                                int outHeight,
-                                std::vector<uint8_t>& result)
+    static void blendAlphaGlyph(
+        const GlyphLayout& layout, int baseline, int outWidth, int outHeight, std::vector<uint8_t>& result)
     {
         const auto& glyph = layout.glyph;
         const int xPos = static_cast<int>(std::floor(layout.xPos)) + glyph.bearingX;
@@ -830,7 +829,8 @@ private:
                 const int bitmapY = yPos + yOffset;
                 if (!isInsideBitmap(bitmapX, bitmapY, outWidth, outHeight)) continue;
 
-                const auto pixelIndex = (static_cast<size_t>(bitmapY) * static_cast<size_t>(outWidth)) + static_cast<size_t>(bitmapX);
+                const auto pixelIndex =
+                    (static_cast<size_t>(bitmapY) * static_cast<size_t>(outWidth)) + static_cast<size_t>(bitmapX);
                 const uint8_t finalAlpha = glyphAlphaAt(glyph, xOffset, yOffset);
                 result.at(pixelIndex) = std::max(result.at(pixelIndex), finalAlpha);
             }
@@ -852,12 +852,8 @@ private:
         return static_cast<uint8_t>(((static_cast<uint16_t>(color) * alpha) + 127U) / 255U);
     }
 
-    static void writeSourcePixel(std::vector<uint8_t>& result,
-                                 size_t pixelIndex,
-                                 uint8_t red,
-                                 uint8_t green,
-                                 uint8_t blue,
-                                 uint8_t alpha)
+    static void writeSourcePixel(
+        std::vector<uint8_t>& result, size_t pixelIndex, uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
     {
         result.at(pixelIndex) = red;
         result.at(pixelIndex + 1U) = green;
@@ -865,28 +861,26 @@ private:
         result.at(pixelIndex + 3U) = alpha;
     }
 
-    static void blendSourceOver(std::vector<uint8_t>& result,
-                                size_t pixelIndex,
-                                uint8_t red,
-                                uint8_t green,
-                                uint8_t blue,
-                                uint8_t alpha)
+    static void blendSourceOver(
+        std::vector<uint8_t>& result, size_t pixelIndex, uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
     {
         const float sourceAlpha = static_cast<float>(alpha) / 255.0F;
         const float oneMinusSourceAlpha = 1.0F - sourceAlpha;
-        result.at(pixelIndex) = static_cast<uint8_t>(std::lround(
-            std::min(255.0F, static_cast<float>(red) + (static_cast<float>(result.at(pixelIndex)) * oneMinusSourceAlpha))));
+        result.at(pixelIndex) = static_cast<uint8_t>(std::lround(std::min(
+            255.0F, static_cast<float>(red) + (static_cast<float>(result.at(pixelIndex)) * oneMinusSourceAlpha))));
         result.at(pixelIndex + 1U) = static_cast<uint8_t>(std::lround(std::min(
-            255.0F, static_cast<float>(green) + (static_cast<float>(result.at(pixelIndex + 1U)) * oneMinusSourceAlpha))));
+            255.0F,
+            static_cast<float>(green) + (static_cast<float>(result.at(pixelIndex + 1U)) * oneMinusSourceAlpha))));
         result.at(pixelIndex + 2U) = static_cast<uint8_t>(std::lround(std::min(
-            255.0F, static_cast<float>(blue) + (static_cast<float>(result.at(pixelIndex + 2U)) * oneMinusSourceAlpha))));
+            255.0F,
+            static_cast<float>(blue) + (static_cast<float>(result.at(pixelIndex + 2U)) * oneMinusSourceAlpha))));
         result.at(pixelIndex + 3U) = static_cast<uint8_t>(std::lround(std::min(
-            255.0F, static_cast<float>(alpha) + (static_cast<float>(result.at(pixelIndex + 3U)) * oneMinusSourceAlpha))));
+            255.0F,
+            static_cast<float>(alpha) + (static_cast<float>(result.at(pixelIndex + 3U)) * oneMinusSourceAlpha))));
     }
 
-    static void blendTextGlyph(const GlyphLayout& layout,
-                               const TextBlendState& blendState,
-                               std::vector<uint8_t>& result)
+    static void
+        blendTextGlyph(const GlyphLayout& layout, const TextBlendState& blendState, std::vector<uint8_t>& result)
     {
         const auto& glyph = layout.glyph;
         const int xPos = static_cast<int>(std::floor(layout.xPos)) + glyph.bearingX;
@@ -900,8 +894,9 @@ private:
                 const int bitmapY = yPos + yOffset;
                 if (!isInsideBitmap(bitmapX, bitmapY, blendState.outWidth, blendState.outHeight)) continue;
 
-                const auto pixelIndex = ((static_cast<size_t>(bitmapY) * static_cast<size_t>(blendState.outWidth)) +
-                                         static_cast<size_t>(bitmapX)) * 4U;
+                const auto pixelIndex = ((static_cast<size_t>(bitmapY) * static_cast<size_t>(blendState.outWidth))
+                                         + static_cast<size_t>(bitmapX))
+                                      * 4U;
                 const auto finalAlpha = premultiplyColor(glyphAlphaAt(glyph, xOffset, yOffset), blendState.alpha);
                 if (finalAlpha == 0) continue;
 

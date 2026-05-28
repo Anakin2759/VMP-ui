@@ -20,12 +20,10 @@
 #include <unordered_set>
 #include <SDL3/SDL.h>
 
-
 #include "../interface/Isystem.hpp"
 #include "../common/Events.hpp"
 
 #include "../common/GlobalContext.hpp"
-
 
 namespace ui::systems
 {
@@ -59,13 +57,9 @@ private:
         static entt::entity findScrollTargetFromHit(entt::entity hitEntity);
         static entt::entity findScrollTargetAtPosition(const Vec2& pointerPosition);
         static void applyScrollWheelDelta(entt::entity target, const Vec2& scrollDelta);
-        static void updateHoverStates(
-            const events::HitPointerMove& event,
-            const globalcontext::StateContext& state);
+        static void updateHoverStates(const events::HitPointerMove& event, const globalcontext::StateContext& state);
         static void handleDrag(const events::HitPointerMove& event, globalcontext::StateContext& state);
-        static bool tryHandlePress(
-            const events::HitPointerButton& event,
-            globalcontext::StateContext& state);
+        static bool tryHandlePress(const events::HitPointerButton& event, globalcontext::StateContext& state);
         static ScrollbarHitType checkHit(entt::entity entity, const Vec2& mousePos, bool& outIsVertical);
         static void calculateGeometry(entt::entity entity, bool isVertical, float& outTrackLen, float& outThumbSize);
         static void handleTrackClick(entt::entity entity, const Vec2& mousePos, bool isVertical);
@@ -76,10 +70,7 @@ private:
         static bool isWritableTextEdit(entt::entity entity);
         static bool shouldEmitPressForEntity(entt::entity entity);
 
-        static void queueHoveredEntity(
-            StateSystem& system,
-            globalcontext::StateContext& state,
-            entt::entity entity);
+        static void queueHoveredEntity(StateSystem& system, globalcontext::StateContext& state, entt::entity entity);
 
         static void queueHoverClear(StateSystem& system, globalcontext::StateContext& state, entt::entity entity);
 
@@ -87,9 +78,7 @@ private:
 
         static void queueActiveClear(StateSystem& system, globalcontext::StateContext& state, entt::entity entity);
 
-        static void handleHoverUpdate(
-            const events::HitPointerMove& event,
-            const globalcontext::StateContext& state);
+        static void handleHoverUpdate(const events::HitPointerMove& event, const globalcontext::StateContext& state);
 
         static void setFocus(entt::entity entity, SDL_Window* sdlWindow = nullptr);
 
@@ -97,10 +86,9 @@ private:
 
         static void handleEntityPress(const events::HitPointerButton& event);
 
-        static void handleEntityRelease(
-            StateSystem& system,
-            const events::HitPointerButton& event,
-            globalcontext::StateContext& state);
+        static void handleEntityRelease(StateSystem& system,
+                                        const events::HitPointerButton& event,
+                                        globalcontext::StateContext& state);
 
         static void tryEmitTableCellClicked(entt::entity hitEntity, const Vec2& pointerPosition);
     };
@@ -258,8 +246,6 @@ private:
     // ===================================================================
 
     static void destroyWidget(entt::entity entity);
-
 };
-
 
 } // namespace ui::systems

@@ -15,9 +15,9 @@ RuntimeFacade::ActiveRuntimeState RuntimeFacade::activateRuntime(UiRuntime& runt
 {
     WorkerMailbox*& mailboxSlot = activeMailbox();
     return {
-        .registry   = Registry::swapActiveInstance(&runtime.m_registry),
+        .registry = Registry::swapActiveInstance(&runtime.m_registry),
         .dispatcher = Dispatcher::swapActiveInstance(&runtime.m_dispatcher),
-        .mailbox    = std::exchange(mailboxSlot, &runtime.m_mailbox),
+        .mailbox = std::exchange(mailboxSlot, &runtime.m_mailbox),
     };
 }
 

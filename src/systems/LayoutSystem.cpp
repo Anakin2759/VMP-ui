@@ -49,8 +49,8 @@ constexpr float DEFAULT_LEAF_HEIGHT = 20.0F;
     {
         return false;
     }
-    return Registry::AnyOf<components::SpacerTag>(entity) ||
-           Registry::AllOf<components::Position, components::Size>(entity);
+    return Registry::AnyOf<components::SpacerTag>(entity)
+        || Registry::AllOf<components::Position, components::Size>(entity);
 }
 
 void DetachFromOwnerIfNeeded(YGNodeRef ownerNode, YGNodeRef childNode, YGNodeRef targetNode)
@@ -74,16 +74,16 @@ void DetachFromOwnerIfNeeded(YGNodeRef ownerNode, YGNodeRef childNode, YGNodeRef
 
     auto hasHorizontalAlignment = [&](policies::Alignment value)
     {
-        return policies::HasFlag(value, policies::Alignment::LEFT) ||
-               policies::HasFlag(value, policies::Alignment::HCENTER) ||
-               policies::HasFlag(value, policies::Alignment::RIGHT);
+        return policies::HasFlag(value, policies::Alignment::LEFT)
+            || policies::HasFlag(value, policies::Alignment::HCENTER)
+            || policies::HasFlag(value, policies::Alignment::RIGHT);
     };
 
     auto hasVerticalAlignment = [&](policies::Alignment value)
     {
-        return policies::HasFlag(value, policies::Alignment::TOP) ||
-               policies::HasFlag(value, policies::Alignment::VCENTER) ||
-               policies::HasFlag(value, policies::Alignment::BOTTOM);
+        return policies::HasFlag(value, policies::Alignment::TOP)
+            || policies::HasFlag(value, policies::Alignment::VCENTER)
+            || policies::HasFlag(value, policies::Alignment::BOTTOM);
     };
 
     if (!hasHorizontalAlignment(alignment))
@@ -99,16 +99,16 @@ void DetachFromOwnerIfNeeded(YGNodeRef ownerNode, YGNodeRef childNode, YGNodeRef
     switch (scrollArea->scroll)
     {
         case policies::Scroll::VERTICAL:
-            alignment = static_cast<policies::Alignment>((static_cast<uint8_t>(alignment) &
-                                                          ~static_cast<uint8_t>(policies::Alignment::BOTTOM) &
-                                                          ~static_cast<uint8_t>(policies::Alignment::VCENTER)) |
-                                                         static_cast<uint8_t>(policies::Alignment::TOP));
+            alignment = static_cast<policies::Alignment>((static_cast<uint8_t>(alignment)
+                                                          & ~static_cast<uint8_t>(policies::Alignment::BOTTOM)
+                                                          & ~static_cast<uint8_t>(policies::Alignment::VCENTER))
+                                                         | static_cast<uint8_t>(policies::Alignment::TOP));
             break;
         case policies::Scroll::HORIZONTAL:
-            alignment = static_cast<policies::Alignment>((static_cast<uint8_t>(alignment) &
-                                                          ~static_cast<uint8_t>(policies::Alignment::RIGHT) &
-                                                          ~static_cast<uint8_t>(policies::Alignment::HCENTER)) |
-                                                         static_cast<uint8_t>(policies::Alignment::LEFT));
+            alignment = static_cast<policies::Alignment>((static_cast<uint8_t>(alignment)
+                                                          & ~static_cast<uint8_t>(policies::Alignment::RIGHT)
+                                                          & ~static_cast<uint8_t>(policies::Alignment::HCENTER))
+                                                         | static_cast<uint8_t>(policies::Alignment::LEFT));
             break;
         case policies::Scroll::BOTH:
             alignment = policies::Alignment::TOP_LEFT;
@@ -435,8 +435,7 @@ void ConfigureAbsolutePosition(entt::entity entity, YGNodeRef node)
         return;
     }
 
-    const bool horizontalAbsolute =
-        policies::HasFlag(positionComp->positionPolicy, policies::Position::H_ABSOLUTE);
+    const bool horizontalAbsolute = policies::HasFlag(positionComp->positionPolicy, policies::Position::H_ABSOLUTE);
     const bool verticalAbsolute = policies::HasFlag(positionComp->positionPolicy, policies::Position::V_ABSOLUTE);
     if (!horizontalAbsolute && !verticalAbsolute)
     {
@@ -637,8 +636,7 @@ void ConfigureLeafAutoSize(entt::entity entity, YGNodeRef node)
         return widths;
     }
 
-    const float fallbackWidth =
-        (columnCount > 0) ? (totalWidth / static_cast<float>(columnCount)) : totalWidth;
+    const float fallbackWidth = (columnCount > 0) ? (totalWidth / static_cast<float>(columnCount)) : totalWidth;
     for (int col = 0; col < columnCount; ++col)
     {
         widths.at(static_cast<size_t>(col)) = fallbackWidth;
@@ -808,8 +806,7 @@ struct LayoutTraversalFrame
 } // namespace
 
 LayoutSystem::LayoutSystem()
-    : m_yogaConfig(YGConfigNew()),
-      m_entityToNode(std::make_unique<std::unordered_map<entt::entity, YGNodeRef>>())
+    : m_yogaConfig(YGConfigNew()), m_entityToNode(std::make_unique<std::unordered_map<entt::entity, YGNodeRef>>())
 {
 }
 
@@ -823,8 +820,7 @@ LayoutSystem::~LayoutSystem()
 }
 
 LayoutSystem::LayoutSystem(LayoutSystem&& other) noexcept
-    : m_yogaConfig(other.m_yogaConfig),
-      m_entityToNode(std::move(other.m_entityToNode))
+    : m_yogaConfig(other.m_yogaConfig), m_entityToNode(std::move(other.m_entityToNode))
 {
     other.m_yogaConfig = nullptr;
 }

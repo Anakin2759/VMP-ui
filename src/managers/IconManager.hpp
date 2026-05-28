@@ -254,10 +254,8 @@ private:
                                                           uint32_t width,
                                                           uint32_t height);
 
-    const TextureInfo* cacheIconTexture(const std::string& cacheKey,
-                                        wrappers::UniqueGPUTexture texture,
-                                        int width,
-                                        int height);
+    const TextureInfo*
+        cacheIconTexture(const std::string& cacheKey, wrappers::UniqueGPUTexture texture, int width, int height);
 
     DeviceManager* m_deviceManager;
     FT_Library m_ftLibrary = nullptr;

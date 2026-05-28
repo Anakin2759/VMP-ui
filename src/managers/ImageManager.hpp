@@ -73,10 +73,7 @@ private:
     /**
      * @brief 将 RGBA 像素数据上传到 GPU 并返回纹理
      */
-    SDL_GPUTexture* uploadToGpu(SDL_GPUDevice* device,
-                                const unsigned char* pixels,
-                                uint32_t width,
-                                uint32_t height);
+    SDL_GPUTexture* uploadToGpu(SDL_GPUDevice* device, const unsigned char* pixels, uint32_t width, uint32_t height);
 
     DeviceManager* m_deviceManager = nullptr;
     // 路径 -> 已上传的 GPU 纹理（原始指针，生命周期同 ImageManager）

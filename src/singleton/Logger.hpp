@@ -104,10 +104,7 @@ public:
      * @brief 重新配置日志文件路径（替换文件 sink，控制台 sink 保持不变）
      * @param filePath 新的日志文件路径
      */
-    static void reconfigure(std::string_view filePath)
-    {
-        instance().reconfigure_impl(filePath);
-    }
+    static void reconfigure(std::string_view filePath) { instance().reconfigure_impl(filePath); }
 
 private:
     static Logger& instance()

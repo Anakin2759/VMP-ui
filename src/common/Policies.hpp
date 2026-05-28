@@ -17,7 +17,7 @@ namespace ui::policies
 /**
  * @brief 系统管理器枚举
  */
-enum class SystemManager : uint16_t 
+enum class SystemManager : uint16_t
 {
     DISABLE_ALL = 0,
     INTERACTION = 1U << 0U,
@@ -157,9 +157,9 @@ enum class TextWrap : uint8_t
 enum class TextFlag : uint16_t
 {
     DEFAULT = 0,
-    PASSWORD = 1 << 0,               // 掩码显示
-    READ_ONLY = 1 << 1,              // 不可编辑
-    MULTILINE = 1 << 2,              // 支持多行渲染
+    PASSWORD = 1 << 0,  // 掩码显示
+    READ_ONLY = 1 << 1, // 不可编辑
+    MULTILINE = 1 << 2, // 支持多行渲染
     READ_ONLY_MULTILINE = (1U << 1U) | (1U << 2U),
     TRANSFERABLE = 1 << 3,           // 支持文本拖拽/复制
     RICH_TEXT = 1 << 4,              // 启用富文本/标记语言解析
@@ -176,8 +176,8 @@ enum class TextFlag : uint16_t
  */
 enum class AspectRatio : uint8_t
 {
-    IGNORE_RATIO,  // 忽略
-    MAINTAIN // 保持比例
+    IGNORE_RATIO, // 忽略
+    MAINTAIN      // 保持比例
 };
 
 enum class CheckState : uint8_t
@@ -234,14 +234,14 @@ enum class LabelVisibility : uint8_t
  */
 enum class Position : uint8_t
 {
-    DEFAULT = 0,        // 默认行为（由布局系统决定）
-    V_FIXED = 1 << 0,   // 使用 Position 组件中的固定位置
-    V_CENTER = 1 << 1,  // 在屏幕/父容器中居中
-    V_AUTO = 1 << 2,    // 由布局系统自动计算
+    DEFAULT = 0,         // 默认行为（由布局系统决定）
+    V_FIXED = 1 << 0,    // 使用 Position 组件中的固定位置
+    V_CENTER = 1 << 1,   // 在屏幕/父容器中居中
+    V_AUTO = 1 << 2,     // 由布局系统自动计算
     V_ABSOLUTE = 1 << 3, // 绝对定位
-    H_FIXED = 1 << 4,   // 使用 Position 组件中的固定位置
-    H_CENTER = 1 << 5,  // 在屏幕/父容器中居中
-    H_AUTO = 1 << 6,    // 由布局系统自动计算
+    H_FIXED = 1 << 4,    // 使用 Position 组件中的固定位置
+    H_CENTER = 1 << 5,   // 在屏幕/父容器中居中
+    H_AUTO = 1 << 6,     // 由布局系统自动计算
     H_ABSOLUTE = 1 << 7, // 绝对定位
 
     AUTO = V_AUTO | H_AUTO,
@@ -304,7 +304,7 @@ enum class IconFlag : uint8_t
 {
     // --- 渲染类型 (Flags) ---
     DEFAULT = 0,
-    TEXTURE = 1 << 0, // 是贴图还是矢量字体
+    TEXTURE = 1 << 0,  // 是贴图还是矢量字体
     HAS_TEXT = 1 << 1, // 是否携带文本标签
 };
 

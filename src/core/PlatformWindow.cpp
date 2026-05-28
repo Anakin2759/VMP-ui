@@ -34,7 +34,7 @@
 #define NOMINMAX
 #endif
 
-#include <Windows.h> // IWYU pragma: keep
+#include <Windows.h>  // IWYU pragma: keep
 #include <windowsx.h> // GET_X_LPARAM, GET_Y_LPARAM
 #include <basetsd.h>
 #include <minwindef.h>
@@ -202,7 +202,7 @@ void SetupCustomTitleBar(SDL_Window* sdlWindow, int borderWidth)
     //    WS_CAPTION 必须保留，否则 DWM 不会应用 Win11 圆角和透明合成，
     //    导致圆角外区域显示黑色。标题栏区域通过 WM_NCCALCSIZE 返回 0 来隐藏。
     auto style = GetWindowLongW(hwnd, GWL_STYLE);
-    style &= ~WS_SYSMENU;                                        // 仅移除系统菜单，保留 WS_CAPTION 给 DWM
+    style &= ~WS_SYSMENU; // 仅移除系统菜单，保留 WS_CAPTION 给 DWM
     style |= (WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
     SetWindowLongW(hwnd, GWL_STYLE, style);
 

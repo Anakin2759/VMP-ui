@@ -152,8 +152,7 @@ private:
         const Eigen::Vector2f trackSize(trackWidth, size.y());
         drawRoundedRect(trackPos, trackSize, verticalTrackColor(entity), 6.0F, alpha, context);
 
-        const Eigen::Vector2f barPos(pos.x() + size.x() - barWidth - trackPadding - 1.0F,
-                                     pos.y() + thumbPos + 2.0F);
+        const Eigen::Vector2f barPos(pos.x() + size.x() - barWidth - trackPadding - 1.0F, pos.y() + thumbPos + 2.0F);
         const Eigen::Vector2f barSize(barWidth, thumbSize - 4.0F);
         drawRoundedRect(barPos, barSize, verticalThumbColor(entity), 5.0F, alpha, context);
     }

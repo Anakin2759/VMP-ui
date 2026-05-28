@@ -52,9 +52,8 @@ std::vector<uint32_t> BuildPremultipliedRgba(const FT_Bitmap& bitmap, int width,
     for (const uint8_t alpha : bitmapData)
     {
         auto premultRGB = static_cast<uint8_t>((255U * alpha) / 255U);
-        rgbaPixels.at(pixelIndex) = (static_cast<uint32_t>(alpha) << 24U) |
-                                    (static_cast<uint32_t>(premultRGB) << 16U) |
-                                    (static_cast<uint32_t>(premultRGB) << 8U) | premultRGB;
+        rgbaPixels.at(pixelIndex) = (static_cast<uint32_t>(alpha) << 24U) | (static_cast<uint32_t>(premultRGB) << 16U)
+                                  | (static_cast<uint32_t>(premultRGB) << 8U) | premultRGB;
         ++pixelIndex;
     }
     return rgbaPixels;

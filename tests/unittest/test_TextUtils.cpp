@@ -1,12 +1,12 @@
 /**
  * ************************************************************************
- * 
+ *
  * @file test_TextUtils.cpp
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2026-03-16
  * @version 0.1
  * @brief 测试 TextUtils 的文本处理功能，确保文本换行和尾部截断逻辑正确
- * 
+ *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
  * For study and research only, no reprinting.

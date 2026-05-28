@@ -230,9 +230,9 @@ components::VerticalScrollbarGeometry GetVerticalScrollbarGeometry(::entt::entit
         return geometry;
     }
 
-    geometry.trackRect = {geometry.containerRect.x() + geometry.containerRect.width() -
-                              components::ScrollArea::SCROLLBAR_TRACK_WIDTH -
-                              components::ScrollArea::SCROLLBAR_TRACK_PADDING,
+    geometry.trackRect = {geometry.containerRect.x() + geometry.containerRect.width()
+                              - components::ScrollArea::SCROLLBAR_TRACK_WIDTH
+                              - components::ScrollArea::SCROLLBAR_TRACK_PADDING,
                           geometry.containerRect.y(),
                           components::ScrollArea::SCROLLBAR_TRACK_WIDTH,
                           geometry.trackHeight};
@@ -241,21 +241,18 @@ components::VerticalScrollbarGeometry GetVerticalScrollbarGeometry(::entt::entit
     geometry.thumbHeight =
         std::max(components::ScrollArea::SCROLLBAR_THUMB_MIN_SIZE, geometry.trackHeight * visibleRatio);
 
-    const float scrollRatio = geometry.maxScroll > 0.0F
-                                  ? std::clamp(scrollArea->scrollOffset.y() / geometry.maxScroll, 0.0F, 1.0F)
-                                  : 0.0F;
+    const float scrollRatio =
+        geometry.maxScroll > 0.0F ? std::clamp(scrollArea->scrollOffset.y() / geometry.maxScroll, 0.0F, 1.0F) : 0.0F;
     const float thumbTravel = std::max(0.0F, geometry.trackHeight - geometry.thumbHeight);
-    const float thumbTop = geometry.trackRect.y() + (thumbTravel * scrollRatio) +
-                           components::ScrollArea::SCROLLBAR_THUMB_INSET;
+    const float thumbTop =
+        geometry.trackRect.y() + (thumbTravel * scrollRatio) + components::ScrollArea::SCROLLBAR_THUMB_INSET;
 
-    geometry.thumbRect = {geometry.containerRect.x() + geometry.containerRect.width() -
-                              components::ScrollArea::SCROLLBAR_THUMB_WIDTH -
-                              components::ScrollArea::SCROLLBAR_TRACK_PADDING - 1.0F,
-                          thumbTop,
-                          components::ScrollArea::SCROLLBAR_THUMB_WIDTH,
-                          std::max(0.0F,
-                                   geometry.thumbHeight -
-                                       (components::ScrollArea::SCROLLBAR_THUMB_INSET * 2.0F))};
+    geometry.thumbRect = {
+        geometry.containerRect.x() + geometry.containerRect.width() - components::ScrollArea::SCROLLBAR_THUMB_WIDTH
+            - components::ScrollArea::SCROLLBAR_TRACK_PADDING - 1.0F,
+        thumbTop,
+        components::ScrollArea::SCROLLBAR_THUMB_WIDTH,
+        std::max(0.0F, geometry.thumbHeight - (components::ScrollArea::SCROLLBAR_THUMB_INSET * 2.0F))};
     geometry.visible = true;
     return geometry;
 }
@@ -293,10 +290,9 @@ bool IsEntityExist(const std::string& alias)
 {
     auto view = Registry::View<components::BaseInfo>();
 
-     return std::ranges::any_of(view,
-                        [&view, &alias](entt::entity entity) -> bool
-                        { return view.get<components::BaseInfo>(entity).alias == alias; });
-
+    return std::ranges::any_of(view,
+                               [&view, &alias](entt::entity entity) -> bool
+                               { return view.get<components::BaseInfo>(entity).alias == alias; });
 }
 
 } // namespace ui::utils

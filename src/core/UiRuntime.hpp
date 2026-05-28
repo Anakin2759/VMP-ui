@@ -66,16 +66,15 @@ private:
 
     /// 每个运行时独立的线程池，声明在最前保证最后析构（workers 停止后 mailbox/registry 才释放）
     utils::ThreadPool m_threadPool;
-    Registry    m_registry;
-    Dispatcher  m_dispatcher;
+    Registry m_registry;
+    Dispatcher m_dispatcher;
     WorkerMailbox m_mailbox;
 };
 
 class UiRuntimeScope
 {
 public:
-    explicit UiRuntimeScope(UiRuntime& runtime)
-    : m_previousRuntime(RuntimeFacade::current().activateRuntime(runtime))
+    explicit UiRuntimeScope(UiRuntime& runtime) : m_previousRuntime(RuntimeFacade::current().activateRuntime(runtime))
     {
     }
 

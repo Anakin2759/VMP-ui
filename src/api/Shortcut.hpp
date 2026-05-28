@@ -48,11 +48,11 @@ namespace ui::shortcut
  */
 enum class Mod : uint16_t
 {
-    NONE  = 0x0000,
+    NONE = 0x0000,
     SHIFT = 0x0003,
-    CTRL  = 0x00C0,
-    ALT   = 0x0300,
-    GUI   = 0x0C00,
+    CTRL = 0x00C0,
+    ALT = 0x0300,
+    GUI = 0x0C00,
 };
 
 inline Mod operator|(Mod lhs, Mod rhs)
@@ -61,9 +61,9 @@ inline Mod operator|(Mod lhs, Mod rhs)
 }
 
 using ShortcutId = uint32_t;
-using Callback   = ::ui::VoidCallback;
+using Callback = ::ui::VoidCallback;
 /// int32_t 与 SDL_Keycode (Sint32) 完全兼容，可直接传入 SDLK_* 常量
-using KeyCode    = int32_t;
+using KeyCode = int32_t;
 
 /**
  * @brief 注册全局快捷键（单键，无修饰）
@@ -109,9 +109,7 @@ inline auto OnKeyPress(ui::shortcut::KeyCode key, ui::shortcut::Callback callbac
 {
     auto sharedCb = std::make_shared<ui::shortcut::Callback>(std::move(callback));
     return Chain{[key, sharedCb](entt::entity /*entity*/) mutable
-    {
-        ui::shortcut::Register(key, [sharedCb] { (*sharedCb)(); });
-    }};
+                 { ui::shortcut::Register(key, [sharedCb] { (*sharedCb)(); }); }};
 }
 
 /**
@@ -123,9 +121,7 @@ inline auto OnKeyPress(ui::shortcut::KeyCode key, ui::shortcut::Mod mod, ui::sho
 {
     auto sharedCb = std::make_shared<ui::shortcut::Callback>(std::move(callback));
     return Chain{[key, mod, sharedCb](entt::entity /*entity*/) mutable
-    {
-        ui::shortcut::Register(key, mod, [sharedCb] { (*sharedCb)(); });
-    }};
+                 { ui::shortcut::Register(key, mod, [sharedCb] { (*sharedCb)(); }); }};
 }
 
 } // namespace ui::chains

@@ -3,14 +3,16 @@
 namespace ui::managers
 {
 
-TextTextureCache::TextTextureCache(ui::managers::DeviceManager& deviceManager,
-                                   ui::managers::FontManager& fontManager)
+TextTextureCache::TextTextureCache(ui::managers::DeviceManager& deviceManager, ui::managers::FontManager& fontManager)
     : m_deviceManager(deviceManager), m_fontManager(fontManager)
 {
     Logger::info("[TextTextureCache] Initialized with max size: {}", MAX_CACHE_SIZE);
 }
 
-TextTextureCache::~TextTextureCache() { clear(); }
+TextTextureCache::~TextTextureCache()
+{
+    clear();
+}
 
 void TextTextureCache::clear()
 {
@@ -26,19 +28,19 @@ TextTextureCache::CacheStats TextTextureCache::getStats() const
     stats.hitCount = m_hitCount;
     stats.missCount = m_missCount;
     stats.hitRate = (m_hitCount + m_missCount) > 0
-                        ? static_cast<float>(m_hitCount) / static_cast<float>(m_hitCount + m_missCount)
-                        : 0.0F;
+                      ? static_cast<float>(m_hitCount) / static_cast<float>(m_hitCount + m_missCount)
+                      : 0.0F;
     stats.evictionCount = m_evictionCount;
     return stats;
 }
 
-size_t TextTextureCache::size() const { return m_cache.size(); }
+size_t TextTextureCache::size() const
+{
+    return m_cache.size();
+}
 
-SDL_GPUTexture* TextTextureCache::getOrUpload(const std::string& text,
-                                              const Eigen::Vector4f& color,
-                                              uint32_t& outWidth,
-                                              uint32_t& outHeight,
-                                              float fontSize)
+SDL_GPUTexture* TextTextureCache::getOrUpload(
+    const std::string& text, const Eigen::Vector4f& color, uint32_t& outWidth, uint32_t& outHeight, float fontSize)
 {
     SDL_GPUDevice* device = m_deviceManager.getDevice();
     if (device == nullptr || !m_fontManager.isLoaded()) return nullptr;
@@ -91,9 +93,7 @@ bool TextTextureCache::isR8UnormSampledTextureSupported(SDL_GPUDevice* device)
     return m_r8UnormSampledSupportState == R8UnormSampledSupportState::SUPPORTED;
 }
 
-SDL_GPUTexture* TextTextureCache::tryGetFromCache(const std::string& cacheKey,
-                                                  uint32_t& outWidth,
-                                                  uint32_t& outHeight)
+SDL_GPUTexture* TextTextureCache::tryGetFromCache(const std::string& cacheKey, uint32_t& outWidth, uint32_t& outHeight)
 {
     auto iter = m_cache.find(cacheKey);
     if (iter != m_cache.end())
@@ -178,8 +178,7 @@ wrappers::UniqueGPUTexture TextTextureCache::createAndUploadTexture(SDL_GPUDevic
     textureInfo.num_levels = 1;
     textureInfo.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
 
-    auto texture =
-        wrappers::MakeGpuResource<wrappers::UniqueGPUTexture>(device, SDL_CreateGPUTexture, &textureInfo);
+    auto texture = wrappers::MakeGpuResource<wrappers::UniqueGPUTexture>(device, SDL_CreateGPUTexture, &textureInfo);
     if (!texture)
     {
         Logger::error("[TextTextureCache] Failed to create texture");
@@ -195,11 +194,8 @@ wrappers::UniqueGPUTexture TextTextureCache::createAndUploadTexture(SDL_GPUDevic
     return texture;
 }
 
-bool TextTextureCache::uploadTextureData(SDL_GPUDevice* device,
-                                         SDL_GPUTexture* texture,
-                                         const std::vector<uint8_t>& bitmap,
-                                         uint32_t width,
-                                         uint32_t height)
+bool TextTextureCache::uploadTextureData(
+    SDL_GPUDevice* device, SDL_GPUTexture* texture, const std::vector<uint8_t>& bitmap, uint32_t width, uint32_t height)
 {
     SDL_GPUTransferBufferCreateInfo transferInfo = {};
     transferInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;

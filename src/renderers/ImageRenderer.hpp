@@ -92,8 +92,7 @@ public:
 
         context.batchManager->beginBatch(tex, context.currentScissor, pushConstants);
 
-        const Eigen::Vector4f tint{
-            img->tintColor.red, img->tintColor.green, img->tintColor.blue, img->tintColor.alpha};
+        const Eigen::Vector4f tint{img->tintColor.red, img->tintColor.green, img->tintColor.blue, img->tintColor.alpha};
 
         context.batchManager->addRect(context.position,
                                       context.size,

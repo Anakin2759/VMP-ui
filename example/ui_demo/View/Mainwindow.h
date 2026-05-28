@@ -89,7 +89,8 @@ inline void CreateMainWindow() // NOLINT
         inputPanel | AddChild(detail::MakeSectionTitle("Input Controls", "inputTitle"));
 
         auto btnRow = ui::factory::CreateHBoxLayout("btnRow");
-        btnRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 32.0F) | Spacing(5.0F);
+        btnRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 32.0F)
+            | Spacing(5.0F);
 
         auto primaryBtn = ui::factory::CreateButton("Primary", "primaryBtn");
         primaryBtn | FixedSize(88.0F, 30.0F) | BackgroundColor({0.20F, 0.50F, 0.85F, 1.0F}) | BorderRadius(5.0F)
@@ -121,7 +122,8 @@ inline void CreateMainWindow() // NOLINT
 
         // CheckBox row
         auto cbRow = ui::factory::CreateHBoxLayout("cbRow");
-        cbRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 26.0F) | Spacing(10.0F);
+        cbRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 26.0F)
+            | Spacing(10.0F);
 
         auto cb1 = ui::factory::CreateCheckBox("Option A", true, "cb1");
         auto cb2 = ui::factory::CreateCheckBox("Option B", false, "cb2");
@@ -226,8 +228,7 @@ inline void CreateMainWindow() // NOLINT
 
         {
             ui::canvas::Painter painter(canvas);
-            painter
-                .moveTo({490.0F, 143.0F})
+            painter.moveTo({490.0F, 143.0F})
                 .cubicTo({488.0F, 116.0F}, {456.0F, 114.0F}, {458.0F, 140.0F})
                 .cubicTo({458.0F, 168.0F}, {484.0F, 208.0F}, {490.0F, 215.0F})
                 .cubicTo({496.0F, 208.0F}, {522.0F, 168.0F}, {522.0F, 140.0F})
@@ -255,16 +256,15 @@ inline void CreateMainWindow() // NOLINT
         auto dataTable = ui::factory::CreateTable(5, "dataTable");
         dataTable | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
             | BackgroundColor({0.10F, 0.10F, 0.13F, 0.9F}) | BorderRadius(4.0F)
-            | BorderColor({0.28F, 0.28F, 0.35F, 0.9F}) | BorderThickness(1.0F)
-            | ScrollMode(ui::policies::Scroll::BOTH)
+            | BorderColor({0.28F, 0.28F, 0.35F, 0.9F}) | BorderThickness(1.0F) | ScrollMode(ui::policies::Scroll::BOTH)
             | TableColumns(5, {"Name", "Score", "K/D", "Online", "Action"})
             | TableColumnSizingMode(ui::policies::TableColumnSizing::FIXED)
             | TableColumnWidths({220.0F, 110.0F, 90.0F, 130.0F, 160.0F})
-            | TableMinColumnWidths({180.0F, 90.0F, 80.0F, 120.0F, 150.0F})
-            | TableRowHeight(30.0F) | TableMinRowHeight(28.0F)
-            | TableAddRow({"Player One", "1200", "18/5", "", ""}) | TableAddRow({"Player Two", "980", "12/8", "", ""})
-            | TableAddRow({"Player Three", "1560", "24/3", "", ""}) | TableAddRow({"Player Four", "740", "9/11", "", ""})
-            | TableAddRow({"Player Five", "2100", "30/2", "", ""}) | TableAddRow({"Player Six", "430", "5/15", "", ""});
+            | TableMinColumnWidths({180.0F, 90.0F, 80.0F, 120.0F, 150.0F}) | TableRowHeight(30.0F)
+            | TableMinRowHeight(28.0F) | TableAddRow({"Player One", "1200", "18/5", "", ""})
+            | TableAddRow({"Player Two", "980", "12/8", "", ""}) | TableAddRow({"Player Three", "1560", "24/3", "", ""})
+            | TableAddRow({"Player Four", "740", "9/11", "", ""}) | TableAddRow({"Player Five", "2100", "30/2", "", ""})
+            | TableAddRow({"Player Six", "430", "5/15", "", ""});
 
         auto banBtn0 = ui::factory::CreateButton("Ban", "banBtn0");
         banBtn0 | FixedSize(90.0F, 22.0F) | BackgroundColor({0.55F, 0.15F, 0.15F, 1.0F}) | BorderRadius(3.0F)
@@ -286,8 +286,12 @@ inline void CreateMainWindow() // NOLINT
         {
             cbEnt | FixedSize(100.0F, 22.0F);
         }
-        cb0 | OnCheckBoxChanged([](bool online) { ui::log::Info(online ? "Player One online" : "Player One offline"); });
-        cb1 | OnCheckBoxChanged([](bool online) { ui::log::Info(online ? "Player Two online" : "Player Two offline"); });
+        cb0
+            | OnCheckBoxChanged([](bool online)
+                                { ui::log::Info(online ? "Player One online" : "Player One offline"); });
+        cb1
+            | OnCheckBoxChanged([](bool online)
+                                { ui::log::Info(online ? "Player Two online" : "Player Two offline"); });
 
         const std::vector<std::string> kActions{"Select action", "Ban", "Kick", "Inspect"};
         auto dd0 = ui::factory::CreateDropDown(kActions, 0, "dd_row0");
@@ -363,25 +367,28 @@ inline void CreateMainWindow() // NOLINT
         imagePanel | AddChild(supportLabel);
 
         auto imageRow = ui::factory::CreateHBoxLayout("imageRow");
-        imageRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 132.0F) | Spacing(8.0F);
+        imageRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 132.0F)
+            | Spacing(8.0F);
 
         imageRow | AddChild(detail::MakeImageCard("PNG", "sample.png", "pngCard"))
             | AddChild(detail::MakeImageCard("JPEG", "sample.jpg", "jpegCard"))
             | AddChild(detail::MakeImageCard("BMP", "sample.bmp", "bmpCard"));
         imagePanel | AddChild(imageRow);
 
-        auto unsupportedLabel = ui::factory::CreateLabel("ICO / SVG: not supported by current ImageManager decoder", "imageUnsupportedLabel");
+        auto unsupportedLabel = ui::factory::CreateLabel("ICO / SVG: not supported by current ImageManager decoder",
+                                                         "imageUnsupportedLabel");
         unsupportedLabel | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FIXED) | Size(0.0F, 34.0F)
             | TextAlignment(ui::policies::Alignment::LEFT | ui::policies::Alignment::TOP)
             | TextColor({0.92F, 0.66F, 0.40F, 1.0F}) | FontSize(11.0F);
         imagePanel | AddChild(unsupportedLabel);
 
-        auto noteLabel = ui::factory::CreateLabel("Reason: current loader only dispatches BMP to SDL_LoadBMP and all other formats to stb_image; stb_image does not decode ICO/SVG.",
-                                                   "imageNoteLabel");
+        auto noteLabel = ui::factory::CreateLabel("Reason: current loader only dispatches BMP to SDL_LoadBMP and all "
+                                                  "other formats to stb_image; stb_image does not decode ICO/SVG.",
+                                                  "imageNoteLabel");
         noteLabel | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
             | TextWordWrap(ui::policies::TextWrap::CHAR) | TextWrapWidth(290.0F)
-            | TextAlignment(ui::policies::Alignment::TOP_LEFT) | TextColor({0.62F, 0.65F, 0.72F, 1.0F}) | FontSize(11.0F)
-            | BackgroundColor({0.08F, 0.08F, 0.11F, 0.55F}) | BorderRadius(4.0F) | Padding(6.0F);
+            | TextAlignment(ui::policies::Alignment::TOP_LEFT) | TextColor({0.62F, 0.65F, 0.72F, 1.0F})
+            | FontSize(11.0F) | BackgroundColor({0.08F, 0.08F, 0.11F, 0.55F}) | BorderRadius(4.0F) | Padding(6.0F);
         imagePanel | AddChild(noteLabel);
     }
 
@@ -396,7 +403,8 @@ inline void CreateMainWindow() // NOLINT
 
         chatPanel | AddChild(detail::MakeSectionTitle("TextBrowser + LineEdit Chat Demo", "chatTitle"));
 
-        const std::string initMsg = "[System] Welcome to the UI controls demo.\n[System] Type a message below and press Enter or Send.";
+        const std::string initMsg =
+            "[System] Welcome to the UI controls demo.\n[System] Type a message below and press Enter or Send.";
         auto msgArea = ui::factory::CreateTextBrowser(initMsg, "", "msgArea");
         msgArea | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL) | TextContent(initMsg)
             | TextWordWrap(ui::policies::TextWrap::CHAR) | TextWrapWidth(1150.0F)
@@ -455,8 +463,9 @@ inline void CreateMainWindow() // NOLINT
         animPanel | panelStyle | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL);
         row4 | AddChild(animPanel);
 
-        animPanel | AddChild(
-            detail::MakeSectionTitle("Animation Demo: Alpha / Slide / Scale / Color / Loop / PingPong", "animTitle"));
+        animPanel
+            | AddChild(detail::MakeSectionTitle("Animation Demo: Alpha / Slide / Scale / Color / Loop / PingPong",
+                                                "animTitle"));
 
         auto demoRow = ui::factory::CreateHBoxLayout("animDemoRow");
         demoRow | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL) | Spacing(10.0F);
@@ -481,20 +490,22 @@ inline void CreateMainWindow() // NOLINT
             auto fadeOutBtn = ui::factory::CreateButton("淡出", "animFadeOutBtn");
             fadeOutBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.20F, 0.50F, 0.85F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
-                | OnClick([box]() {
-                      ui::animation::StartAlphaAnimation(
-                          box, 1.0F, 0.0F,
-                          {400.0F, ui::policies::Easing::EASE_OUT_QUAD, ui::policies::Play::ONCE});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartAlphaAnimation(
+                            box, 1.0F, 0.0F, {400.0F, ui::policies::Easing::EASE_OUT_QUAD, ui::policies::Play::ONCE});
+                    });
 
             auto fadeInBtn = ui::factory::CreateButton("淡入", "animFadeInBtn");
             fadeInBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.20F, 0.50F, 0.85F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
-                | OnClick([box]() {
-                      ui::animation::StartAlphaAnimation(
-                          box, 0.0F, 1.0F,
-                          {400.0F, ui::policies::Easing::EASE_IN_QUAD, ui::policies::Play::ONCE});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartAlphaAnimation(
+                            box, 0.0F, 1.0F, {400.0F, ui::policies::Easing::EASE_IN_QUAD, ui::policies::Play::ONCE});
+                    });
 
             btnRow | AddChild(fadeOutBtn) | AddChild(fadeInBtn);
             item | AddChild(box) | AddChild(btnRow);
@@ -520,20 +531,22 @@ inline void CreateMainWindow() // NOLINT
             auto leftBtn = ui::factory::CreateButton("← 左移", "animSlideLeftBtn");
             leftBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.20F, 0.65F, 0.40F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
-                | OnClick([box]() {
-                      ui::animation::StartRenderOffsetAnimation(
-                          box, {30.0F, 0.0F}, {-30.0F, 0.0F},
-                          {500.0F, ui::policies::Easing::EASE_IN_OUT_QUAD});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartRenderOffsetAnimation(
+                            box, {30.0F, 0.0F}, {-30.0F, 0.0F}, {500.0F, ui::policies::Easing::EASE_IN_OUT_QUAD});
+                    });
 
             auto rightBtn = ui::factory::CreateButton("右移 →", "animSlideRightBtn");
             rightBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.20F, 0.65F, 0.40F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
-                | OnClick([box]() {
-                      ui::animation::StartRenderOffsetAnimation(
-                          box, {-30.0F, 0.0F}, {30.0F, 0.0F},
-                          {500.0F, ui::policies::Easing::EASE_IN_OUT_QUAD});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartRenderOffsetAnimation(
+                            box, {-30.0F, 0.0F}, {30.0F, 0.0F}, {500.0F, ui::policies::Easing::EASE_IN_OUT_QUAD});
+                    });
 
             btnRow | AddChild(leftBtn) | AddChild(rightBtn);
             item | AddChild(box) | AddChild(btnRow);
@@ -559,20 +572,22 @@ inline void CreateMainWindow() // NOLINT
             auto upBtn = ui::factory::CreateButton("放大", "animScaleUpBtn");
             upBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.70F, 0.35F, 0.80F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
-                | OnClick([box]() {
-                      ui::animation::StartScaleAnimation(
-                          box, {1.0F, 1.0F}, {1.35F, 1.35F},
-                          {300.0F, ui::policies::Easing::EASE_OUT_SINE});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartScaleAnimation(
+                            box, {1.0F, 1.0F}, {1.35F, 1.35F}, {300.0F, ui::policies::Easing::EASE_OUT_SINE});
+                    });
 
             auto downBtn = ui::factory::CreateButton("缩小", "animScaleDownBtn");
             downBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.70F, 0.35F, 0.80F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
-                | OnClick([box]() {
-                      ui::animation::StartScaleAnimation(
-                          box, {1.35F, 1.35F}, {1.0F, 1.0F},
-                          {300.0F, ui::policies::Easing::EASE_IN_SINE});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartScaleAnimation(
+                            box, {1.35F, 1.35F}, {1.0F, 1.0F}, {300.0F, ui::policies::Easing::EASE_IN_SINE});
+                    });
 
             btnRow | AddChild(upBtn) | AddChild(downBtn);
             item | AddChild(box) | AddChild(btnRow);
@@ -598,20 +613,26 @@ inline void CreateMainWindow() // NOLINT
             auto toBlueBtn = ui::factory::CreateButton("→蓝", "animColorBlueBtn");
             toBlueBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.85F, 0.45F, 0.15F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
-                | OnClick([box]() {
-                      ui::animation::StartColorAnimation(
-                          box, {0.85F, 0.45F, 0.15F, 1.0F}, {0.20F, 0.50F, 0.85F, 1.0F},
-                          {600.0F, ui::policies::Easing::EASE_IN_OUT_SINE});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartColorAnimation(box,
+                                                           {0.85F, 0.45F, 0.15F, 1.0F},
+                                                           {0.20F, 0.50F, 0.85F, 1.0F},
+                                                           {600.0F, ui::policies::Easing::EASE_IN_OUT_SINE});
+                    });
 
             auto toOrangeBtn = ui::factory::CreateButton("→橙", "animColorOrangeBtn");
             toOrangeBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.85F, 0.45F, 0.15F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
-                | OnClick([box]() {
-                      ui::animation::StartColorAnimation(
-                          box, {0.20F, 0.50F, 0.85F, 1.0F}, {0.85F, 0.45F, 0.15F, 1.0F},
-                          {600.0F, ui::policies::Easing::EASE_IN_OUT_SINE});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartColorAnimation(box,
+                                                           {0.20F, 0.50F, 0.85F, 1.0F},
+                                                           {0.85F, 0.45F, 0.15F, 1.0F},
+                                                           {600.0F, ui::policies::Easing::EASE_IN_OUT_SINE});
+                    });
 
             btnRow | AddChild(toBlueBtn) | AddChild(toOrangeBtn);
             item | AddChild(box) | AddChild(btnRow);
@@ -638,11 +659,15 @@ inline void CreateMainWindow() // NOLINT
             startBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.85F, 0.70F, 0.10F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
                 | TextColor({0.10F, 0.10F, 0.10F, 1.0F})
-                | OnClick([box]() {
-                      ui::animation::StartAlphaAnimation(
-                          box, 1.0F, 0.15F,
-                          {800.0F, ui::policies::Easing::EASE_IN_OUT_SINE, ui::policies::Play::LOOP});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartAlphaAnimation(
+                            box,
+                            1.0F,
+                            0.15F,
+                            {800.0F, ui::policies::Easing::EASE_IN_OUT_SINE, ui::policies::Play::LOOP});
+                    });
 
             auto stopBtn = ui::factory::CreateButton("停止", "animLoopStopBtn");
             stopBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
@@ -673,11 +698,15 @@ inline void CreateMainWindow() // NOLINT
             auto startBtn = ui::factory::CreateButton("播放", "animPingPongStartBtn");
             startBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
                 | BackgroundColor({0.80F, 0.20F, 0.30F, 1.0F}) | BorderRadius(3.0F) | FontSize(11.0F)
-                | OnClick([box]() {
-                      ui::animation::StartScaleAnimation(
-                          box, {0.85F, 0.85F}, {1.15F, 1.15F},
-                          {500.0F, ui::policies::Easing::EASE_IN_OUT_SINE, ui::policies::Play::PINGPONG});
-                  });
+                | OnClick(
+                    [box]()
+                    {
+                        ui::animation::StartScaleAnimation(
+                            box,
+                            {0.85F, 0.85F},
+                            {1.15F, 1.15F},
+                            {500.0F, ui::policies::Easing::EASE_IN_OUT_SINE, ui::policies::Play::PINGPONG});
+                    });
 
             auto stopBtn = ui::factory::CreateButton("停止", "animPingPongStopBtn");
             stopBtn | SizePolicy(ui::policies::Size::H_FILL | ui::policies::Size::V_FILL)
