@@ -16,8 +16,8 @@
 
 #include <cstdint>
 #include <entt/entt.hpp>
-#include "../common/components/Layout.hpp"
-#include "../common/Policies.hpp"
+#include "common/components/Layout.hpp"
+#include "common/Policies.hpp"
 #include "Chains.hpp"
 namespace ui::utils
 {

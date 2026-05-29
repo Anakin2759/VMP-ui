@@ -6,7 +6,7 @@
  *       tryInitializeFallback()、onWindowsGraphicsContext*()
  */
 
-#include "../RenderSystem.hpp"
+#include "systems/RenderSystem.hpp"
 #include "RenderSystemImpl.hpp"
 #include <algorithm>
 #include <cctype>
@@ -36,13 +36,11 @@
 #include "SDL3/SDL_init.h"
 #include <exception>
 #include "managers/CommandBuffer.hpp"
-#include "interface/IRenderer.hpp"
 #include "singleton/Registry.hpp"
-#include "singleton/Dispatcher.hpp"
-#include "../../renderers/FallbackBackendRenderer.hpp"
-#include "../../managers/IconManager.hpp"
-#include "../../managers/ResourceProvider.hpp"
-#include "../../common/CustomizationPoints.hpp"
+#include "renderers/FallbackBackendRenderer.hpp"
+#include "managers/IconManager.hpp"
+#include "managers/ResourceProvider.hpp"
+#include "common/CustomizationPoints.hpp"
 
 #ifndef UI_ASSETS_DIR
 #define UI_ASSETS_DIR "assets"
@@ -93,7 +91,7 @@ ui::Result<ui::managers::BinaryResource> LoadUiResource(std::string_view resourc
     if (resourceProvider == nullptr)
     {
         ui::Logger::error("[RenderSystem] UI resource provider unavailable");
-        return ui::MakeError(ui::ui_errc::backend_unavailable);
+        return ui::MakeError(ui::UiErrc::BACKEND_UNAVAILABLE);
     }
 
     return ui::cpo::load_binary_resource(*resourceProvider, resourcePath);
@@ -112,21 +110,19 @@ const RenderSystem::RenderStats& RenderSystem::getStats() const
 void RenderSystem::registerHandlersImpl()
 {
     Logger::info("[RenderSystem] Registering event handlers");
-    Dispatcher::Sink<events::WindowGraphicsContextSetEvent>().connect<&RenderSystem::onWindowsGraphicsContextSet>(
+    m_disp->sink<events::WindowGraphicsContextSetEvent>().connect<&RenderSystem::onWindowsGraphicsContextSet>(*this);
+    m_disp->sink<events::WindowGraphicsContextUnsetEvent>().connect<&RenderSystem::onWindowsGraphicsContextUnset>(
         *this);
-    Dispatcher::Sink<events::WindowGraphicsContextUnsetEvent>().connect<&RenderSystem::onWindowsGraphicsContextUnset>(
-        *this);
-    Dispatcher::Sink<events::UpdateRendering>().connect<&RenderSystem::update>(*this);
+    m_disp->sink<events::UpdateRendering>().connect<&RenderSystem::update>(*this);
     Logger::info("[RenderSystem] Event handlers registered successfully");
 }
 
 void RenderSystem::unregisterHandlersImpl()
 {
-    Dispatcher::Sink<events::WindowGraphicsContextSetEvent>().disconnect<&RenderSystem::onWindowsGraphicsContextSet>(
+    m_disp->sink<events::WindowGraphicsContextSetEvent>().disconnect<&RenderSystem::onWindowsGraphicsContextSet>(*this);
+    m_disp->sink<events::WindowGraphicsContextUnsetEvent>().disconnect<&RenderSystem::onWindowsGraphicsContextUnset>(
         *this);
-    Dispatcher::Sink<events::WindowGraphicsContextUnsetEvent>()
-        .disconnect<&RenderSystem::onWindowsGraphicsContextUnset>(*this);
-    Dispatcher::Sink<events::UpdateRendering>().disconnect<&RenderSystem::update>(*this);
+    m_disp->sink<events::UpdateRendering>().disconnect<&RenderSystem::update>(*this);
 }
 
 interface::SystemPhase RenderSystem::getPhase()
@@ -134,14 +130,14 @@ interface::SystemPhase RenderSystem::getPhase()
     return interface::SystemPhase::Render;
 }
 
-RenderSystem::RenderSystem()
-    : m_impl(std::make_unique<RenderSystemImpl>(
+RenderSystem::RenderSystem(entt::registry& /*reg*/, entt::dispatcher& disp)
+    : m_disp(&disp), m_impl(std::make_unique<RenderSystemImpl>(
 #ifdef UI_FORCE_CPU_RENDER
-          true
+                         true
 #else
-          IsTruthyEnvironmentValue(SDL_getenv("PESTMANKILL_FORCE_FALLBACK"))
+                         IsTruthyEnvironmentValue(SDL_getenv("PESTMANKILL_FORCE_FALLBACK"))
 #endif
-          ))
+                         ))
 {
     if (m_impl->m_forceFallback)
     {
@@ -176,7 +172,10 @@ RenderSystem::~RenderSystem()
     }
 }
 
-RenderSystem::RenderSystem(RenderSystem&& other) noexcept : m_impl(std::move(other.m_impl)) {}
+RenderSystem::RenderSystem(RenderSystem&& other) noexcept : m_disp(other.m_disp), m_impl(std::move(other.m_impl))
+{
+    other.m_disp = nullptr;
+}
 
 RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
 {
@@ -191,6 +190,8 @@ RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
             WriteStderr("[RenderSystem] move assignment cleanup failed\n");
         }
 
+        m_disp = other.m_disp;
+        other.m_disp = nullptr;
         m_impl = std::move(other.m_impl);
     }
     return *this;

@@ -10,7 +10,7 @@
  */
 #pragma once
 #include <cstdint>
-#include "../traits/PoliciesTraits.hpp"
+#include "traits/PoliciesTraits.hpp"
 
 namespace ui::policies
 {

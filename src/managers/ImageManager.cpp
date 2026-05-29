@@ -61,14 +61,14 @@ ui::Result<SDL_GPUTexture*> ImageManager::loadTexture(const std::string& path)
     if (path.empty())
     {
         Logger::error("[ImageManager] loadTexture: empty path");
-        return ui::MakeError(ui::ui_errc::invalid_argument);
+        return ui::MakeError(ui::UiErrc::INVALID_ARGUMENT);
     }
 
     SDL_GPUDevice* device = (m_deviceManager != nullptr) ? m_deviceManager->getDevice() : nullptr;
     if (device == nullptr)
     {
         Logger::error("[ImageManager] loadTexture: device is null, path={}", path);
-        return ui::MakeError(ui::ui_errc::device_unavailable);
+        return ui::MakeError(ui::UiErrc::DEVICE_UNAVAILABLE);
     }
 
     // 缓存命中
@@ -111,7 +111,7 @@ ui::Result<SDL_GPUTexture*> ImageManager::loadTexture(const std::string& path)
     }
 
     Logger::error("[ImageManager] Failed to load texture: {}", path);
-    return ui::MakeError(ui::ui_errc::asset_decode_failed);
+    return ui::MakeError(ui::UiErrc::ASSET_DECODE_FAILED);
 }
 
 void ImageManager::releaseAll()

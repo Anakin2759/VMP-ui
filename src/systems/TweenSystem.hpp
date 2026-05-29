@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ************************************************************************
  *
  * @file TweenSystem.h
@@ -25,17 +25,17 @@
 #pragma once
 #include <entt/entt.hpp>
 #include <cmath>
-#include "../core/RuntimeFacade.hpp"
-#include "../common/Policies.hpp"
-#include "../common/components/Animation.hpp"
-#include "../common/components/Data.hpp"
-#include "../common/components/Layout.hpp"
-#include "../common/components/Visual.hpp"
-#include "../common/Tags.hpp"
-#include "../common/GlobalContext.hpp"
-#include "../common/Events.hpp"
-#include "../api/Utils.hpp"
-#include "../interface/Isystem.hpp"
+#include "core/RuntimeFacade.hpp"
+#include "common/Policies.hpp"
+#include "common/components/Animation.hpp"
+#include "common/components/Data.hpp"
+#include "common/components/Layout.hpp"
+#include "common/components/Visual.hpp"
+#include "common/Tags.hpp"
+#include "common/GlobalContext.hpp"
+#include "common/Events.hpp"
+#include "api/Utils.hpp"
+#include "interface/ISystem.hpp"
 #include <sys/stat.h>
 
 namespace ui::systems
@@ -44,29 +44,38 @@ namespace ui::systems
 class TweenSystem : public ui::interface::EnableRegister<TweenSystem>
 {
 public:
+    TweenSystem() = default;
+    explicit TweenSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+
     void registerHandlersImpl()
     {
-        RuntimeFacade::current().enttDispatcher().sink<events::UpdateEvent>().connect<&TweenSystem::update>(*this);
+        auto& dispatcher = m_disp != nullptr ? *m_disp : RuntimeFacade::current().enttDispatcher();
+        dispatcher.sink<events::UpdateEvent>().connect<&TweenSystem::update>(*this);
     }
-
     void unregisterHandlersImpl()
     {
-        RuntimeFacade::current().enttDispatcher().sink<events::UpdateEvent>().disconnect<&TweenSystem::update>(*this);
+        auto& dispatcher = m_disp != nullptr ? *m_disp : RuntimeFacade::current().enttDispatcher();
+        dispatcher.sink<events::UpdateEvent>().disconnect<&TweenSystem::update>(*this);
     }
-
     ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Animation; }
 
 private:
+    entt::registry* m_reg = nullptr;
+    entt::dispatcher* m_disp = nullptr;
+    [[nodiscard]] entt::registry& effectiveReg() noexcept
+    {
+        return m_reg != nullptr ? *m_reg : RuntimeFacade::current().enttRegistry();
+    }
+
     /**
      * @brief 更新所有活动的动画
      */
     void update()
     {
-        auto& runtime = RuntimeFacade::current();
-        auto& reg = runtime.enttRegistry();
+        auto& reg = effectiveReg();
 
         float deltaTime = 16.0F; // 默认 16ms
-        if (const auto* ctx = runtime.tryFrame())
+        if (const auto* ctx = RuntimeFacade::current().tryFrame())
         {
             if (ctx->intervalMs > 0)
             {
@@ -170,7 +179,7 @@ private:
      */
     bool updatePosition(entt::entity entity, float val)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (auto* animPos = reg.try_get<components::AnimationPosition>(entity))
         {
             if (auto* pos = reg.try_get<components::Position>(entity))
@@ -186,7 +195,7 @@ private:
 
     bool updateAlpha(entt::entity entity, float val)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (auto* animAlpha = reg.try_get<components::AnimationAlpha>(entity))
         {
             float currentAlpha = animAlpha->from + ((animAlpha->to - animAlpha->from) * val);
@@ -226,7 +235,7 @@ private:
      */
     bool updateScale(entt::entity entity, float val)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (auto* animScale = reg.try_get<components::AnimationScale>(entity))
         {
             auto& scale = reg.get_or_emplace<components::Scale>(entity);
@@ -239,7 +248,7 @@ private:
 
     bool updateRenderOffset(entt::entity entity, float val)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (auto* animOffset = reg.try_get<components::AnimationRenderOffset>(entity))
         {
             auto& offset = reg.get_or_emplace<components::RenderOffset>(entity);
@@ -252,7 +261,7 @@ private:
 
     bool updateColor(entt::entity entity, float val)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (auto* animColor = reg.try_get<components::AnimationColor>(entity))
         {
             ui::Color currentColor;
@@ -317,9 +326,9 @@ private:
         return false;
     }
 
-    static void finishAnimation(entt::entity entity)
+    void finishAnimation(entt::entity entity)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (!reg.valid(entity)) return;
 
         auto* animTime = reg.try_get<components::AnimationTime>(entity);

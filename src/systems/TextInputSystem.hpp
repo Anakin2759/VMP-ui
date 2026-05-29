@@ -11,11 +11,12 @@
 
 #pragma once
 
+#include <entt/entt.hpp>
 #include <SDL3/SDL.h>
 
 #include "common/Events.hpp"
 #include "core/TextEditingService.hpp"
-#include "interface/Isystem.hpp"
+#include "interface/ISystem.hpp"
 #include "singleton/Dispatcher.hpp"
 
 namespace ui::systems
@@ -24,18 +25,21 @@ namespace ui::systems
 class TextInputSystem : public ui::interface::EnableRegister<TextInputSystem>
 {
 public:
+    TextInputSystem() = default;
+    explicit TextInputSystem(entt::registry& /*reg*/, entt::dispatcher& disp) : m_disp(&disp) {}
+
     void registerHandlersImpl()
     {
-        Dispatcher::Sink<events::TickKeyRepeat>().connect<&TextInputSystem::doProcessKeyRepeat>(*this);
-        Dispatcher::Sink<events::RawTextInput>().connect<&TextInputSystem::onRawTextInput>(*this);
-        Dispatcher::Sink<events::RawKeyInput>().connect<&TextInputSystem::onRawKeyInput>(*this);
+        m_disp->sink<events::TickKeyRepeat>().connect<&TextInputSystem::doProcessKeyRepeat>(*this);
+        m_disp->sink<events::RawTextInput>().connect<&TextInputSystem::onRawTextInput>(*this);
+        m_disp->sink<events::RawKeyInput>().connect<&TextInputSystem::onRawKeyInput>(*this);
     }
 
     void unregisterHandlersImpl()
     {
-        Dispatcher::Sink<events::TickKeyRepeat>().disconnect<&TextInputSystem::doProcessKeyRepeat>(*this);
-        Dispatcher::Sink<events::RawTextInput>().disconnect<&TextInputSystem::onRawTextInput>(*this);
-        Dispatcher::Sink<events::RawKeyInput>().disconnect<&TextInputSystem::onRawKeyInput>(*this);
+        m_disp->sink<events::TickKeyRepeat>().disconnect<&TextInputSystem::doProcessKeyRepeat>(*this);
+        m_disp->sink<events::RawTextInput>().disconnect<&TextInputSystem::onRawTextInput>(*this);
+        m_disp->sink<events::RawKeyInput>().disconnect<&TextInputSystem::onRawKeyInput>(*this);
     }
 
     ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Input; }
@@ -91,6 +95,7 @@ private:
     uint64_t m_lastRepeatTime = 0;
     static constexpr uint64_t KEY_REPEAT_DELAY = 500;
     static constexpr uint64_t KEY_REPEAT_INTERVAL = 50;
+    entt::dispatcher* m_disp = nullptr;
 };
 
 } // namespace ui::systems

@@ -23,8 +23,8 @@
 #include <unordered_map>
 #include <vector>
 #include <SDL3/SDL.h>
-#include "../interface/IBackendRenderer.hpp"
-#include "../singleton/Logger.hpp"
+#include "interface/IBackendRenderer.hpp"
+#include "singleton/Logger.hpp"
 
 namespace ui::renderers
 {
@@ -51,7 +51,7 @@ public:
     {
         if (window == nullptr)
         {
-            return ui::MakeError(ui::ui_errc::invalid_argument);
+            return ui::MakeError(ui::UiErrc::INVALID_ARGUMENT);
         }
 
         SDL_WindowID windowID = SDL_GetWindowID(window);
@@ -86,7 +86,7 @@ public:
         }
 
         Logger::error("[FallbackBackendRenderer] create renderer failed: {}", SDL_GetError());
-        return ui::MakeError(ui::ui_errc::backend_unavailable);
+        return ui::MakeError(ui::UiErrc::BACKEND_UNAVAILABLE);
     }
 
     void cleanup() override
@@ -112,7 +112,7 @@ public:
     {
         if (m_renderer == nullptr)
         {
-            return ui::MakeError(ui::ui_errc::backend_unavailable);
+            return ui::MakeError(ui::UiErrc::BACKEND_UNAVAILABLE);
         }
 
         SDL_SetRenderClipRect(m_renderer, nullptr);
@@ -189,13 +189,13 @@ public:
     {
         if (m_renderer == nullptr || bitmapWidth <= 0 || bitmapHeight <= 0 || rgbaPixels.empty())
         {
-            return ui::MakeError(ui::ui_errc::invalid_argument);
+            return ui::MakeError(ui::UiErrc::INVALID_ARGUMENT);
         }
 
         CachedBitmapTexture* cachedTexture = getOrCreateBitmapTexture(cacheKey, rgbaPixels, bitmapWidth, bitmapHeight);
         if (cachedTexture == nullptr || cachedTexture->texture == nullptr)
         {
-            return ui::MakeError(ui::ui_errc::asset_upload_failed);
+            return ui::MakeError(ui::UiErrc::ASSET_UPLOAD_FAILED);
         }
 
         if (scissorRect.has_value())
@@ -210,7 +210,7 @@ public:
         SDL_SetTextureAlphaMod(cachedTexture->texture, alphaMod);
         if (!SDL_RenderTexture(m_renderer, cachedTexture->texture, nullptr, &destinationRect))
         {
-            return ui::MakeError(ui::ui_errc::asset_upload_failed);
+            return ui::MakeError(ui::UiErrc::ASSET_UPLOAD_FAILED);
         }
         return ui::Ok();
     }

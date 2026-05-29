@@ -19,10 +19,10 @@
 #include "SDL3/SDL_timer.h"
 #include "TaskChain.hpp"
 
-#include "../api/Factory.hpp"
-#include "../common/AppConfig.hpp"
-#include "../common/GlobalContext.hpp"
-#include "../singleton/Logger.hpp"
+#include "api/Factory.hpp"
+#include "common/AppConfig.hpp"
+#include "common/GlobalContext.hpp"
+#include "singleton/Logger.hpp"
 #include "common/Events.hpp"
 #include "singleton/Dispatcher.hpp"
 
@@ -54,7 +54,7 @@ void WriteStderr(const char* text) noexcept
 namespace ui
 {
 Application::Application(std::span<char*> arg) // NOLINT
-    : m_runtimeScope(m_runtime)
+    : m_runtimeScope(m_runtime), m_systems(m_runtime.registry().raw(), m_runtime.dispatcher().raw())
 {
     config::AppConfig::instance().parseCommandLine(arg);
 

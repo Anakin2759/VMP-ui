@@ -2,7 +2,7 @@
 
 #include "UiRuntime.hpp"
 
-#include "../common/WindowEntityLookup.hpp"
+#include "common/WindowEntityLookup.hpp"
 #include "singleton/Registry.hpp"
 #include "singleton/Dispatcher.hpp"
 #include "entt/entity/fwd.hpp"

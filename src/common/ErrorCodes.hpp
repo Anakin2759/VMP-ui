@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <cstdint>
 #include <format>
 #include <string>
 #include <string_view>
@@ -27,49 +28,49 @@ namespace ui
 {
 
 /// @brief 项目统一错误码枚举。每个段位预留 100 号方便扩展。
-enum class ui_errc : int
+enum class UiErrc : std::uint16_t
 {
     // 0 保留：成功（不应被使用，std::error_code{} 默认即 0 / null category）
 
     // 1xx：参数与上下文
-    invalid_entity = 1,
-    invalid_argument = 2,
-    registry_unavailable = 3,
-    not_implemented = 4,
+    INVALID_ENTITY = 1,
+    INVALID_ARGUMENT = 2,
+    REGISTRY_UNAVAILABLE = 3,
+    NOT_IMPLEMENTED = 4,
 
     // 2xx：层级与生命周期
-    hierarchy_cycle = 100,
-    hierarchy_detached = 101,
-    entity_already_exists = 102,
+    HIERARCHY_CYCLE = 100,
+    HIERARCHY_DETACHED = 101,
+    ENTITY_ALREADY_EXISTS = 102,
 
     // 3xx：资源加载
-    asset_not_found = 200,
-    asset_load_failed = 201,
-    asset_decode_failed = 202,
-    asset_upload_failed = 203,
-    atlas_full = 204,
-    glyph_render_failed = 205,
-    file_open_failed = 206,
+    ASSET_NOT_FOUND = 200,
+    ASSET_LOAD_FAILED = 201,
+    ASSET_DECODE_FAILED = 202,
+    ASSET_UPLOAD_FAILED = 203,
+    ATLAS_FULL = 204,
+    GLYPH_RENDER_FAILED = 205,
+    FILE_OPEN_FAILED = 206,
 
     // 4xx：GPU / 渲染
-    device_unavailable = 300,
-    pipeline_unavailable = 301,
-    shader_compile_failed = 302,
-    swapchain_unavailable = 303,
-    backend_unavailable = 304,
-    window_claim_failed = 305,
-    buffer_map_failed = 306,
+    DEVICE_UNAVAILABLE = 300,
+    PIPELINE_UNAVAILABLE = 301,
+    SHADER_COMPILE_FAILED = 302,
+    SWAPCHAIN_UNAVAILABLE = 303,
+    BACKEND_UNAVAILABLE = 304,
+    WINDOW_CLAIM_FAILED = 305,
+    BUFFER_MAP_FAILED = 306,
 
     // 5xx：主题与样式
-    theme_not_found = 400,
-    theme_type_mismatch = 401,
+    THEME_NOT_FOUND = 400,
+    THEME_TYPE_MISMATCH = 401,
 
     // 6xx：脚本
-    script_parse_error = 500,
-    script_runtime_error = 501,
+    SCRIPT_PARSE_ERROR = 500,
+    SCRIPT_RUNTIME_ERROR = 501,
 
     // 9xx：兜底
-    unknown = 900,
+    UNKNOWN = 900,
 };
 
 /// @brief 统一 UI 错误分类。name() 固定返回 "ui"。
@@ -83,29 +84,29 @@ public:
 /// @brief 进程级单例；地址唯一，跨 TU 比较稳定。
 [[nodiscard]] const std::error_category& GetUiErrorCategory() noexcept;
 
-/// @brief ADL 入口：将 ui_errc 转为 std::error_code。
-[[nodiscard]] std::error_code make_error_code(ui_errc e) noexcept;
+/// @brief ADL 入口：将 UiErrc 转为 std::error_code。
+[[nodiscard]] std::error_code MakeErrorCode(UiErrc errorCode) noexcept;
 
 /// @brief 返回枚举对应的字符串名称（用于日志/格式化，独立于 message()）。
-[[nodiscard]] std::string_view ToStringView(ui_errc e) noexcept;
+[[nodiscard]] std::string_view ToStringView(UiErrc errorCode) noexcept;
 
 } // namespace ui
 
 namespace std
 {
 template <>
-struct is_error_code_enum<ui::ui_errc> : true_type
+struct is_error_code_enum<ui::UiErrc> : true_type
 {
 };
 } // namespace std
 
-/// @brief std::formatter<ui_errc> 特化：直接输出枚举名（如 "asset_decode_failed"）。
+/// @brief std::formatter<UiErrc> 特化：直接输出枚举名（如 "asset_decode_failed"）。
 template <>
-struct std::formatter<ui::ui_errc> : std::formatter<std::string_view>
+struct std::formatter<ui::UiErrc> : std::formatter<std::string_view>
 {
     template <typename FormatContext>
-    auto format(ui::ui_errc e, FormatContext& ctx) const
+    auto format(ui::UiErrc errorCode, FormatContext& ctx) const
     {
-        return std::formatter<std::string_view>::format(ui::ToStringView(e), ctx);
+        return std::formatter<std::string_view>::format(ui::ToStringView(errorCode), ctx);
     }
 };

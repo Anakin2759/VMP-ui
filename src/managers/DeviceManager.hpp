@@ -28,18 +28,16 @@
 #include <unordered_set>
 #include <vector>
 #include <functional>
-#include <filesystem>
-#include <fstream>
 #include <SDL3/SDL.h>
-#include "../common/AppConfig.hpp"
-#include "../common/Result.hpp"
-#include "../common/ErrorCodes.hpp"
+#include "common/AppConfig.hpp"
+#include "common/Result.hpp"
+#include "common/ErrorCodes.hpp"
 
 // CMRC_DECLARE(ui_swiftshader);
 
 #include <SDL3/SDL_gpu.h>
-#include "../singleton/Logger.hpp"
-#include "../common/GPUWrappers.hpp"
+#include "singleton/Logger.hpp"
+#include "common/GPUWrappers.hpp"
 
 namespace ui::managers
 {
@@ -101,7 +99,7 @@ public:
         }
 
         Logger::error("所有 GPU 后端方案均初始化失败！请检查显卡驱动或虚拟机 3D 加速设置。");
-        return MakeError(ui_errc::backend_unavailable);
+        return MakeError(UiErrc::BACKEND_UNAVAILABLE);
     }
 
     Result<void> claimWindow(SDL_Window* sdlWindow)
@@ -109,7 +107,7 @@ public:
         if (m_gpuDevice == nullptr || sdlWindow == nullptr)
         {
             Logger::error("claimWindow: 无效的设备或窗口句柄");
-            return MakeError(ui_errc::invalid_argument);
+            return MakeError(UiErrc::INVALID_ARGUMENT);
         }
 
         SDL_WindowID windowID = SDL_GetWindowID(sdlWindow);
@@ -150,7 +148,7 @@ public:
         }
 
         Logger::error("致命错误: 所有可用后端均无法声明/渲染窗口！");
-        return MakeError(ui_errc::window_claim_failed);
+        return MakeError(UiErrc::WINDOW_CLAIM_FAILED);
     }
 
     void unclaimWindow(SDL_Window* sdlWindow)
@@ -201,16 +199,16 @@ private:
             return;
         }
 
-        auto it = std::find_if(
+        auto backendIter = std::find_if(
             m_backends.begin(), m_backends.end(), [&](const BackendConfig& cfg) { return cfg.name == preferred; });
-        if (it == m_backends.end())
+        if (backendIter == m_backends.end())
         {
             Logger::warn("未知 GPU 后端 \"{}\"，使用默认顺序。可选: direct3d12 / vulkan", preferred);
             return;
         }
-        if (it != m_backends.begin())
+        if (backendIter != m_backends.begin())
         {
-            std::rotate(m_backends.begin(), it, it + 1);
+            std::rotate(m_backends.begin(), backendIter, backendIter + 1);
         }
         Logger::info("应用命令行 GPU 后端偏好：优先尝试 {}", m_backends.front().name);
     }

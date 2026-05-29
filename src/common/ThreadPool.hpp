@@ -37,7 +37,7 @@
 #include <asio/post.hpp>
 #include <asio/thread_pool.hpp>
 
-#include "../singleton/Logger.hpp"
+#include "singleton/Logger.hpp"
 
 #ifndef UI_ENABLE_MULTITHREAD
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)

@@ -19,8 +19,8 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include "../singleton/Registry.hpp"
-#include "../common/components/Layout.hpp"
+#include "singleton/Registry.hpp"
+#include "common/components/Layout.hpp"
 #include "Chains.hpp" // Changed: Include Chains.hpp for DSL
 
 namespace ui::hierarchy

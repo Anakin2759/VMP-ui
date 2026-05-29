@@ -17,7 +17,7 @@
 
 #include <exception>
 
-#include "../singleton/Logger.hpp"
+#include "singleton/Logger.hpp"
 
 namespace ui
 {

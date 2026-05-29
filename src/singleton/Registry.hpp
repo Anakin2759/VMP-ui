@@ -21,7 +21,7 @@
 
 #include <entt/entt.hpp>
 
-#include "../traits/ComponentsTraits.hpp"
+#include "traits/ComponentsTraits.hpp"
 
 namespace ui
 {

@@ -15,19 +15,19 @@
 #include <SDL3/SDL_gpu.h>
 #include <entt/entt.hpp>
 
-#include "../../common/GPUWrappers.hpp"
-#include "../../core/RenderContext.hpp"
-#include "../../interface/IBackendRenderer.hpp"
-#include "../../interface/IRenderer.hpp"
-#include "../../managers/BatchManager.hpp"
-#include "../../managers/CommandBuffer.hpp"
-#include "../../managers/DeviceManager.hpp"
-#include "../../managers/FontManager.hpp"
-#include "../../managers/IconManager.hpp"
-#include "../../managers/ImageManager.hpp"
-#include "../../managers/PipelineCache.hpp"
-#include "../../managers/TextTextureCache.hpp"
-#include "../RenderSystem.hpp"
+#include "common/GPUWrappers.hpp"
+#include "core/RenderContext.hpp"
+#include "interface/IBackendRenderer.hpp"
+#include "interface/IRenderer.hpp"
+#include "managers/BatchManager.hpp"
+#include "managers/CommandBuffer.hpp"
+#include "managers/DeviceManager.hpp"
+#include "managers/FontManager.hpp"
+#include "managers/IconManager.hpp"
+#include "managers/ImageManager.hpp"
+#include "managers/PipelineCache.hpp"
+#include "managers/TextTextureCache.hpp"
+#include "systems/RenderSystem.hpp"
 
 namespace ui::systems
 {

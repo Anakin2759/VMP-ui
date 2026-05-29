@@ -1,21 +1,21 @@
 
 
 #include "Factory.hpp"
-#include "../common/Tags.hpp"
-#include "../common/Policies.hpp"
-#include "../common/Types.hpp"
-#include "../common/Events.hpp"
-#include "../common/ErrorCodes.hpp"
-#include "../common/AppConfig.hpp"
-#include "../core/RuntimeFacade.hpp"
-#include "../singleton/Logger.hpp"
-#include "../singleton/Registry.hpp"
-#include "../singleton/Dispatcher.hpp"
+#include "common/Tags.hpp"
+#include "common/Policies.hpp"
+#include "common/Types.hpp"
+#include "common/Events.hpp"
+#include "common/ErrorCodes.hpp"
+#include "common/AppConfig.hpp"
+#include "core/RuntimeFacade.hpp"
+#include "singleton/Logger.hpp"
+#include "singleton/Registry.hpp"
+#include "singleton/Dispatcher.hpp"
 #include "Hierarchy.hpp"
 #include "SDL3/SDL_error.h"
 #include "Utils.hpp"
 #include "Animation.hpp"
-#include "../core/PlatformWindow.hpp"
+#include "core/PlatformWindow.hpp"
 #include "entt/entity/fwd.hpp"
 #include "common/components/Window.hpp"
 #include "common/components/Layout.hpp"
@@ -270,12 +270,12 @@ ui::Result<std::unique_ptr<Application>> CreateApplication(std::span<char*> argv
     catch (const std::exception& e)
     {
         Logger::error("[Factory] UI initialization failed: {}", e.what());
-        return ui::MakeError(ui_errc::device_unavailable);
+        return ui::MakeError(UiErrc::DEVICE_UNAVAILABLE);
     }
     catch (...)
     {
         Logger::error("[Factory] Unknown UI initialization failure");
-        return ui::MakeError(ui_errc::unknown);
+        return ui::MakeError(UiErrc::UNKNOWN);
     }
 }
 

@@ -16,7 +16,7 @@
 
 #include <entt/entt.hpp>
 #include <vector>
-#include "../common/Types.hpp"
+#include "common/Types.hpp"
 #include "Chains.hpp"
 
 namespace ui::canvas

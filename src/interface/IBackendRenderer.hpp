@@ -19,9 +19,9 @@
 #include <span>
 #include <string_view>
 #include <SDL3/SDL.h>
-#include "../common/RenderTypes.hpp"
-#include "../common/Result.hpp"
-#include "../common/ErrorCodes.hpp"
+#include "common/RenderTypes.hpp"
+#include "common/Result.hpp"
+#include "common/ErrorCodes.hpp"
 
 namespace ui::interface
 {
@@ -86,7 +86,7 @@ public:
         static_cast<void>(destinationRect);
         static_cast<void>(scissorRect);
         static_cast<void>(alphaMod);
-        return ui::MakeError(ui::ui_errc::not_implemented);
+        return ui::MakeError(ui::UiErrc::NOT_IMPLEMENTED);
     }
 
     /**

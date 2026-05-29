@@ -12,7 +12,7 @@
 #include "Policies.hpp"
 #include "Tags.hpp"
 #include "Types.hpp"
-#include "../singleton/Registry.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui::window_sync
 {

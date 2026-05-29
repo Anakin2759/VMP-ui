@@ -14,7 +14,7 @@
  */
 #include "Log.hpp"
 
-#include "../singleton/Logger.hpp"
+#include "singleton/Logger.hpp"
 
 #include <atomic>
 #include <string_view>

@@ -3,10 +3,10 @@
  * Render a progress bar (background + filled portion)
  */
 #pragma once
-#include "../interface/IRenderer.hpp"
-#include "../singleton/Registry.hpp"
-#include "../common/components/Data.hpp"
-#include "../managers/BatchManager.hpp"
+#include "interface/IRenderer.hpp"
+#include "singleton/Registry.hpp"
+#include "common/components/Data.hpp"
+#include "managers/BatchManager.hpp"
 #include <SDL3/SDL_gpu.h>
 
 namespace ui::renderers

@@ -23,8 +23,8 @@
 #include "FontManager.hpp"
 #include "TextureAtlas.hpp"
 #include "DeviceManager.hpp"
-#include "../common/ErrorCodes.hpp"
-#include "../common/Result.hpp"
+#include "common/ErrorCodes.hpp"
+#include "common/Result.hpp"
 #include <memory>
 #include <optional>
 
@@ -70,7 +70,7 @@ public:
         if (device == nullptr)
         {
             Logger::error("[FontAtlasManager] No GPU device available");
-            return MakeError(ui_errc::device_unavailable);
+            return MakeError(UiErrc::DEVICE_UNAVAILABLE);
         }
 
         m_atlas = std::make_unique<TextureAtlas>(device, 2048, 2);

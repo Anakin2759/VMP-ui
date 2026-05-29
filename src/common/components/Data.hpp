@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "../Types.hpp"
-#include "../Policies.hpp"
+#include "common/Types.hpp"
+#include "common/Policies.hpp"
 #include "Interaction.hpp" // on_event<>
 #include <string>
 #include <string_view>

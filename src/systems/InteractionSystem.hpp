@@ -60,7 +60,7 @@
 #include "core/RuntimeFacade.hpp"
 #include "singleton/Registry.hpp"
 #include "singleton/Dispatcher.hpp"
-#include "interface/Isystem.hpp"
+#include "interface/ISystem.hpp"
 #include "common/Types.hpp"
 
 namespace ui::systems
@@ -69,6 +69,9 @@ namespace ui::systems
 class InteractionSystem : public ui::interface::EnableRegister<InteractionSystem>
 {
 public:
+    InteractionSystem() = default;
+    explicit InteractionSystem(entt::registry& /*reg*/, entt::dispatcher& /*disp*/) {}
+
     void registerHandlersImpl() {}
 
     void unregisterHandlersImpl() {}

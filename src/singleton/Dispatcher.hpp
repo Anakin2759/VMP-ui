@@ -30,7 +30,7 @@
 
 #include <entt/entt.hpp>
 
-#include "../traits/EventTraits.hpp"
+#include "traits/EventTraits.hpp"
 namespace ui
 {
 class UiRuntime;

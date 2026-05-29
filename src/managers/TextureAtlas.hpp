@@ -26,8 +26,8 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
-#include "../common/GPUWrappers.hpp"
-#include "../singleton/Logger.hpp"
+#include "common/GPUWrappers.hpp"
+#include "singleton/Logger.hpp"
 
 namespace ui::wrappers
 {

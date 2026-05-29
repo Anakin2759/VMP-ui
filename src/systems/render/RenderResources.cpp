@@ -1,26 +1,26 @@
-﻿/**
+/**
  * @file RenderResources.cpp
  * @brief RenderSystem -- GPU 资源创建与渲染器注册
  *
  * 包含：createWhiteTexture()、initializeRenderers()
  */
 
-#include "../RenderSystem.hpp"
+#include "systems/RenderSystem.hpp"
 #include "RenderSystemImpl.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <memory>
-#include "../../renderers/ShapeRenderer.hpp"
-#include "../../renderers/TextRenderer.hpp"
-#include "../../renderers/IconRenderer.hpp"
-#include "../../renderers/ScrollBarRenderer.hpp"
-#include "../../renderers/SliderRenderer.hpp"
-#include "../../renderers/ProgressBarRenderer.hpp"
-#include "../../renderers/ImageRenderer.hpp"
-#include "../../renderers/CanvasRenderer.hpp"
-#include "../../renderers/TableRenderer.hpp"
-#include "../../renderers/CheckBoxRenderer.hpp"
-#include "../../renderers/DropDownRenderer.hpp"
+#include "renderers/ShapeRenderer.hpp"
+#include "renderers/TextRenderer.hpp"
+#include "renderers/IconRenderer.hpp"
+#include "renderers/ScrollBarRenderer.hpp"
+#include "renderers/SliderRenderer.hpp"
+#include "renderers/ProgressBarRenderer.hpp"
+#include "renderers/ImageRenderer.hpp"
+#include "renderers/CanvasRenderer.hpp"
+#include "renderers/TableRenderer.hpp"
+#include "renderers/CheckBoxRenderer.hpp"
+#include "renderers/DropDownRenderer.hpp"
 #include "SDL3/SDL_gpu.h"
 #include "common/GPUWrappers.hpp"
 #include "SDL3/SDL_stdinc.h"

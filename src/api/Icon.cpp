@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <unordered_set>
 #include "Utils.hpp"
-#include "../singleton/Registry.hpp"
-#include "../common/Policies.hpp"
+#include "singleton/Registry.hpp"
+#include "common/Policies.hpp"
 #include "entt/entity/fwd.hpp"
 #include "common/components/Data.hpp"
 namespace ui::icon

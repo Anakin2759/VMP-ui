@@ -1,14 +1,14 @@
 #include "StateSystem.hpp"
-#include "../api/Table.hpp"
+#include "api/Table.hpp"
 #include "api/Utils.hpp"
-#include "../common/components/Data.hpp"
-#include "../common/components/Interaction.hpp"
-#include "../common/components/Layout.hpp"
-#include "../common/components/Window.hpp"
-#include "../common/Tags.hpp"
-#include "../singleton/Registry.hpp"
-#include "../singleton/Dispatcher.hpp"
-#include "../core/RuntimeFacade.hpp"
+#include "common/components/Data.hpp"
+#include "common/components/Interaction.hpp"
+#include "common/components/Layout.hpp"
+#include "common/components/Window.hpp"
+#include "common/Tags.hpp"
+#include "singleton/Registry.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "core/RuntimeFacade.hpp"
 #include "HitTestSystem.hpp"
 namespace ui::systems
 {
@@ -54,38 +54,38 @@ namespace
 void StateSystem::registerHandlersImpl()
 {
     // 窗口事件
-    Dispatcher::Sink<events::CloseWindow>().connect<&StateSystem::onCloseWindow>(*this);
-    Dispatcher::Sink<events::WindowPixelSizeChanged>().connect<&StateSystem::onWindowPixelSizeChanged>(*this);
-    Dispatcher::Sink<events::WindowMoved>().connect<&StateSystem::onWindowMoved>(*this);
+    m_disp->sink<events::CloseWindow>().connect<&StateSystem::onCloseWindow>(*this);
+    m_disp->sink<events::WindowPixelSizeChanged>().connect<&StateSystem::onWindowPixelSizeChanged>(*this);
+    m_disp->sink<events::WindowMoved>().connect<&StateSystem::onWindowMoved>(*this);
 
     // 交互事件
-    Dispatcher::Sink<events::HoverEvent>().connect<&StateSystem::onHoverEvent>(*this);
-    Dispatcher::Sink<events::UnhoverEvent>().connect<&StateSystem::onUnhoverEvent>(*this);
-    Dispatcher::Sink<events::MousePressEvent>().connect<&StateSystem::onMousePressEvent>(*this);
-    Dispatcher::Sink<events::MouseReleaseEvent>().connect<&StateSystem::onMouseReleaseEvent>(*this);
+    m_disp->sink<events::HoverEvent>().connect<&StateSystem::onHoverEvent>(*this);
+    m_disp->sink<events::UnhoverEvent>().connect<&StateSystem::onUnhoverEvent>(*this);
+    m_disp->sink<events::MousePressEvent>().connect<&StateSystem::onMousePressEvent>(*this);
+    m_disp->sink<events::MouseReleaseEvent>().connect<&StateSystem::onMouseReleaseEvent>(*this);
 
     // 命中测试后的输入事件（由 HitTestSystem 发送）
-    Dispatcher::Sink<events::HitPointerMove>().connect<&StateSystem::onHitPointerMove>(*this);
-    Dispatcher::Sink<events::HitPointerButton>().connect<&StateSystem::onHitPointerButton>(*this);
-    Dispatcher::Sink<events::HitPointerWheel>().connect<&StateSystem::onHitPointerWheel>(*this);
+    m_disp->sink<events::HitPointerMove>().connect<&StateSystem::onHitPointerMove>(*this);
+    m_disp->sink<events::HitPointerButton>().connect<&StateSystem::onHitPointerButton>(*this);
+    m_disp->sink<events::HitPointerWheel>().connect<&StateSystem::onHitPointerWheel>(*this);
 
-    Dispatcher::Sink<events::EndFrame>().connect<&StateSystem::onEndFrame>(*this);
+    m_disp->sink<events::EndFrame>().connect<&StateSystem::onEndFrame>(*this);
 }
 
 void StateSystem::unregisterHandlersImpl()
 {
-    Dispatcher::Sink<events::CloseWindow>().disconnect<&StateSystem::onCloseWindow>(*this);
-    Dispatcher::Sink<events::WindowPixelSizeChanged>().disconnect<&StateSystem::onWindowPixelSizeChanged>(*this);
-    Dispatcher::Sink<events::WindowMoved>().disconnect<&StateSystem::onWindowMoved>(*this);
-    Dispatcher::Sink<events::HoverEvent>().disconnect<&StateSystem::onHoverEvent>(*this);
-    Dispatcher::Sink<events::UnhoverEvent>().disconnect<&StateSystem::onUnhoverEvent>(*this);
-    Dispatcher::Sink<events::MousePressEvent>().disconnect<&StateSystem::onMousePressEvent>(*this);
-    Dispatcher::Sink<events::MouseReleaseEvent>().disconnect<&StateSystem::onMouseReleaseEvent>(*this);
+    m_disp->sink<events::CloseWindow>().disconnect<&StateSystem::onCloseWindow>(*this);
+    m_disp->sink<events::WindowPixelSizeChanged>().disconnect<&StateSystem::onWindowPixelSizeChanged>(*this);
+    m_disp->sink<events::WindowMoved>().disconnect<&StateSystem::onWindowMoved>(*this);
+    m_disp->sink<events::HoverEvent>().disconnect<&StateSystem::onHoverEvent>(*this);
+    m_disp->sink<events::UnhoverEvent>().disconnect<&StateSystem::onUnhoverEvent>(*this);
+    m_disp->sink<events::MousePressEvent>().disconnect<&StateSystem::onMousePressEvent>(*this);
+    m_disp->sink<events::MouseReleaseEvent>().disconnect<&StateSystem::onMouseReleaseEvent>(*this);
 
-    Dispatcher::Sink<events::HitPointerMove>().disconnect<&StateSystem::onHitPointerMove>(*this);
-    Dispatcher::Sink<events::HitPointerButton>().disconnect<&StateSystem::onHitPointerButton>(*this);
-    Dispatcher::Sink<events::HitPointerWheel>().disconnect<&StateSystem::onHitPointerWheel>(*this);
-    Dispatcher::Sink<events::EndFrame>().disconnect<&StateSystem::onEndFrame>(*this);
+    m_disp->sink<events::HitPointerMove>().disconnect<&StateSystem::onHitPointerMove>(*this);
+    m_disp->sink<events::HitPointerButton>().disconnect<&StateSystem::onHitPointerButton>(*this);
+    m_disp->sink<events::HitPointerWheel>().disconnect<&StateSystem::onHitPointerWheel>(*this);
+    m_disp->sink<events::EndFrame>().disconnect<&StateSystem::onEndFrame>(*this);
 }
 
 // =============================================================================

@@ -21,7 +21,7 @@
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_rect.h>
 #include <Eigen/Dense>
-#include "../common/RenderTypes.hpp"
+#include "common/RenderTypes.hpp"
 
 namespace ui::managers
 {

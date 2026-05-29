@@ -20,9 +20,9 @@
 #include <entt/entt.hpp>
 
 #include "WorkerMailbox.hpp"
-#include "../common/GlobalContext.hpp"
-#include "../singleton/Dispatcher.hpp"
-#include "../singleton/Registry.hpp"
+#include "common/GlobalContext.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui
 {

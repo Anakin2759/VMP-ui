@@ -1,7 +1,7 @@
 #include "Text.hpp"
-#include "../singleton/Registry.hpp"
-#include "../common/Tags.hpp"
-#include "../api/Utils.hpp"
+#include "singleton/Registry.hpp"
+#include "common/Tags.hpp"
+#include "api/Utils.hpp"
 #include "entt/entity/fwd.hpp"
 #include <string>
 #include "common/components/Data.hpp"

@@ -29,10 +29,9 @@
 #include <cstdint>
 #include <vector>
 #include <algorithm>
-#include "../api/Shortcut.hpp"
-#include "../common/Events.hpp"
-#include "../core/RuntimeFacade.hpp"
-#include "../interface/Isystem.hpp"
+#include "api/Shortcut.hpp"
+#include "common/Events.hpp"
+#include "interface/ISystem.hpp"
 
 namespace ui::systems
 {
@@ -46,16 +45,17 @@ namespace ui::systems
 class ShortcutSystem final : public ui::interface::EnableRegister<ShortcutSystem>
 {
 public:
+    ShortcutSystem() = default;
+    explicit ShortcutSystem(entt::registry& /*reg*/, entt::dispatcher& disp) : m_disp(&disp) {}
+
     void registerHandlersImpl()
     {
-        auto& dispatcher = RuntimeFacade::current().enttDispatcher();
-        dispatcher.sink<ui::events::RawKeyInput>().connect<&ShortcutSystem::onRawKeyInput>(*this);
+        m_disp->sink<ui::events::RawKeyInput>().connect<&ShortcutSystem::onRawKeyInput>(*this);
     }
 
     void unregisterHandlersImpl()
     {
-        auto& dispatcher = RuntimeFacade::current().enttDispatcher();
-        dispatcher.sink<ui::events::RawKeyInput>().disconnect<&ShortcutSystem::onRawKeyInput>(*this);
+        m_disp->sink<ui::events::RawKeyInput>().disconnect<&ShortcutSystem::onRawKeyInput>(*this);
     }
 
     /**
@@ -67,8 +67,8 @@ public:
      */
     static shortcut::ShortcutId registerKey(int32_t key, shortcut::Mod mod, shortcut::Callback callback)
     {
-        const shortcut::ShortcutId newId = s_nextId++;
-        s_shortcuts.push_back(Entry{newId, key, mod, std::move(callback)});
+        const shortcut::ShortcutId newId = sNextId++;
+        sShortcuts.push_back(Entry{newId, key, mod, std::move(callback)});
         return newId;
     }
 
@@ -78,19 +78,18 @@ public:
      */
     static void unregister(shortcut::ShortcutId shortcutId)
     {
-        auto iter = std::find_if(s_shortcuts.begin(),
-                                 s_shortcuts.end(),
-                                 [shortcutId](const Entry& entry) { return entry.id == shortcutId; });
-        if (iter != s_shortcuts.end())
+        auto iter = std::find_if(
+            sShortcuts.begin(), sShortcuts.end(), [shortcutId](const Entry& entry) { return entry.id == shortcutId; });
+        if (iter != sShortcuts.end())
         {
-            s_shortcuts.erase(iter);
+            sShortcuts.erase(iter);
         }
     }
 
     /**
      * @brief 清除所有已注册快捷键
      */
-    static void clearAll() { s_shortcuts.clear(); }
+    static void clearAll() { sShortcuts.clear(); }
 
 private:
     struct Entry
@@ -112,7 +111,7 @@ private:
         // 将当前修饰键状态归一化（忽略左右区分）
         const auto activeMod = normalizeModifiers(event.modifiers);
 
-        for (auto& entry : s_shortcuts)
+        for (auto& entry : sShortcuts)
         {
             if (entry.key == event.key && entry.mod == activeMod)
             {
@@ -126,18 +125,27 @@ private:
         // 直接使用 Mod 枚举掩码（数值与 SDL_KMOD_* 完全一致，无需包含 SDL 头）
         uint16_t result = 0;
         if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::SHIFT)) != 0)
+        {
             result |= static_cast<uint16_t>(shortcut::Mod::SHIFT);
+        }
         if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::CTRL)) != 0)
+        {
             result |= static_cast<uint16_t>(shortcut::Mod::CTRL);
+        }
         if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::ALT)) != 0)
+        {
             result |= static_cast<uint16_t>(shortcut::Mod::ALT);
+        }
         if ((sdlMod & static_cast<uint16_t>(shortcut::Mod::GUI)) != 0)
+        {
             result |= static_cast<uint16_t>(shortcut::Mod::GUI);
+        }
         return static_cast<shortcut::Mod>(result);
     }
 
-    inline static std::vector<Entry> s_shortcuts{};
-    inline static shortcut::ShortcutId s_nextId{1};
+    inline static std::vector<Entry> sShortcuts{};
+    inline static shortcut::ShortcutId sNextId{1};
+    entt::dispatcher* m_disp = nullptr;
 };
 
 } // namespace ui::systems

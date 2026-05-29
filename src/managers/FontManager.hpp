@@ -42,9 +42,9 @@
 #include <memory>
 #include <cstdint>
 #include <cmath>
-#include "../singleton/Logger.hpp"
-#include "../common/ErrorCodes.hpp"
-#include "../common/Result.hpp"
+#include "singleton/Logger.hpp"
+#include "common/ErrorCodes.hpp"
+#include "common/Result.hpp"
 
 namespace ui::managers
 {
@@ -134,13 +134,13 @@ public:
         if (m_ftLibrary == nullptr)
         {
             Logger::error("[FontManager] FreeType not initialized");
-            return MakeError(ui_errc::device_unavailable);
+            return MakeError(UiErrc::DEVICE_UNAVAILABLE);
         }
 
         if (fontData == nullptr || dataSize == 0)
         {
             Logger::error("[FontManager] Invalid font data");
-            return MakeError(ui_errc::invalid_argument);
+            return MakeError(UiErrc::INVALID_ARGUMENT);
         }
 
         // 复制字体数据（FreeType 需要持久内存）
@@ -153,7 +153,7 @@ public:
         if (error != 0)
         {
             Logger::error("[FontManager] Failed to load font face: error {}", error);
-            return MakeError(ui_errc::asset_load_failed);
+            return MakeError(UiErrc::ASSET_LOAD_FAILED);
         }
         m_ftFace.reset(face);
         face = nullptr;
@@ -164,7 +164,7 @@ public:
         {
             m_ftFace.reset();
             Logger::error("[FontManager] Failed to set pixel size: error {}", error);
-            return MakeError(ui_errc::asset_load_failed);
+            return MakeError(UiErrc::ASSET_LOAD_FAILED);
         }
 
         m_fontSize = fontSize;

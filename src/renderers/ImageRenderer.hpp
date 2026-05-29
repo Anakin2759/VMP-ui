@@ -14,12 +14,12 @@
  */
 #pragma once
 
-#include "../interface/IRenderer.hpp"
-#include "../singleton/Registry.hpp"
-#include "../common/components/Data.hpp"
-#include "../common/Tags.hpp"
-#include "../managers/BatchManager.hpp"
-#include "../managers/ImageManager.hpp"
+#include "interface/IRenderer.hpp"
+#include "singleton/Registry.hpp"
+#include "common/components/Data.hpp"
+#include "common/Tags.hpp"
+#include "managers/BatchManager.hpp"
+#include "managers/ImageManager.hpp"
 #include <SDL3/SDL_gpu.h>
 
 namespace ui::renderers

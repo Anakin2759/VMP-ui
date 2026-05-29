@@ -27,65 +27,65 @@ const char* UiErrorCategory::name() const noexcept
 
 std::string UiErrorCategory::message(int condition) const
 {
-    switch (static_cast<ui_errc>(condition))
+    switch (static_cast<UiErrc>(condition))
     {
-        case ui_errc::invalid_entity:
+        case UiErrc::INVALID_ENTITY:
             return "invalid entity";
-        case ui_errc::invalid_argument:
+        case UiErrc::INVALID_ARGUMENT:
             return "invalid argument";
-        case ui_errc::registry_unavailable:
+        case UiErrc::REGISTRY_UNAVAILABLE:
             return "registry unavailable";
-        case ui_errc::not_implemented:
+        case UiErrc::NOT_IMPLEMENTED:
             return "not implemented";
 
-        case ui_errc::hierarchy_cycle:
+        case UiErrc::HIERARCHY_CYCLE:
             return "hierarchy cycle detected";
-        case ui_errc::hierarchy_detached:
+        case UiErrc::HIERARCHY_DETACHED:
             return "entity detached from hierarchy";
-        case ui_errc::entity_already_exists:
+        case UiErrc::ENTITY_ALREADY_EXISTS:
             return "entity already exists";
 
-        case ui_errc::asset_not_found:
+        case UiErrc::ASSET_NOT_FOUND:
             return "asset not found";
-        case ui_errc::asset_load_failed:
+        case UiErrc::ASSET_LOAD_FAILED:
             return "asset load failed";
-        case ui_errc::asset_decode_failed:
+        case UiErrc::ASSET_DECODE_FAILED:
             return "asset decode failed";
-        case ui_errc::asset_upload_failed:
+        case UiErrc::ASSET_UPLOAD_FAILED:
             return "asset upload failed";
-        case ui_errc::atlas_full:
+        case UiErrc::ATLAS_FULL:
             return "texture atlas is full and cannot be expanded";
-        case ui_errc::glyph_render_failed:
+        case UiErrc::GLYPH_RENDER_FAILED:
             return "freetype glyph render failed";
-        case ui_errc::file_open_failed:
+        case UiErrc::FILE_OPEN_FAILED:
             return "failed to open resource file from disk";
 
-        case ui_errc::device_unavailable:
+        case UiErrc::DEVICE_UNAVAILABLE:
             return "gpu device unavailable";
-        case ui_errc::pipeline_unavailable:
+        case UiErrc::PIPELINE_UNAVAILABLE:
             return "gpu pipeline unavailable";
-        case ui_errc::shader_compile_failed:
+        case UiErrc::SHADER_COMPILE_FAILED:
             return "shader compile failed";
-        case ui_errc::swapchain_unavailable:
+        case UiErrc::SWAPCHAIN_UNAVAILABLE:
             return "gpu swapchain texture is not ready";
-        case ui_errc::backend_unavailable:
+        case UiErrc::BACKEND_UNAVAILABLE:
             return "no gpu/sdl backend available (all candidates exhausted)";
-        case ui_errc::window_claim_failed:
+        case UiErrc::WINDOW_CLAIM_FAILED:
             return "SDL_ClaimWindowForGPUDevice failed";
-        case ui_errc::buffer_map_failed:
+        case UiErrc::BUFFER_MAP_FAILED:
             return "SDL_MapGPUTransferBuffer failed";
 
-        case ui_errc::theme_not_found:
+        case UiErrc::THEME_NOT_FOUND:
             return "theme item not found";
-        case ui_errc::theme_type_mismatch:
+        case UiErrc::THEME_TYPE_MISMATCH:
             return "theme item type mismatch";
 
-        case ui_errc::script_parse_error:
+        case UiErrc::SCRIPT_PARSE_ERROR:
             return "script parse error";
-        case ui_errc::script_runtime_error:
+        case UiErrc::SCRIPT_RUNTIME_ERROR:
             return "script runtime error";
 
-        case ui_errc::unknown:
+        case UiErrc::UNKNOWN:
             return "unknown ui error";
     }
     return "unrecognized ui error";
@@ -97,72 +97,72 @@ const std::error_category& GetUiErrorCategory() noexcept
     return kCategory;
 }
 
-std::error_code make_error_code(ui_errc error) noexcept
+std::error_code MakeErrorCode(UiErrc error) noexcept
 {
     return {static_cast<int>(error), GetUiErrorCategory()};
 }
 
-std::string_view ToStringView(ui_errc error) noexcept
+std::string_view ToStringView(UiErrc errorCode) noexcept
 {
-    switch (error)
+    switch (errorCode)
     {
-        case ui_errc::invalid_entity:
+        case UiErrc::INVALID_ENTITY:
             return "invalid_entity";
-        case ui_errc::invalid_argument:
+        case UiErrc::INVALID_ARGUMENT:
             return "invalid_argument";
-        case ui_errc::registry_unavailable:
+        case UiErrc::REGISTRY_UNAVAILABLE:
             return "registry_unavailable";
-        case ui_errc::not_implemented:
+        case UiErrc::NOT_IMPLEMENTED:
             return "not_implemented";
 
-        case ui_errc::hierarchy_cycle:
+        case UiErrc::HIERARCHY_CYCLE:
             return "hierarchy_cycle";
-        case ui_errc::hierarchy_detached:
+        case UiErrc::HIERARCHY_DETACHED:
             return "hierarchy_detached";
-        case ui_errc::entity_already_exists:
+        case UiErrc::ENTITY_ALREADY_EXISTS:
             return "entity_already_exists";
 
-        case ui_errc::asset_not_found:
+        case UiErrc::ASSET_NOT_FOUND:
             return "asset_not_found";
-        case ui_errc::asset_load_failed:
+        case UiErrc::ASSET_LOAD_FAILED:
             return "asset_load_failed";
-        case ui_errc::asset_decode_failed:
+        case UiErrc::ASSET_DECODE_FAILED:
             return "asset_decode_failed";
-        case ui_errc::asset_upload_failed:
+        case UiErrc::ASSET_UPLOAD_FAILED:
             return "asset_upload_failed";
-        case ui_errc::atlas_full:
+        case UiErrc::ATLAS_FULL:
             return "atlas_full";
-        case ui_errc::glyph_render_failed:
+        case UiErrc::GLYPH_RENDER_FAILED:
             return "glyph_render_failed";
-        case ui_errc::file_open_failed:
+        case UiErrc::FILE_OPEN_FAILED:
             return "file_open_failed";
 
-        case ui_errc::device_unavailable:
+        case UiErrc::DEVICE_UNAVAILABLE:
             return "device_unavailable";
-        case ui_errc::pipeline_unavailable:
+        case UiErrc::PIPELINE_UNAVAILABLE:
             return "pipeline_unavailable";
-        case ui_errc::shader_compile_failed:
+        case UiErrc::SHADER_COMPILE_FAILED:
             return "shader_compile_failed";
-        case ui_errc::swapchain_unavailable:
+        case UiErrc::SWAPCHAIN_UNAVAILABLE:
             return "swapchain_unavailable";
-        case ui_errc::backend_unavailable:
+        case UiErrc::BACKEND_UNAVAILABLE:
             return "backend_unavailable";
-        case ui_errc::window_claim_failed:
+        case UiErrc::WINDOW_CLAIM_FAILED:
             return "window_claim_failed";
-        case ui_errc::buffer_map_failed:
+        case UiErrc::BUFFER_MAP_FAILED:
             return "buffer_map_failed";
 
-        case ui_errc::theme_not_found:
+        case UiErrc::THEME_NOT_FOUND:
             return "theme_not_found";
-        case ui_errc::theme_type_mismatch:
+        case UiErrc::THEME_TYPE_MISMATCH:
             return "theme_type_mismatch";
 
-        case ui_errc::script_parse_error:
+        case UiErrc::SCRIPT_PARSE_ERROR:
             return "script_parse_error";
-        case ui_errc::script_runtime_error:
+        case UiErrc::SCRIPT_RUNTIME_ERROR:
             return "script_runtime_error";
 
-        case ui_errc::unknown:
+        case UiErrc::UNKNOWN:
             return "unknown";
     }
     return "unrecognized";

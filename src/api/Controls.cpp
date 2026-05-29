@@ -6,7 +6,7 @@
 #include <vector>
 #include <string>
 #include "Utils.hpp"
-#include "../singleton/Registry.hpp"
+#include "singleton/Registry.hpp"
 #include "entt/entity/fwd.hpp"
 #include "common/components/Data.hpp"
 #include "common/Policies.hpp"

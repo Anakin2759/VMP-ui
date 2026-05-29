@@ -3,7 +3,7 @@
  *
  */
 
-#include "../RenderSystem.hpp"
+#include "systems/RenderSystem.hpp"
 #include "RenderSystemImpl.hpp"
 #include <algorithm>
 #include <cstdint>
@@ -30,7 +30,7 @@
 #include "SDL3/SDL_rect.h"
 #include "singleton/Registry.hpp"
 #include "common/Tags.hpp"
-#include "../../api/Utils.hpp"
+#include "api/Utils.hpp"
 
 namespace ui::systems
 {

@@ -1,5 +1,5 @@
 #include "Size.hpp"
-#include "../singleton/Registry.hpp"
+#include "singleton/Registry.hpp"
 #include "Utils.hpp"
 #include "entt/entity/fwd.hpp"
 #include "common/components/Layout.hpp"

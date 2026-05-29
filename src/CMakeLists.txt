@@ -146,6 +146,7 @@ set(UI_SOURCES
     systems/LayoutSystem.cpp
     systems/HitTestSystem.cpp
     systems/StateSystem.cpp
+    systems/ThemeSystem.cpp
     systems/render/RenderBackend.cpp
     systems/render/RenderResources.cpp
     systems/render/RenderFrame.cpp
@@ -246,7 +247,7 @@ set(UI_HEADERS
     traits/PoliciesTraits.hpp
 
     # Interface
-    interface/Isystem.hpp
+    interface/ISystem.hpp
     
     # API
     api/Utils.hpp

@@ -8,8 +8,8 @@
 
 #include <optional>
 
-#include "../Types.hpp"
-#include "../Policies.hpp"
+#include "common/Types.hpp"
+#include "common/Policies.hpp"
 
 namespace ui::components
 {

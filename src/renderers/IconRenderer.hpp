@@ -18,15 +18,15 @@
  */
 
 #pragma once
-#include "../interface/IRenderer.hpp"
-#include "../singleton/Registry.hpp"
-#include "../common/components/Data.hpp"
-#include "../common/components/Layout.hpp"
-#include "../common/CustomizationPoints.hpp"
-#include "../managers/IconManager.hpp"
-#include "../managers/FontManager.hpp"
-#include "../core/RenderContext.hpp"
-#include "../managers/BatchManager.hpp"
+#include "interface/IRenderer.hpp"
+#include "singleton/Registry.hpp"
+#include "common/components/Data.hpp"
+#include "common/components/Layout.hpp"
+#include "common/CustomizationPoints.hpp"
+#include "managers/IconManager.hpp"
+#include "managers/FontManager.hpp"
+#include "core/RenderContext.hpp"
+#include "managers/BatchManager.hpp"
 namespace ui::renderers
 {
 

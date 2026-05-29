@@ -13,19 +13,19 @@
  */
 
 #pragma once
-#include "../interface/IRenderer.hpp"
-#include "../singleton/Registry.hpp"
-#include "../common/components/Data.hpp"
-#include "../common/components/Interaction.hpp"
-#include "../common/components/Layout.hpp"
-#include "../common/Tags.hpp"
-#include "../managers/TextTextureCache.hpp"
-#include "../managers/FontManager.hpp"
-#include "../managers/BatchManager.hpp"
-#include "../interface/IBackendRenderer.hpp"
-#include "../common/CustomizationPoints.hpp"
-#include "../core/TextUtils.hpp"
-#include "../api/Utils.hpp"
+#include "interface/IRenderer.hpp"
+#include "singleton/Registry.hpp"
+#include "common/components/Data.hpp"
+#include "common/components/Interaction.hpp"
+#include "common/components/Layout.hpp"
+#include "common/Tags.hpp"
+#include "managers/TextTextureCache.hpp"
+#include "managers/FontManager.hpp"
+#include "managers/BatchManager.hpp"
+#include "interface/IBackendRenderer.hpp"
+#include "common/CustomizationPoints.hpp"
+#include "core/TextUtils.hpp"
+#include "api/Utils.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <unordered_map>

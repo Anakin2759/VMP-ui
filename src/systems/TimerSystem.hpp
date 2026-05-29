@@ -34,11 +34,8 @@
 #pragma once
 #include <cstdint>
 #include <entt/entt.hpp>
-#include <vector>
-#include "../common/Events.hpp"
-#include "../common/GlobalContext.hpp"
-#include "../interface/Isystem.hpp"
-#include "../singleton/Dispatcher.hpp"
+#include "common/Events.hpp"
+#include "interface/ISystem.hpp"
 namespace ui::systems
 {
 /**
@@ -47,6 +44,9 @@ namespace ui::systems
 class TimerSystem : public interface::EnableRegister<TimerSystem>
 {
 public:
+    TimerSystem() = default;
+    explicit TimerSystem(entt::registry& /*reg*/, entt::dispatcher& disp) : m_disp(&disp) {}
+
     /**
      * @brief 注册事件处理器
      */
@@ -82,5 +82,6 @@ public:
 
 private:
     void onUpdateTimer(const events::UpdateTimer& event);
+    entt::dispatcher* m_disp = nullptr;
 };
 } // namespace ui::systems

@@ -14,12 +14,12 @@
  */
 
 #pragma once
-#include "../interface/IRenderer.hpp"
-#include "../singleton/Registry.hpp"
-#include "../common/RenderTypes.hpp"
-#include "../common/components/Interaction.hpp"
-#include "../common/components/Layout.hpp"
-#include "../managers/BatchManager.hpp"
+#include "interface/IRenderer.hpp"
+#include "singleton/Registry.hpp"
+#include "common/RenderTypes.hpp"
+#include "common/components/Interaction.hpp"
+#include "common/components/Layout.hpp"
+#include "managers/BatchManager.hpp"
 #include <algorithm>
 #include <SDL3/SDL_gpu.h>
 

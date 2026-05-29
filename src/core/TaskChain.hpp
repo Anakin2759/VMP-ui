@@ -26,11 +26,11 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include "../common/Events.hpp"
-#include "../common/GlobalContext.hpp"
+#include "common/Events.hpp"
+#include "common/GlobalContext.hpp"
 #include "RuntimeFacade.hpp"
 #include "SystemManager.hpp"
-#include "../singleton/Dispatcher.hpp"
+#include "singleton/Dispatcher.hpp"
 namespace ui::tasks
 {
 

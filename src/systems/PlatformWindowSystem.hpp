@@ -16,10 +16,10 @@
 #include "common/components/Window.hpp"
 #include "common/Events.hpp"
 #include "core/RuntimeFacade.hpp"
-#include "interface/Isystem.hpp"
+#include "interface/ISystem.hpp"
 #include "singleton/Dispatcher.hpp"
 #include "singleton/Registry.hpp"
-#include "../common/WindowSync.hpp"
+#include "common/WindowSync.hpp"
 
 namespace ui::systems
 {
@@ -27,6 +27,9 @@ namespace ui::systems
 class PlatformWindowSystem : public ui::interface::EnableRegister<PlatformWindowSystem>
 {
 public:
+    PlatformWindowSystem() = default;
+    explicit PlatformWindowSystem(entt::registry& /*reg*/, entt::dispatcher& /*disp*/) {}
+
     void registerHandlersImpl() { SDL_AddEventWatch(&PlatformWindowSystem::platformEventWatch, nullptr); }
 
     void unregisterHandlersImpl() { SDL_RemoveEventWatch(&PlatformWindowSystem::platformEventWatch, nullptr); }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ************************************************************************
  *
  * @file ActionSystem.h
@@ -24,51 +24,62 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include "../common/Events.hpp"
-#include "../singleton/Logger.hpp"
-#include "../interface/Isystem.hpp"
-#include "../api/Animation.hpp"
-#include "../api/Hierarchy.hpp"
-#include "../common/components/Animation.hpp"
-#include "../common/components/Interaction.hpp"
-#include "../common/components/Layout.hpp"
-#include "../common/Tags.hpp"
-#include "../core/RuntimeFacade.hpp"
-#include "../common/GlobalContext.hpp"
+#include "common/Events.hpp"
+#include "singleton/Logger.hpp"
+#include "interface/ISystem.hpp"
+#include "api/Animation.hpp"
+#include "api/Hierarchy.hpp"
+#include "common/components/Animation.hpp"
+#include "common/components/Interaction.hpp"
+#include "common/components/Layout.hpp"
+#include "common/Tags.hpp"
+#include "core/RuntimeFacade.hpp"
+#include "common/GlobalContext.hpp"
 namespace ui::systems
 {
 class ActionSystem : public ui::interface::EnableRegister<ActionSystem>
 {
 public:
+    ActionSystem() = default;
+    explicit ActionSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+
     void registerHandlersImpl()
     {
+        auto& disp = m_disp != nullptr ? *m_disp : RuntimeFacade::current().enttDispatcher();
         // 只监听抽象事件
-        Dispatcher::Sink<ui::events::ClickEvent>().connect<&ActionSystem::onClickEvent>(*this);
-        Dispatcher::Sink<ui::events::HoverEvent>().connect<&ActionSystem::onHoverEvent>(*this);
-        Dispatcher::Sink<ui::events::UnhoverEvent>().connect<&ActionSystem::onUnhoverEvent>(*this);
+        disp.sink<ui::events::ClickEvent>().connect<&ActionSystem::onClickEvent>(*this);
+        disp.sink<ui::events::HoverEvent>().connect<&ActionSystem::onHoverEvent>(*this);
+        disp.sink<ui::events::UnhoverEvent>().connect<&ActionSystem::onUnhoverEvent>(*this);
 
         // 监听底层事件以驱动交互动效
-        Dispatcher::Sink<ui::events::MousePressEvent>().connect<&ActionSystem::onMousePress>(*this);
-        Dispatcher::Sink<ui::events::MouseReleaseEvent>().connect<&ActionSystem::onMouseRelease>(*this);
-        Dispatcher::Sink<ui::events::HitPointerMove>().connect<&ActionSystem::onHitPointerMove>(*this);
+        disp.sink<ui::events::MousePressEvent>().connect<&ActionSystem::onMousePress>(*this);
+        disp.sink<ui::events::MouseReleaseEvent>().connect<&ActionSystem::onMouseRelease>(*this);
+        disp.sink<ui::events::HitPointerMove>().connect<&ActionSystem::onHitPointerMove>(*this);
 
         // 默认拖放处理路径：监听拖放事件并更新层级
-        Dispatcher::Sink<ui::events::DragDroppedEvent>().connect<&ActionSystem::onDragDroppedDefault>(*this);
+        disp.sink<ui::events::DragDroppedEvent>().connect<&ActionSystem::onDragDroppedDefault>(*this);
     }
     void unregisterHandlersImpl()
     {
-        Dispatcher::Sink<ui::events::ClickEvent>().disconnect<&ActionSystem::onClickEvent>(*this);
-        Dispatcher::Sink<ui::events::HoverEvent>().disconnect<&ActionSystem::onHoverEvent>(*this);
-        Dispatcher::Sink<ui::events::UnhoverEvent>().disconnect<&ActionSystem::onUnhoverEvent>(*this);
+        auto& disp = m_disp != nullptr ? *m_disp : RuntimeFacade::current().enttDispatcher();
+        disp.sink<ui::events::ClickEvent>().disconnect<&ActionSystem::onClickEvent>(*this);
+        disp.sink<ui::events::HoverEvent>().disconnect<&ActionSystem::onHoverEvent>(*this);
+        disp.sink<ui::events::UnhoverEvent>().disconnect<&ActionSystem::onUnhoverEvent>(*this);
 
-        Dispatcher::Sink<ui::events::MousePressEvent>().disconnect<&ActionSystem::onMousePress>(*this);
-        Dispatcher::Sink<ui::events::MouseReleaseEvent>().disconnect<&ActionSystem::onMouseRelease>(*this);
-        Dispatcher::Sink<ui::events::HitPointerMove>().disconnect<&ActionSystem::onHitPointerMove>(*this);
+        disp.sink<ui::events::MousePressEvent>().disconnect<&ActionSystem::onMousePress>(*this);
+        disp.sink<ui::events::MouseReleaseEvent>().disconnect<&ActionSystem::onMouseRelease>(*this);
+        disp.sink<ui::events::HitPointerMove>().disconnect<&ActionSystem::onHitPointerMove>(*this);
 
-        Dispatcher::Sink<ui::events::DragDroppedEvent>().disconnect<&ActionSystem::onDragDroppedDefault>(*this);
+        disp.sink<ui::events::DragDroppedEvent>().disconnect<&ActionSystem::onDragDroppedDefault>(*this);
     }
 
 private:
+    entt::registry* m_reg = nullptr;
+    entt::dispatcher* m_disp = nullptr;
+    [[nodiscard]] entt::registry& effectiveReg() noexcept
+    {
+        return m_reg != nullptr ? *m_reg : RuntimeFacade::current().enttRegistry();
+    }
     void applyAnimation(entt::entity entity,
                         const std::optional<Vec2>& targetScale,
                         const std::optional<Vec2>& targetOffset,
@@ -162,9 +173,8 @@ private:
      */
     void onHitPointerMove(const ui::events::HitPointerMove& event)
     {
-        auto& runtime = RuntimeFacade::current();
-        auto& reg = runtime.enttRegistry();
-        auto& ctx = runtime.state();
+        auto& reg = effectiveReg();
+        auto& ctx = RuntimeFacade::current().state();
         entt::entity entity = ctx.activeEntity;
 
         if (!reg.valid(entity)) return;
@@ -190,7 +200,7 @@ private:
 
     void onMousePress(const ui::events::MousePressEvent& event)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         entt::entity entity = event.entity;
 
         if (!reg.valid(entity)) return;
@@ -213,9 +223,8 @@ private:
 
     void onMouseRelease(const ui::events::MouseReleaseEvent& event)
     {
-        auto& runtime = RuntimeFacade::current();
-        auto& reg = runtime.enttRegistry();
-        auto& ctx = runtime.state();
+        auto& reg = effectiveReg();
+        auto& ctx = RuntimeFacade::current().state();
         entt::entity entity = event.entity;
 
         if (!reg.valid(entity)) return;
@@ -264,7 +273,7 @@ private:
      */
     void onClickEvent(const ui::events::ClickEvent& event)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (!reg.valid(event.entity)) return;
 
         // 处理点击回调
@@ -282,7 +291,7 @@ private:
      */
     void onHoverEvent(const ui::events::HoverEvent& event)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (!reg.valid(event.entity)) return;
 
         // 处理 Hover 回调
@@ -310,7 +319,7 @@ private:
      */
     void onUnhoverEvent(const ui::events::UnhoverEvent& event)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (!reg.valid(event.entity)) return;
 
         // 处理 Unhover 回调
@@ -335,7 +344,7 @@ private:
 
     void onDragDroppedDefault(const ui::events::DragDroppedEvent& event)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = effectiveReg();
         if (!reg.valid(event.source) || !reg.valid(event.target)) return;
         if (!isDropTargetEnabled(reg, event.target)) return;
         if (wouldCreateHierarchyCycle(reg, event.source, event.target)) return;

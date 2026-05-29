@@ -168,18 +168,18 @@ Result<void> IconManager::loadIconFontFromMemory(const std::string& name,
     if (m_ftLibrary == nullptr)
     {
         Logger::error("[IconManager] FreeType not initialized");
-        return MakeError(ui_errc::device_unavailable);
+        return MakeError(UiErrc::DEVICE_UNAVAILABLE);
     }
 
     if (fontData == nullptr || fontLength == 0)
     {
         Logger::error("[IconManager] Invalid font data");
-        return MakeError(ui_errc::invalid_argument);
+        return MakeError(UiErrc::INVALID_ARGUMENT);
     }
     if (codepointsData == nullptr || codepointsLength == 0)
     {
         Logger::error("[IconManager] Invalid codepoints data");
-        return MakeError(ui_errc::invalid_argument);
+        return MakeError(UiErrc::INVALID_ARGUMENT);
     }
 
     // 复制字体数据（FreeType 需要持久内存）
@@ -193,7 +193,7 @@ Result<void> IconManager::loadIconFontFromMemory(const std::string& name,
     if (error != 0)
     {
         Logger::error("[IconManager] Failed to load font face from memory '{}' (error {})", name, error);
-        return MakeError(ui_errc::asset_load_failed);
+        return MakeError(UiErrc::ASSET_LOAD_FAILED);
     }
 
     // 设置像素大小
@@ -202,7 +202,7 @@ Result<void> IconManager::loadIconFontFromMemory(const std::string& name,
     {
         FT_Done_Face(face);
         Logger::error("[IconManager] Failed to set pixel size {} (error {})", fontSize, error);
-        return MakeError(ui_errc::asset_load_failed);
+        return MakeError(UiErrc::ASSET_LOAD_FAILED);
     }
 
     // 解析 codepoints
@@ -232,7 +232,7 @@ Result<void> IconManager::loadIconFontFromMemory(const std::string& name,
     if (codepoints.empty())
     {
         Logger::warn("No codepoints loaded from memory for: {}", name);
-        return MakeError(ui_errc::asset_decode_failed);
+        return MakeError(UiErrc::ASSET_DECODE_FAILED);
     }
 
     m_fonts[name] = FontData{.buffer = std::move(buffer), .face = face, .fontSize = fontSize};

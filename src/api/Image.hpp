@@ -16,9 +16,9 @@
 
 #include <string_view>
 #include <entt/entt.hpp>
-#include "../common/components/Data.hpp"
-#include "../common/Types.hpp"
-#include "../singleton/Registry.hpp"
+#include "common/components/Data.hpp"
+#include "common/Types.hpp"
+#include "singleton/Registry.hpp"
 #include "Chains.hpp"
 
 namespace ui::image

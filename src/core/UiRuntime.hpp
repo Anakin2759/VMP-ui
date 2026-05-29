@@ -19,9 +19,9 @@
 #include "RuntimeFacade.hpp"
 #include "WorkerMailbox.hpp"
 
-#include "../common/ThreadPool.hpp"
-#include "../singleton/Dispatcher.hpp"
-#include "../singleton/Registry.hpp"
+#include "common/ThreadPool.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui
 {

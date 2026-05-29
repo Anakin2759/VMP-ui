@@ -18,10 +18,9 @@
 #include <entt/entt.hpp>
 #include <vector>
 #include <unordered_map>
-#include "../common/Types.hpp"
-#include "../common/Events.hpp"
-#include "../singleton/Registry.hpp"
-#include "../interface/Isystem.hpp"
+#include "common/Types.hpp"
+#include "common/Events.hpp"
+#include "interface/ISystem.hpp"
 
 namespace ui::systems
 {
@@ -31,6 +30,9 @@ namespace ui::systems
 class HitTestSystem : public ui::interface::EnableRegister<HitTestSystem>
 {
 public:
+    HitTestSystem() = default;
+    explicit HitTestSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+
     void registerHandlersImpl();
 
     void unregisterHandlersImpl();
@@ -74,31 +76,31 @@ private:
     template <typename Component>
     void connectInvalidateConstructDestroy()
     {
-        Registry::OnConstruct<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
-        Registry::OnDestroy<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_construct<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_destroy<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
     }
 
     template <typename Component>
     void disconnectInvalidateConstructDestroy()
     {
-        Registry::OnConstruct<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
-        Registry::OnDestroy<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_construct<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_destroy<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
     }
 
     template <typename Component>
     void connectInvalidateConstructUpdateDestroy()
     {
-        Registry::OnConstruct<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
-        Registry::OnUpdate<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
-        Registry::OnDestroy<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_construct<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_update<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_destroy<Component>().template connect<&HitTestSystem::markHitCacheDirty>(*this);
     }
 
     template <typename Component>
     void disconnectInvalidateConstructUpdateDestroy()
     {
-        Registry::OnConstruct<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
-        Registry::OnUpdate<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
-        Registry::OnDestroy<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_construct<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_update<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
+        m_reg->on_destroy<Component>().template disconnect<&HitTestSystem::markHitCacheDirty>(*this);
     }
 
     /**
@@ -114,6 +116,8 @@ private:
     std::unordered_map<entt::entity, ZOrderCache> m_zOrderCache;
 
     entt::entity m_cacheInvalidationMarker = entt::null;
+    entt::registry* m_reg = nullptr;
+    entt::dispatcher* m_disp = nullptr;
 
     /**
      * @brief 使所有窗口的缓存失效

@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include "../Types.hpp"
-#include "../Policies.hpp"
+#include "common/Types.hpp"
+#include "common/Policies.hpp"
 #include <string>
 #include <cfloat>
 

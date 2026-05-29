@@ -18,7 +18,7 @@
 #include <unordered_map>
 #include <SDL3/SDL_gpu.h>
 
-#include "../common/Result.hpp"
+#include "common/Result.hpp"
 
 namespace ui::managers
 {

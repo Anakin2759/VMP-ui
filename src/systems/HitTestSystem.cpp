@@ -1,21 +1,21 @@
 #include "HitTestSystem.hpp"
 #include <algorithm>
-#include "../api/Utils.hpp"
-#include "../common/components/Data.hpp"
-#include "../common/components/Interaction.hpp"
-#include "../common/components/Layout.hpp"
-#include "../common/Tags.hpp"
-#include "../singleton/Dispatcher.hpp"
-#include "../core/RuntimeFacade.hpp"
+#include "api/Utils.hpp"
+#include "common/components/Data.hpp"
+#include "common/components/Interaction.hpp"
+#include "common/components/Layout.hpp"
+#include "common/Tags.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "core/RuntimeFacade.hpp"
 
 namespace ui::systems
 {
 
 void HitTestSystem::registerHandlersImpl()
 {
-    Dispatcher::Sink<events::RawPointerMove>().connect<&HitTestSystem::onRawPointerMove>(*this);
-    Dispatcher::Sink<events::RawPointerButton>().connect<&HitTestSystem::onRawPointerButton>(*this);
-    Dispatcher::Sink<events::RawPointerWheel>().connect<&HitTestSystem::onRawPointerWheel>(*this);
+    m_disp->sink<events::RawPointerMove>().connect<&HitTestSystem::onRawPointerMove>(*this);
+    m_disp->sink<events::RawPointerButton>().connect<&HitTestSystem::onRawPointerButton>(*this);
+    m_disp->sink<events::RawPointerWheel>().connect<&HitTestSystem::onRawPointerWheel>(*this);
 
     connectInvalidateConstructUpdateDestroy<components::ZOrderIndex>();
     connectInvalidateConstructUpdateDestroy<components::Hierarchy>();
@@ -32,9 +32,9 @@ void HitTestSystem::registerHandlersImpl()
 
 void HitTestSystem::unregisterHandlersImpl()
 {
-    Dispatcher::Sink<events::RawPointerMove>().disconnect<&HitTestSystem::onRawPointerMove>(*this);
-    Dispatcher::Sink<events::RawPointerButton>().disconnect<&HitTestSystem::onRawPointerButton>(*this);
-    Dispatcher::Sink<events::RawPointerWheel>().disconnect<&HitTestSystem::onRawPointerWheel>(*this);
+    m_disp->sink<events::RawPointerMove>().disconnect<&HitTestSystem::onRawPointerMove>(*this);
+    m_disp->sink<events::RawPointerButton>().disconnect<&HitTestSystem::onRawPointerButton>(*this);
+    m_disp->sink<events::RawPointerWheel>().disconnect<&HitTestSystem::onRawPointerWheel>(*this);
 
     disconnectInvalidateConstructUpdateDestroy<components::ZOrderIndex>();
     disconnectInvalidateConstructUpdateDestroy<components::Hierarchy>();

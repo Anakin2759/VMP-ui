@@ -36,7 +36,7 @@
 #include "EventLoop.hpp"
 #include "UiRuntime.hpp"
 
-#include "../common/Events.hpp"
+#include "common/Events.hpp"
 namespace ui
 {
 class Application

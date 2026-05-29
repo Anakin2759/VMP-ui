@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../common/Events.hpp"
+#include "common/Events.hpp"
 
 namespace ui::traits
 {

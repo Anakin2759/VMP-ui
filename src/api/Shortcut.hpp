@@ -31,7 +31,7 @@
 #include <cstdint>
 #include <memory>
 #include <entt/entt.hpp>
-#include "../common/Types.hpp"
+#include "common/Types.hpp"
 #include "Chains.hpp"
 
 namespace ui::shortcut

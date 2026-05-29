@@ -17,9 +17,9 @@
 #include <entt/entt.hpp>
 #include <string>
 #include <vector>
-#include "../common/Types.hpp"
-#include "../common/Policies.hpp"
-#include "../common/components/Data.hpp"
+#include "common/Types.hpp"
+#include "common/Policies.hpp"
+#include "common/components/Data.hpp"
 #include "Chains.hpp"
 
 namespace ui::table

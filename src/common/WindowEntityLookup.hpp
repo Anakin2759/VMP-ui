@@ -20,8 +20,8 @@
 #include <entt/entt.hpp>
 
 #include "components/Window.hpp"
-#include "../core/RuntimeFacade.hpp"
-#include "../singleton/Registry.hpp"
+#include "core/RuntimeFacade.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui::window_lookup
 {

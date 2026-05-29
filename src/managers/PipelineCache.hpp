@@ -13,16 +13,18 @@
  * ************************************************************************
  */
 #pragma once
+#include <bit>
+#include <array>
 #include <memory>
 #include <SDL3/SDL_gpu.h>
-#include "../singleton/Logger.hpp"
-#include "../common/CustomizationPoints.hpp"
-#include "../common/RenderTypes.hpp"
-#include "../common/GPUWrappers.hpp"
+#include "singleton/Logger.hpp"
+#include "common/CustomizationPoints.hpp"
+#include "common/RenderTypes.hpp"
+#include "common/GPUWrappers.hpp"
 #include "DeviceManager.hpp"
 #include "ResourceProvider.hpp"
-#include "../common/Result.hpp"
-#include "../common/ErrorCodes.hpp"
+#include "common/Result.hpp"
+#include "common/ErrorCodes.hpp"
 
 namespace ui::managers
 {
@@ -80,7 +82,7 @@ public:
         SDL_GPUDevice* device = m_deviceManager->getDevice();
         if (device == nullptr || m_vertexShader == nullptr || m_fragmentShader == nullptr)
         {
-            return MakeError(ui_errc::device_unavailable);
+            return MakeError(UiErrc::DEVICE_UNAVAILABLE);
         }
 
         if (m_pipeline != nullptr)
@@ -89,53 +91,8 @@ public:
         }
         if (m_creationFailed)
         {
-            return MakeError(ui_errc::pipeline_unavailable);
+            return MakeError(UiErrc::PIPELINE_UNAVAILABLE);
         }
-
-        // 顶点属性描述
-        SDL_GPUVertexAttribute vertexAttributes[7] = {};
-
-        // 位置 (vec2)
-        vertexAttributes[0].location = 0;
-        vertexAttributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-        vertexAttributes[0].buffer_slot = 0;
-        vertexAttributes[0].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, position));
-
-        // 纹理坐标 (vec2)
-        vertexAttributes[1].location = 1;
-        vertexAttributes[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-        vertexAttributes[1].buffer_slot = 0;
-        vertexAttributes[1].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, texCoord));
-
-        // 颜色 (vec4)
-        vertexAttributes[2].location = 2;
-        vertexAttributes[2].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
-        vertexAttributes[2].buffer_slot = 0;
-        vertexAttributes[2].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, color));
-
-        // rect_size (float2) at location 3
-        vertexAttributes[3].location = 3;
-        vertexAttributes[3].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-        vertexAttributes[3].buffer_slot = 0;
-        vertexAttributes[3].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, rect_size));
-
-        // radius (float4) at location 4
-        vertexAttributes[4].location = 4;
-        vertexAttributes[4].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
-        vertexAttributes[4].buffer_slot = 0;
-        vertexAttributes[4].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, radius));
-
-        // shadow_params (float4) at location 5
-        vertexAttributes[5].location = 5;
-        vertexAttributes[5].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
-        vertexAttributes[5].buffer_slot = 0;
-        vertexAttributes[5].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, shadow_params));
-
-        // mode_params (float4) at location 6
-        vertexAttributes[6].location = 6;
-        vertexAttributes[6].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
-        vertexAttributes[6].buffer_slot = 0;
-        vertexAttributes[6].offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, mode_params));
 
         SDL_GPUVertexBufferDescription vertexBufferDesc = {};
         vertexBufferDesc.slot = 0;
@@ -143,25 +100,10 @@ public:
         vertexBufferDesc.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
         vertexBufferDesc.instance_step_rate = 0;
 
-        SDL_GPUVertexInputState vertexInputState = {};
-        vertexInputState.vertex_buffer_descriptions = &vertexBufferDesc;
-        vertexInputState.num_vertex_buffers = 1;
-        vertexInputState.vertex_attributes = vertexAttributes;
-        vertexInputState.num_vertex_attributes = 7;
+        const auto vertexAttributes = buildVertexAttributes();
+        const SDL_GPUVertexInputState vertexInputState = buildVertexInputState(vertexBufferDesc, vertexAttributes);
 
         // 颜色附件描述
-        SDL_GPUColorTargetBlendState blendState = {};
-        blendState.enable_blend = true;
-        blendState.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-        blendState.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-        blendState.color_blend_op = SDL_GPU_BLENDOP_ADD;
-        blendState.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;                 // 预乘 alpha
-        blendState.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA; // 预乘 alpha
-        blendState.alpha_blend_op = SDL_GPU_BLENDOP_ADD;                            // 标准 alpha 混合
-        blendState.color_write_mask =
-            SDL_GPU_COLORCOMPONENT_R | SDL_GPU_COLORCOMPONENT_G | SDL_GPU_COLORCOMPONENT_B | SDL_GPU_COLORCOMPONENT_A;
-        blendState.enable_color_write_mask = true;
-
         SDL_GPUColorTargetDescription colorTargetDesc = {};
         colorTargetDesc.format = SDL_GetGPUSwapchainTextureFormat(device, sdlWindow);
         if (colorTargetDesc.format == SDL_GPU_TEXTUREFORMAT_INVALID)
@@ -169,32 +111,16 @@ public:
             Logger::warn("Swapchain format invalid, falling back to B8G8R8A8_UNORM");
             colorTargetDesc.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
         }
-        colorTargetDesc.blend_state = blendState;
+        colorTargetDesc.blend_state = buildBlendState();
 
         // 光栅化状态
-        SDL_GPURasterizerState rasterizerState = {};
-        rasterizerState.fill_mode = SDL_GPU_FILLMODE_FILL;
-        rasterizerState.cull_mode = SDL_GPU_CULLMODE_NONE;
-        rasterizerState.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-        rasterizerState.enable_depth_clip = true;
+        const SDL_GPURasterizerState rasterizerState = buildRasterizerState();
 
         SDL_GPUMultisampleState multisampleState = {};
         multisampleState.sample_count = SDL_GPU_SAMPLECOUNT_1;
 
         // 深度/模板状态
-        SDL_GPUDepthStencilState depthStencilState = {};
-        depthStencilState.compare_op = SDL_GPU_COMPAREOP_ALWAYS;
-        depthStencilState.back_stencil_state.compare_op =
-            SDL_GPU_COMPAREOP_ALWAYS; // 虽然我们不使用模板测试，但仍需设置默认操作以避免验证错误
-        depthStencilState.back_stencil_state.fail_op = SDL_GPU_STENCILOP_KEEP; // 同上
-        depthStencilState.back_stencil_state.pass_op = SDL_GPU_STENCILOP_KEEP; // 同上
-        depthStencilState.back_stencil_state.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
-        depthStencilState.front_stencil_state.compare_op = SDL_GPU_COMPAREOP_ALWAYS;
-        depthStencilState.front_stencil_state.fail_op = SDL_GPU_STENCILOP_KEEP;
-        depthStencilState.front_stencil_state.pass_op = SDL_GPU_STENCILOP_KEEP;
-        depthStencilState.front_stencil_state.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
-        depthStencilState.enable_depth_test = false;
-        depthStencilState.enable_stencil_test = false;
+        const SDL_GPUDepthStencilState depthStencilState = buildDepthStencilState();
 
         // 创建图形管线
         SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = {};
@@ -214,8 +140,8 @@ public:
         if (m_pipeline == nullptr)
         {
             Logger::error("图形管线创建失败: {}", SDL_GetError());
-            m_creationFailed = true;                         // 标记失败，阻止后续重试
-            return MakeError(ui_errc::pipeline_unavailable); // 管线失败则不创建采样器，避免下次 guard 失效导致重复重试
+            m_creationFailed = true;                        // 标记失败，阻止后续重试
+            return MakeError(UiErrc::PIPELINE_UNAVAILABLE); // 管线失败则不创建采样器，避免下次 guard 失效导致重复重试
         }
 
         // 创建采样器
@@ -244,6 +170,96 @@ public:
     [[nodiscard]] bool hasCreationFailed() const { return m_creationFailed; }
 
 private:
+    [[nodiscard]] static std::array<SDL_GPUVertexAttribute, 7> buildVertexAttributes()
+    {
+        std::array<SDL_GPUVertexAttribute, 7> vertexAttributes{};
+
+        vertexAttributes[0] = {.location = 0,
+                               .buffer_slot = 0,
+                               .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+                               .offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, position))};
+        vertexAttributes[1] = {.location = 1,
+                               .buffer_slot = 0,
+                               .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+                               .offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, texCoord))};
+        vertexAttributes[2] = {.location = 2,
+                               .buffer_slot = 0,
+                               .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+                               .offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, color))};
+        vertexAttributes[3] = {.location = 3,
+                               .buffer_slot = 0,
+                               .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+                               .offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, rect_size))};
+        vertexAttributes[4] = {.location = 4,
+                               .buffer_slot = 0,
+                               .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+                               .offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, radius))};
+        vertexAttributes[5] = {.location = 5,
+                               .buffer_slot = 0,
+                               .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+                               .offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, shadow_params))};
+        vertexAttributes[6] = {.location = 6,
+                               .buffer_slot = 0,
+                               .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+                               .offset = static_cast<uint32_t>(offsetof(ui::render::Vertex, mode_params))};
+        return vertexAttributes;
+    }
+
+    [[nodiscard]] static SDL_GPUVertexInputState
+        buildVertexInputState(SDL_GPUVertexBufferDescription& vertexBufferDesc,
+                              const std::array<SDL_GPUVertexAttribute, 7>& vertexAttributes)
+    {
+        SDL_GPUVertexInputState vertexInputState = {};
+        vertexInputState.vertex_buffer_descriptions = &vertexBufferDesc;
+        vertexInputState.num_vertex_buffers = 1;
+        vertexInputState.vertex_attributes = vertexAttributes.data();
+        vertexInputState.num_vertex_attributes = static_cast<uint32_t>(vertexAttributes.size());
+        return vertexInputState;
+    }
+
+    [[nodiscard]] static SDL_GPUColorTargetBlendState buildBlendState()
+    {
+        SDL_GPUColorTargetBlendState blendState = {};
+        blendState.enable_blend = true;
+        blendState.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        blendState.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+        blendState.color_blend_op = SDL_GPU_BLENDOP_ADD;
+        blendState.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        blendState.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+        blendState.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
+        blendState.color_write_mask =
+            SDL_GPU_COLORCOMPONENT_R | SDL_GPU_COLORCOMPONENT_G | SDL_GPU_COLORCOMPONENT_B | SDL_GPU_COLORCOMPONENT_A;
+        blendState.enable_color_write_mask = true;
+        return blendState;
+    }
+
+    [[nodiscard]] static SDL_GPURasterizerState buildRasterizerState()
+    {
+        SDL_GPURasterizerState rasterizerState = {};
+        rasterizerState.fill_mode = SDL_GPU_FILLMODE_FILL;
+        rasterizerState.cull_mode = SDL_GPU_CULLMODE_NONE;
+        rasterizerState.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+        rasterizerState.enable_depth_clip = true;
+        return rasterizerState;
+    }
+
+    [[nodiscard]] static SDL_GPUDepthStencilState buildDepthStencilState()
+    {
+        SDL_GPUDepthStencilState depthStencilState = {};
+        depthStencilState.compare_op = SDL_GPU_COMPAREOP_ALWAYS;
+        depthStencilState.back_stencil_state.compare_op = SDL_GPU_COMPAREOP_ALWAYS;
+        depthStencilState.back_stencil_state.fail_op = SDL_GPU_STENCILOP_KEEP;
+        depthStencilState.back_stencil_state.pass_op = SDL_GPU_STENCILOP_KEEP;
+        depthStencilState.back_stencil_state.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
+        depthStencilState.front_stencil_state.compare_op = SDL_GPU_COMPAREOP_ALWAYS;
+        depthStencilState.front_stencil_state.fail_op = SDL_GPU_STENCILOP_KEEP;
+        depthStencilState.front_stencil_state.pass_op = SDL_GPU_STENCILOP_KEEP;
+        depthStencilState.front_stencil_state.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
+        depthStencilState.enable_depth_test = false;
+        depthStencilState.enable_stencil_test = false;
+        return depthStencilState;
+    }
+
     wrappers::UniqueGPUShader
         loadShaderFromResource(const char* resourcePath, SDL_GPUShaderStage stage, SDL_GPUShaderFormat format)
     {
@@ -262,13 +278,13 @@ private:
 
         const BinaryResource& resource = resourceResult.value();
         SDL_GPUShaderCreateInfo shaderInfo = {};
-        shaderInfo.code = static_cast<const uint8_t*>(static_cast<const void*>(resource.data()));
+        shaderInfo.code = std::bit_cast<const uint8_t*>(resource.data());
         shaderInfo.code_size = resource.size();
         shaderInfo.entrypoint = (stage == SDL_GPU_SHADERSTAGE_VERTEX) ? "main_vs" : "main_ps";
         shaderInfo.format = format;
         shaderInfo.stage = stage;
-        shaderInfo.num_samplers = (stage == SDL_GPU_SHADERSTAGE_FRAGMENT) ? 1u : 0u;
-        shaderInfo.num_uniform_buffers = 1u;
+        shaderInfo.num_samplers = (stage == SDL_GPU_SHADERSTAGE_FRAGMENT) ? 1U : 0U;
+        shaderInfo.num_uniform_buffers = 1U;
 
         return wrappers::MakeGpuResource<wrappers::UniqueGPUShader>(
             m_deviceManager->getDevice(), SDL_CreateGPUShader, &shaderInfo);

@@ -1,6 +1,6 @@
 #include "Theme.hpp"
 
-#include "../core/RuntimeFacade.hpp"
+#include "core/RuntimeFacade.hpp"
 
 namespace ui::theme
 {

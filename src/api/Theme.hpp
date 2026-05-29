@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "../common/Types.hpp"
+#include "common/Types.hpp"
 
 namespace ui::theme
 {

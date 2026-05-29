@@ -19,11 +19,11 @@
 #include <cstdint>
 #include <vector>
 #include <SDL3/SDL_gpu.h>
-#include "../managers/DeviceManager.hpp"
-#include "../managers/PipelineCache.hpp"
-#include "../common/RenderTypes.hpp"
-#include "../common/GPUWrappers.hpp"
-#include "../singleton/Logger.hpp"
+#include "managers/DeviceManager.hpp"
+#include "managers/PipelineCache.hpp"
+#include "common/RenderTypes.hpp"
+#include "common/GPUWrappers.hpp"
+#include "singleton/Logger.hpp"
 
 namespace ui::managers
 {

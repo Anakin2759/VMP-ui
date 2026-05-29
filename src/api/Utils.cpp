@@ -5,9 +5,9 @@
 #include <ranges>
 #include <utility>
 #include <string>
-#include "../singleton/Registry.hpp"
-#include "../singleton/Dispatcher.hpp"
-#include "../systems/TimerSystem.hpp"
+#include "singleton/Registry.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "systems/TimerSystem.hpp"
 #include "entt/entity/fwd.hpp"
 #include "entt/entity/entity.hpp"
 #include "common/Tags.hpp"

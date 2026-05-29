@@ -21,7 +21,6 @@
 #include "common/Types.hpp"
 #include "entt/entity/entity.hpp"
 #include "common/components/Data.hpp"
-#include "singleton/Dispatcher.hpp"
 #include "singleton/Registry.hpp"
 #include <memory>
 #include <unordered_map>
@@ -805,8 +804,9 @@ struct LayoutTraversalFrame
 
 } // namespace
 
-LayoutSystem::LayoutSystem()
-    : m_yogaConfig(YGConfigNew()), m_entityToNode(std::make_unique<std::unordered_map<entt::entity, YGNodeRef>>())
+LayoutSystem::LayoutSystem(entt::registry& reg, entt::dispatcher& disp)
+    : m_yogaConfig(YGConfigNew()), m_entityToNode(std::make_unique<std::unordered_map<entt::entity, YGNodeRef>>()),
+      m_reg(&reg), m_disp(&disp)
 {
 }
 
@@ -820,7 +820,8 @@ LayoutSystem::~LayoutSystem()
 }
 
 LayoutSystem::LayoutSystem(LayoutSystem&& other) noexcept
-    : m_yogaConfig(other.m_yogaConfig), m_entityToNode(std::move(other.m_entityToNode))
+    : m_yogaConfig(other.m_yogaConfig), m_entityToNode(std::move(other.m_entityToNode)), m_reg(other.m_reg),
+      m_disp(other.m_disp)
 {
     other.m_yogaConfig = nullptr;
 }
@@ -844,6 +845,8 @@ LayoutSystem& LayoutSystem::operator=(LayoutSystem&& other) noexcept
 
         m_yogaConfig = other.m_yogaConfig;
         m_entityToNode = std::move(other.m_entityToNode);
+        m_reg = other.m_reg;
+        m_disp = other.m_disp;
         other.m_yogaConfig = nullptr;
     }
     return *this;
@@ -851,12 +854,12 @@ LayoutSystem& LayoutSystem::operator=(LayoutSystem&& other) noexcept
 
 void LayoutSystem::registerHandlersImpl()
 {
-    Dispatcher::Sink<events::UpdateLayout>().connect<&LayoutSystem::update>(*this);
+    m_disp->sink<events::UpdateLayout>().connect<&LayoutSystem::update>(*this);
 }
 
 void LayoutSystem::unregisterHandlersImpl()
 {
-    Dispatcher::Sink<events::UpdateLayout>().disconnect<&LayoutSystem::update>(*this);
+    m_disp->sink<events::UpdateLayout>().disconnect<&LayoutSystem::update>(*this);
 }
 
 void LayoutSystem::update()

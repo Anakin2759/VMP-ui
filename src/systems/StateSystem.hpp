@@ -20,10 +20,10 @@
 #include <unordered_set>
 #include <SDL3/SDL.h>
 
-#include "../interface/Isystem.hpp"
-#include "../common/Events.hpp"
+#include "interface/ISystem.hpp"
+#include "common/Events.hpp"
 
-#include "../common/GlobalContext.hpp"
+#include "common/GlobalContext.hpp"
 
 namespace ui::systems
 {
@@ -33,6 +33,9 @@ namespace ui::systems
 class StateSystem : public ui::interface::EnableRegister<StateSystem>
 {
 public:
+    StateSystem() = default;
+    explicit StateSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+
     enum class ScrollbarHitType : std::uint8_t
     {
         NONE,
@@ -236,6 +239,8 @@ private:
     std::unordered_set<entt::entity> m_pendingActiveRemove;
     bool m_isDraggingSlider = false;
     entt::entity m_dragSliderEntity = entt::null;
+    entt::registry* m_reg = nullptr;
+    entt::dispatcher* m_disp = nullptr;
 
     /**
      */

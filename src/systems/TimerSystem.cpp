@@ -14,13 +14,12 @@
  */
 
 #include "TimerSystem.hpp"
-#include "../core/RuntimeFacade.hpp"
-#include "../singleton/Dispatcher.hpp"
-#include "../singleton/Logger.hpp"
-#include "../singleton/Registry.hpp"
-#include "../common/GlobalContext.hpp"
-#include "../common/Tags.hpp"
-#include "../api/Utils.hpp"
+#include "core/RuntimeFacade.hpp"
+#include "singleton/Logger.hpp"
+#include "singleton/Registry.hpp"
+#include "common/GlobalContext.hpp"
+#include "common/Tags.hpp"
+#include "api/Utils.hpp"
 #include "common/Events.hpp"
 #include "common/Types.hpp"
 #include "common/components/Data.hpp"
@@ -32,12 +31,12 @@ namespace ui::systems
 
 void TimerSystem::registerHandlersImpl()
 {
-    Dispatcher::Sink<events::UpdateTimer>().connect<&TimerSystem::onUpdateTimer>(*this);
+    m_disp->sink<events::UpdateTimer>().connect<&TimerSystem::onUpdateTimer>(*this);
 }
 
 void TimerSystem::unregisterHandlersImpl()
 {
-    Dispatcher::Sink<events::UpdateTimer>().disconnect<&TimerSystem::onUpdateTimer>(*this);
+    m_disp->sink<events::UpdateTimer>().disconnect<&TimerSystem::onUpdateTimer>(*this);
 }
 
 uint32_t TimerSystem::addTask(uint32_t interval, VoidCallback func, bool singleShot)

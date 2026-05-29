@@ -13,57 +13,57 @@
 #include <utility>
 
 // 引入所有子系统头文件
-#include "../systems/RenderSystem.hpp"
-#include "../systems/TweenSystem.hpp"
-#include "../systems/InteractionSystem.hpp"
-#include "../systems/PlatformWindowSystem.hpp"
-#include "../systems/TextInputSystem.hpp"
-#include "../systems/HitTestSystem.hpp"
-#include "../systems/LayoutSystem.hpp"
-#include "../systems/StateSystem.hpp" // 保持与 Application.h 中的一致
-#include "../systems/ActionSystem.hpp"
-#include "../systems/TimerSystem.hpp"
-#include "../systems/ShortcutSystem.hpp"
-#include "../systems/ThemeSystem.hpp"
+#include "systems/RenderSystem.hpp"
+#include "systems/TweenSystem.hpp"
+#include "systems/InteractionSystem.hpp"
+#include "systems/PlatformWindowSystem.hpp"
+#include "systems/TextInputSystem.hpp"
+#include "systems/HitTestSystem.hpp"
+#include "systems/LayoutSystem.hpp"
+#include "systems/StateSystem.hpp" // 保持与 Application.h 中的一致
+#include "systems/ActionSystem.hpp"
+#include "systems/TimerSystem.hpp"
+#include "systems/ShortcutSystem.hpp"
+#include "systems/ThemeSystem.hpp"
 namespace ui
 {
-SystemManager::SystemManager()
+SystemManager::SystemManager(entt::registry& reg, entt::dispatcher& disp) : m_reg(reg), m_disp(disp)
 {
     Logger::info("[SystemManager] 正在注册 PlatformWindowSystem...");
-    m_systems.emplace_back(systems::PlatformWindowSystem{});
+    m_systems.emplace_back(systems::PlatformWindowSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 InteractionSystem...");
-    m_systems.emplace_back(systems::InteractionSystem{});
+    m_systems.emplace_back(systems::InteractionSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 TextInputSystem...");
-    m_systems.emplace_back(systems::TextInputSystem{});
+    m_systems.emplace_back(systems::TextInputSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 HitTestSystem...");
-    m_systems.emplace_back(systems::HitTestSystem{});
+    m_systems.emplace_back(systems::HitTestSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 TweenSystem...");
-    m_systems.emplace_back(systems::TweenSystem{});
+    m_systems.emplace_back(systems::TweenSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 LayoutSystem...");
-    m_systems.emplace_back(systems::LayoutSystem{});
+    m_systems.emplace_back(systems::LayoutSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 RenderSystem...");
-    m_systems.emplace_back(systems::RenderSystem{});
+    m_systems.emplace_back(systems::RenderSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 StateSystem...");
-    m_systems.emplace_back(systems::StateSystem{});
+    m_systems.emplace_back(systems::StateSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 ActionSystem...");
-    m_systems.emplace_back(systems::ActionSystem{});
+    m_systems.emplace_back(systems::ActionSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 TimerSystem...");
-    m_systems.emplace_back(systems::TimerSystem{});
+    m_systems.emplace_back(systems::TimerSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 ThemeSystem...");
-    m_systems.emplace_back(systems::ThemeSystem{});
+    m_systems.emplace_back(systems::ThemeSystem{reg, disp});
 
     Logger::info("[SystemManager] 正在注册 ShortcutSystem...");
-    m_systems.emplace_back(systems::ShortcutSystem{});
+    m_systems.emplace_back(systems::ShortcutSystem{reg, disp});
 
     Logger::info("[SystemManager] 系统管理器初始化完成，已注册 {} 个系统", m_systems.size());
 }

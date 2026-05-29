@@ -21,7 +21,7 @@
 #include <SDL3/SDL_gpu.h>
 #include "DeviceManager.hpp"
 #include "FontManager.hpp"
-#include "../common/GPUWrappers.hpp"
+#include "common/GPUWrappers.hpp"
 #include <Eigen/Dense>
 
 namespace ui::managers

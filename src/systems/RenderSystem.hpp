@@ -23,9 +23,9 @@
 #include <cstdint>
 #include <memory>
 
-#include "../common/Events.hpp"
-#include "../common/Result.hpp"
-#include "../interface/Isystem.hpp"
+#include "common/Events.hpp"
+#include "common/Result.hpp"
+#include "interface/ISystem.hpp"
 
 struct SDL_Window;
 
@@ -50,7 +50,7 @@ struct RenderSystemImpl;
 class RenderSystem final : public interface::EnableRegister<RenderSystem>
 {
 public:
-    RenderSystem();
+    explicit RenderSystem(entt::registry& reg, entt::dispatcher& disp);
     ~RenderSystem();
 
     RenderSystem(const RenderSystem&) = delete;
@@ -116,6 +116,7 @@ private:
      */
     void collectRenderData(entt::entity entity, core::RenderContext& context);
 
+    entt::dispatcher* m_disp = nullptr;
     std::unique_ptr<RenderSystemImpl> m_impl;
 };
 

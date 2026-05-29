@@ -35,10 +35,10 @@ TEST(ResultTest, OkFactoryDeducesType)
 // ---------- Result<T> 失败路径 ----------
 TEST(ResultTest, ValueFailure)
 {
-    ui::Result<int> result = ui::MakeError(ui::ui_errc::invalid_argument);
+    ui::Result<int> result = ui::MakeError(ui::UiErrc::INVALID_ARGUMENT);
     ASSERT_FALSE(result.has_value());
     EXPECT_FALSE(static_cast<bool>(result));
-    EXPECT_EQ(result.error(), ui::ui_errc::invalid_argument);
+    EXPECT_EQ(result.error(), ui::UiErrc::INVALID_ARGUMENT);
     EXPECT_EQ(result.error().category(), ui::GetUiErrorCategory());
 }
 
@@ -52,16 +52,16 @@ TEST(ResultVoidTest, OkSuccess)
 
 TEST(ResultVoidTest, Failure)
 {
-    ui::Result<void> result = ui::MakeError(ui::ui_errc::theme_not_found);
+    ui::Result<void> result = ui::MakeError(ui::UiErrc::THEME_NOT_FOUND);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), ui::ui_errc::theme_not_found);
+    EXPECT_EQ(result.error(), ui::UiErrc::THEME_NOT_FOUND);
 }
 
 // ---------- std::error_code 比较语义 ----------
 TEST(ErrorCodeTest, MakeErrorCodeRoutesToUiCategory)
 {
-    std::error_code const errorCode = ui::make_error_code(ui::ui_errc::asset_decode_failed);
-    EXPECT_EQ(errorCode.value(), static_cast<int>(ui::ui_errc::asset_decode_failed));
+    std::error_code const errorCode = ui::MakeErrorCode(ui::UiErrc::ASSET_DECODE_FAILED);
+    EXPECT_EQ(errorCode.value(), static_cast<int>(ui::UiErrc::ASSET_DECODE_FAILED));
     EXPECT_EQ(&errorCode.category(), &ui::GetUiErrorCategory());
     EXPECT_STREQ(errorCode.category().name(), "ui");
 }
@@ -69,31 +69,31 @@ TEST(ErrorCodeTest, MakeErrorCodeRoutesToUiCategory)
 TEST(ErrorCodeTest, EnumEqualityViaMakeErrorCode)
 {
     // is_error_code_enum 特化生效后，enum 值可直接与 error_code 比较。
-    std::error_code const errorCode = ui::make_error_code(ui::ui_errc::device_unavailable);
-    EXPECT_TRUE(errorCode == ui::ui_errc::device_unavailable);
-    EXPECT_FALSE(errorCode == ui::ui_errc::asset_not_found);
+    std::error_code const errorCode = ui::MakeErrorCode(ui::UiErrc::DEVICE_UNAVAILABLE);
+    EXPECT_TRUE(errorCode == ui::UiErrc::DEVICE_UNAVAILABLE);
+    EXPECT_FALSE(errorCode == ui::UiErrc::ASSET_NOT_FOUND);
 }
 
 TEST(ErrorCodeTest, MakeErrorTemplateAcceptsEnum)
 {
-    auto unexpectedError = ui::MakeError(ui::ui_errc::asset_not_found);
+    auto unexpectedError = ui::MakeError(ui::UiErrc::ASSET_NOT_FOUND);
     std::error_code const errorCode = unexpectedError.error();
-    EXPECT_EQ(errorCode, ui::ui_errc::asset_not_found);
+    EXPECT_EQ(errorCode, ui::UiErrc::ASSET_NOT_FOUND);
 }
 
 TEST(ErrorCodeTest, MessageNonEmpty)
 {
-    std::error_code const errorCode = ui::make_error_code(ui::ui_errc::asset_load_failed);
+    std::error_code const errorCode = ui::MakeErrorCode(ui::UiErrc::ASSET_LOAD_FAILED);
     EXPECT_FALSE(errorCode.message().empty());
 }
 
 // ---------- std::formatter<ui_errc> ----------
 TEST(ErrorCodeTest, FormatterPrintsEnumName)
 {
-    const std::string text = std::format("{}", ui::ui_errc::asset_decode_failed);
+    const std::string text = std::format("{}", ui::UiErrc::ASSET_DECODE_FAILED);
     EXPECT_EQ(text, "asset_decode_failed");
 
-    const std::string prefixedText = std::format("err={}", ui::ui_errc::invalid_argument);
+    const std::string prefixedText = std::format("err={}", ui::UiErrc::INVALID_ARGUMENT);
     EXPECT_EQ(prefixedText, "err=invalid_argument");
 }
 

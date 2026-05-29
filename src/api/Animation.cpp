@@ -1,5 +1,5 @@
 #include "Animation.hpp"
-#include "../singleton/Registry.hpp"
+#include "singleton/Registry.hpp"
 #include "entt/entity/fwd.hpp"
 #include "common/components/Animation.hpp"
 #include "common/Policies.hpp"

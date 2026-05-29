@@ -14,8 +14,8 @@
  */
 
 #include "ResourceProvider.hpp"
-#include "../common/ErrorCodes.hpp"
-#include "../singleton/Logger.hpp"
+#include "common/ErrorCodes.hpp"
+#include "singleton/Logger.hpp"
 #include <string_view>
 #include <string>
 #include "common/Result.hpp"
@@ -53,7 +53,7 @@ public:
         if (!fileSystem.exists(normalizedPath))
         {
             ui::Logger::error("[ResourceProvider/cmrc] resource not found: {}", normalizedPath);
-            return ui::MakeError(ui::ui_errc::asset_not_found);
+            return ui::MakeError(ui::UiErrc::ASSET_NOT_FOUND);
         }
 
         auto file = std::make_shared<cmrc::file>(fileSystem.open(normalizedPath));

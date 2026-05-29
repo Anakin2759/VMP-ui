@@ -1,6 +1,6 @@
 #include "Canvas.hpp"
 
-#include "../singleton/Registry.hpp"
+#include "singleton/Registry.hpp"
 #include "entt/entity/fwd.hpp"
 #include "common/components/Data.hpp"
 #include "common/Types.hpp"

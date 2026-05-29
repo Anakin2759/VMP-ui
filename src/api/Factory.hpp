@@ -18,8 +18,8 @@
 #include <entt/entt.hpp>
 #include <string>
 #include <string_view>
-#include "../core/Application.hpp"
-#include "../common/Result.hpp"
+#include "core/Application.hpp"
+#include "common/Result.hpp"
 #ifdef CreateWindow
 #undef CreateWindow
 #endif

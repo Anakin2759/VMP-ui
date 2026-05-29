@@ -48,8 +48,8 @@
 
 #include <entt/entt.hpp>
 
-#include "../common/ThreadPool.hpp"
-#include "../singleton/Registry.hpp"
+#include "common/ThreadPool.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui::worker
 {

@@ -20,8 +20,8 @@
 #include <optional>
 
 #include <entt/entt.hpp>
-#include "../common/Policies.hpp"
-#include "../common/Types.hpp"
+#include "common/Policies.hpp"
+#include "common/Types.hpp"
 #include "Chains.hpp"
 
 namespace ui::animation

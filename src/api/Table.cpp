@@ -6,9 +6,9 @@
 #include <utility>
 #include <vector>
 
-#include "../common/Policies.hpp"
-#include "../common/Tags.hpp"
-#include "../singleton/Registry.hpp"
+#include "common/Policies.hpp"
+#include "common/Tags.hpp"
+#include "singleton/Registry.hpp"
 #include "common/Types.hpp"
 #include "common/components/Data.hpp"
 #include "common/components/Layout.hpp"

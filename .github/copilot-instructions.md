@@ -93,7 +93,7 @@ enum class ui_errc : int { success = 0, invalid_argument = 1, device_unavailable
 // 工厂函数
 MakeError(ui_errc::xxx)   // → std::unexpected<std::error_code>
 Ok()                      // → Result<void> 成功值
-make_error_code(ui_errc)  // ADL 路由至 UiErrorCategory 单例（.cpp 中，非 inline）
+MakeErrorCode(ui_errc)  // ADL 路由至 UiErrorCategory 单例（.cpp 中，非 inline）
 ```
 
 - `std::formatter<ui_errc>` 已落地，可直接 `std::format("{}", ec)`。
