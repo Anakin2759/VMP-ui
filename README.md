@@ -4,11 +4,9 @@
 
 C++23 ECS-based UI static library. Built on [EnTT](https://github.com/skypjack/entt) + [SDL3](https://github.com/libsdl-org/SDL) GPU + [Yoga](https://yogalayout.dev/) Flexbox layout.
 
-Vermin must perish
-
 ---
 
-[中文说明](#pmkui-中文) | English
+[中文说明](#中文说明) | English
 
 ## Features
 
@@ -64,11 +62,14 @@ ctest --test-dir build
 | `ENABLE_BUILD_TESTS`           | `OFF`  | Build unit tests (Google Test)                                               |
 | `ENABLE_LTO`                   | `ON`   | IPO/LTO for Release builds                                                   |
 | `ENABLE_CLANG_TIDY`            | `OFF`  | Enable clang-tidy static analysis                                            |
+| `ENABLE_COVERAGE`              | `OFF`  | Enable coverage instrumentation for the UI module                            |
+| `UI_ENABLE_ASAN`               | `OFF`  | Enable AddressSanitizer for the UI module                                    |
 | `UI_LINUX_WINDOW_SYSTEM`       | `AUTO` | Linux backend:`AUTO` · `X11` · `WAYLAND`                             |
 | `UI_ENABLE_SHADER_COMPILATION` | `AUTO` | Shader compilation:`AUTO` · `ON` (require DXC) · `OFF` (precompiled) |
 | `UI_FORCE_CPU_RENDER`          | `OFF`  | Force SDL_Renderer software fallback (no GPU)                                |
 | `UI_ENABLE_MULTITHREAD`        | `OFF`  | Enable worker threads in `ThreadPool`                                      |
 | `UI_RESOURCE_BACKEND`          | `CMRC` | Resource embedding:`CMRC` · `STD_EMBED`                                 |
+| `UI_ENABLE_STD_EMBED_EXPERIMENTAL` | `ON` | Required when `UI_RESOURCE_BACKEND=STD_EMBED`                                |
 
 ## Quick Start
 
@@ -115,6 +116,16 @@ btn1 | primaryBtn | OnClick([] { /* ... */ }) | Show();
 btn2 | primaryBtn | Show();
 ```
 
+When you need to store or pass a composed style across module boundaries, use `ui::chains::AnyChain`:
+
+```cpp
+using ui::chains::AnyChain;
+
+AnyChain primary = AnyChain{Size(120, 36) | BackgroundColor(Color{0x2563EBFF})};
+auto btn = ui::factory::CreateButton("Apply");
+btn | std::move(primary) | Show();
+```
+
 ### Logging
 
 ```cpp
@@ -129,12 +140,6 @@ ui::log::SetCallback([](ui::log::Level lvl, std::string_view msg) {
 
 // Redirect log file
 ui::log::SetFilePath("logs/ui.log");
-```
-
-### Setting App Icon
-
-```cpp
-ui::factory::SetAppIcon("path/to/icon.png");
 ```
 
 ## Project Structure
@@ -183,13 +188,15 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
+## 中文说明
+
 > **⚠ 学习 / 练手项目 —— 功能尚未完成，API 可能随时变更，不建议用于生产环境。**
 
 基于 C++23 ECS 架构的 UI 静态库。底层依赖 [EnTT](https://github.com/skypjack/entt) + [SDL3](https://github.com/libsdl-org/SDL) GPU 渲染 + [Yoga](https://yogalayout.dev/) Flexbox 布局。
 
 ---
 
-[English](#pmkui) | 中文说明
+[English](#vmp-ui) | 中文说明
 
 ## 特性
 
@@ -245,11 +252,14 @@ ctest --test-dir build
 | `ENABLE_BUILD_TESTS`           | `OFF`  | 构建单元测试（Google Test）                                        |
 | `ENABLE_LTO`                   | `ON`   | Release 构建启用 IPO/LTO                                           |
 | `ENABLE_CLANG_TIDY`            | `OFF`  | 启用 clang-tidy 静态分析                                           |
+| `ENABLE_COVERAGE`              | `OFF`  | 为 UI 模块启用覆盖率插桩                                           |
+| `UI_ENABLE_ASAN`               | `OFF`  | 为 UI 模块启用 AddressSanitizer                                    |
 | `UI_LINUX_WINDOW_SYSTEM`       | `AUTO` | Linux 窗口后端：`AUTO` · `X11` · `WAYLAND`                 |
 | `UI_ENABLE_SHADER_COMPILATION` | `AUTO` | 着色器编译：`AUTO` · `ON`（强制 DXC）· `OFF`（使用预编译） |
 | `UI_FORCE_CPU_RENDER`          | `OFF`  | 强制使用 SDL_Renderer 软件渲染（无 GPU）                           |
 | `UI_ENABLE_MULTITHREAD`        | `OFF`  | 启用 `ThreadPool` 工作线程                                       |
 | `UI_RESOURCE_BACKEND`          | `CMRC` | 资源嵌入方式：`CMRC` · `STD_EMBED`                            |
+| `UI_ENABLE_STD_EMBED_EXPERIMENTAL` | `ON` | 当 `UI_RESOURCE_BACKEND=STD_EMBED` 时必须开启                        |
 
 ## 快速开始
 
@@ -296,6 +306,16 @@ btn1 | primaryBtn | OnClick([] { /* ... */ }) | Show();
 btn2 | primaryBtn | Show();
 ```
 
+当需要跨模块存储或传递组合样式时，使用 `ui::chains::AnyChain`：
+
+```cpp
+using ui::chains::AnyChain;
+
+AnyChain primary = AnyChain{Size(120, 36) | BackgroundColor(Color{0x2563EBFF})};
+auto btn = ui::factory::CreateButton("应用");
+btn | std::move(primary) | Show();
+```
+
 ### 日志
 
 ```cpp
@@ -310,12 +330,6 @@ ui::log::SetCallback([](ui::log::Level lvl, std::string_view msg) {
 
 // 重定向日志文件
 ui::log::SetFilePath("logs/ui.log");
-```
-
-### 设置应用图标
-
-```cpp
-ui::factory::SetAppIcon("path/to/icon.png");
 ```
 
 ## 目录结构

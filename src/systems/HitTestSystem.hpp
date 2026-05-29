@@ -54,7 +54,7 @@ public:
     /**
      * @return 根窗口实体，如果不在任何窗口内则返回 entt::null
      */
-    static entt::entity findRootWindow(entt::entity entity);
+    entt::entity findRootWindow(entt::entity entity) const;
 
     /**
      * @param topWindow 当前鼠标所在的顶层窗口（entt::null 表示不在任何窗口内）
@@ -132,11 +132,11 @@ private:
 
     /**
      */
-    static bool isEntityInteractable(entt::entity entity);
+    bool isEntityInteractable(entt::entity entity) const;
 
     /**
      */
-    static int calculateZOrder(entt::entity entity);
+    int calculateZOrder(entt::entity entity) const;
 
     /**
      * @param pos 鼠标绝对位置

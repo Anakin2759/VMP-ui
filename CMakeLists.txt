@@ -94,7 +94,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT
     # clang-cl 使用 MSVC 风格的链接
     add_compile_options(/utf-8)
     add_compile_options(/EHsc)  # <--- 启用异常展开
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clang:-fms-compatibility-version=19.33")
 endif()
 
 

@@ -34,7 +34,7 @@ public:
 
     void unregisterHandlersImpl() { SDL_RemoveEventWatch(&PlatformWindowSystem::platformEventWatch, nullptr); }
 
-    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Input; }
+    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::INPUT; }
 
 private:
     static bool SDLCALL platformEventWatch(void* userdata, SDL_Event* event)

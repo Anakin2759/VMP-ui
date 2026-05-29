@@ -16,7 +16,6 @@
 #include "TimerSystem.hpp"
 #include "core/RuntimeFacade.hpp"
 #include "singleton/Logger.hpp"
-#include "singleton/Registry.hpp"
 #include "common/GlobalContext.hpp"
 #include "common/Tags.hpp"
 #include "api/Utils.hpp"
@@ -122,7 +121,8 @@ void TimerSystem::update(uint32_t deltaMs)
 
     // 驱动所有获焦 TextEdit 的 Caret 闪烁（固定时间间隔，点击后立即显示）
     const float deltaSec = static_cast<float>(deltaMs) / 1000.0F;
-    auto caretView = Registry::View<components::Caret, components::FocusedTag>();
+    auto& reg = *m_reg;
+    auto caretView = reg.view<components::Caret, components::FocusedTag>();
     for (auto entity : caretView)
     {
         auto& caret = caretView.get<components::Caret>(entity);

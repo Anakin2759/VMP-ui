@@ -2,7 +2,7 @@
 
 > 基于 `src/` 全量扫描：139 个源文件 / ≈14,000 行 / 49 处 `RuntimeFacade::current()`。  
 > 评估对象：UI 静态库 `src/`（不含 example / tests / third_party）。  
-> **最后更新：2026-05-29 rev2** — ThemeSystem 头/实现分离完成，`Isystem.hpp` 重命名完成，OP-F include 路径根化完成。
+> **最后更新：2026-05-29 rev8** — StateSystem 的窗口/下拉框销毁路径已切到 `m_reg/m_disp`；Factory.cpp 已开始按告警热点分段迁移到 `RuntimeFacade::current().enttRegistry()/enttDispatcher()`。
 
 ---
 
@@ -115,17 +115,17 @@
 
 ### Phase 2 — 中 ROI / 中风险
 
-#### OP-D：System 显式依赖注入 ✅ 已完成
-1. 所有 12 个 System 加构造注入：`SystemXxx(entt::registry&, entt::dispatcher&)`，内部存 `m_reg/m_disp` 指针。
-2. `registerHandlersImpl/unregisterHandlersImpl` 改用 `m_disp->sink<E>()` 代替 `Dispatcher::Sink<E>()`。
-3. 事件处理方法改用 `*m_reg`/`*m_disp` 代替 `RuntimeFacade::current().enttRegistry/Dispatcher()`。
-4. `SystemManager(entt::registry&, entt::dispatcher&)` 在构造时注入并传递给所有 System。
-5. `RuntimeFacade::current()` 仅保留给 windowLookup/state/frame/ensureContext 等上下文访问（非 registry/dispatcher）以及 API 层门面。
-6. **测试收益**：可直接 `TweenSystem tw{reg, disp};` 无需 `UiRuntimeScope`。
+#### OP-D：System 显式依赖注入 ⚠️ 部分完成
+1. `SystemManager(entt::registry&, entt::dispatcher&)` 已具备注入通路，多个 System 已保存 `m_reg/m_disp`。
+2. `registerHandlersImpl/unregisterHandlersImpl` 的 `Dispatcher::Sink<E>()` 已基本迁到 `m_disp->sink<E>()`。
+3. 但系统内部仍残留大量 `Registry::...` 旧门面调用，说明“显式依赖注入”尚未收口完成。
+4. 已完成六个收口切片：`TimerSystem` 的 caret 闪烁遍历已改为 `m_reg->view(...)`；`HitTestSystem` 内部的 `Registry::...` / `Dispatcher::Enqueue` 已全部切到 `m_reg` / `m_disp`；`StateSystem` 的 `SliderStateHelpers` 已不再依赖 `Registry::...`；`PointerStateHelpers` 的悬停、焦点与点击投递路径已切到 `m_reg/m_disp`；`ScrollbarStateHelpers` 的滚动区域查找、滚轮、拖拽与命中判定已切到 `m_reg`；窗口关闭 / 下拉框外部点击 / 实体销毁路径也已切到 `m_reg/m_disp`。
+5. `RuntimeFacade::current()` 目前仍承担 frame/context 等上下文访问；后续应继续把 registry/dispatcher 读取从 System 实现里剥离。
+6. **当前结论**：测试初始化负担已下降，但“System 可完全脱离全局 Registry 单例”这一目标尚未达成。
 
 #### OP-E：双轨 API 收口
-- `Registry::Create / Emplace / View` 静态方法标 `[[deprecated]]`。
-- `Dispatcher::Sink<>` 同样标 deprecated。
+- `Registry` 与 `Dispatcher` 的 Legacy PascalCase 入口已补 `[[deprecated]]` 标记，用编译告警阻止新增调用继续走旧门面。
+- `Factory.cpp` 已按告警热点开始迁移到 `RuntimeFacade::current().enttRegistry()/enttDispatcher()`，当前已覆盖窗口、布局、标题栏、文本浏览器、复选框与下拉框弹层相关创建路径。
 - 全部迁到 `RuntimeFacade::current().enttRegistry()` 或 OP-D 注入。
 - 待无引用后删除 legacy 方法。
 
@@ -156,7 +156,7 @@
 | OP-B | ~~头文件 PIMPL~~ | — | ✅ 已完成 | — |
 | OP-C | 接口瘦身 | 中 | 代码清晰度 ↑↑ | M |
 | OP-F | include 规整 | 低（脚本可回滚） | 维护成本 ↓ | S |
-| OP-D | ~~依赖注入~~ | — | ✅ 已完成 | — |
+| OP-D | 依赖注入收口 | 中 | 隐式全局依赖 ↓ | M |
 | OP-E | API 收口 | 低（紧跟 OP-D） | 心智负担 ↓ | M |
 | OP-G | 渲染重构 | 高 | 长期可维护性 ↑↑ | XL |
 | OP-H | DSL 优化 | 低 | 编译时间 ↓ | S |
@@ -167,7 +167,7 @@
 
 ## 六、风险提示
 
-- **OP-D 是骨干手术**，会触动所有 System 的构造签名与 `SystemManager`。建议先经"架构师 Agent"产出修改规划表后再落地。
+- **OP-D 仍在进行中**。虽然构造注入骨架已存在，但只要 System 内还保留 `Registry::...` 调用，就仍然受线程本地单例约束。
 - **OP-C** 编译期 phase 化要先确认 `entt::poly` 类型擦除后仍能通过 `if constexpr (requires{...})` 读取静态成员；不行就退化为注册期手动表。
 - **OP-A** 伞头已删，无需操作。
 - **OP-A2** ✅ 已完成。ThemeSystem 头 29 行，实现在 ThemeSystem.cpp 匿名命名空间，122 测试全绿。

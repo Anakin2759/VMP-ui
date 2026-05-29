@@ -5,7 +5,6 @@
 #include "common/components/Interaction.hpp"
 #include "common/components/Layout.hpp"
 #include "common/Tags.hpp"
-#include "singleton/Dispatcher.hpp"
 #include "core/RuntimeFacade.hpp"
 
 namespace ui::systems
@@ -60,18 +59,19 @@ Vec2 HitTestSystem::getAbsolutePosition(entt::entity entity)
     return ui::utils::GetAbsolutePosition(entity);
 }
 
-entt::entity HitTestSystem::findRootWindow(entt::entity entity)
+entt::entity HitTestSystem::findRootWindow(entt::entity entity) const
 {
+    const auto& reg = *m_reg;
     entt::entity current = entity;
     entt::entity rootWindow = entt::null;
 
-    while (current != entt::null && Registry::Valid(current))
+    while (current != entt::null && m_reg->valid(current))
     {
-        if (Registry::AnyOf<components::WindowTag, components::DialogTag>(current))
+        if (m_reg->any_of<components::WindowTag, components::DialogTag>(current))
         {
             rootWindow = current;
         }
-        const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current);
+        const auto* hierarchy = m_reg->try_get<components::Hierarchy>(current);
         current = hierarchy == nullptr ? entt::null : hierarchy->parent;
     }
 
@@ -90,7 +90,7 @@ std::vector<entt::entity> HitTestSystem::getZOrderedInteractables(entt::entity t
     // 重建缓存
     std::vector<std::pair<int, entt::entity>> interactables;
 
-    auto view = Registry::View<components::Position, components::Size>();
+    auto view = m_reg->view<components::Position, components::Size>();
 
     for (auto entity : view)
     {
@@ -132,7 +132,7 @@ entt::entity HitTestSystem::findHitEntity(const Vec2& mousePos, entt::entity top
     // 从前到后进行碰撞测试
     for (auto entity : interactables)
     {
-        const auto& size = Registry::Get<components::Size>(entity);
+        const auto& size = m_reg->get<components::Size>(entity);
         Vec2 absPos = getAbsolutePosition(entity);
 
         if (isPointInRect(mousePos, absPos, size.size))
@@ -154,18 +154,18 @@ void HitTestSystem::invalidateAllCaches()
 
 void HitTestSystem::markGlobalHitCacheDirty()
 {
-    if (m_cacheInvalidationMarker == entt::null || !Registry::Valid(m_cacheInvalidationMarker))
+    if (m_cacheInvalidationMarker == entt::null || !m_reg->valid(m_cacheInvalidationMarker))
     {
-        m_cacheInvalidationMarker = Registry::Create();
+        m_cacheInvalidationMarker = m_reg->create();
     }
-    Registry::EmplaceOrReplace<components::HitCacheInvalidateTag>(m_cacheInvalidationMarker);
+    m_reg->emplace_or_replace<components::HitCacheInvalidateTag>(m_cacheInvalidationMarker);
 }
 
 void HitTestSystem::markHitCacheDirty(entt::entity entity)
 {
-    if (Registry::Valid(entity))
+    if (m_reg->valid(entity))
     {
-        Registry::EmplaceOrReplace<components::HitCacheInvalidateTag>(entity);
+        m_reg->emplace_or_replace<components::HitCacheInvalidateTag>(entity);
         return;
     }
 
@@ -174,7 +174,7 @@ void HitTestSystem::markHitCacheDirty(entt::entity entity)
 
 void HitTestSystem::processPendingCacheInvalidationTags()
 {
-    auto taggedView = Registry::View<components::HitCacheInvalidateTag>();
+    auto taggedView = m_reg->view<components::HitCacheInvalidateTag>();
     if (taggedView.begin() == taggedView.end())
     {
         return;
@@ -190,20 +190,21 @@ void HitTestSystem::processPendingCacheInvalidationTags()
 
     for (auto entity : taggedEntities)
     {
-        if (Registry::Valid(entity) && Registry::AnyOf<components::HitCacheInvalidateTag>(entity))
+        if (m_reg->valid(entity) && m_reg->any_of<components::HitCacheInvalidateTag>(entity))
         {
-            Registry::Remove<components::HitCacheInvalidateTag>(entity);
+            m_reg->remove<components::HitCacheInvalidateTag>(entity);
         }
     }
 }
 
-bool HitTestSystem::isEntityInteractable(entt::entity entity)
+bool HitTestSystem::isEntityInteractable(entt::entity entity) const
 {
-    bool isInteractive = Registry::AnyOf<components::Clickable, components::ScrollArea, components::SliderInfo>(entity);
+    const auto& reg = *m_reg;
+    bool isInteractive = m_reg->any_of<components::Clickable, components::ScrollArea, components::SliderInfo>(entity);
 
-    if (!isInteractive && Registry::AnyOf<components::TextEditTag>(entity))
+    if (!isInteractive && m_reg->any_of<components::TextEditTag>(entity))
     {
-        if (const auto* edit = Registry::TryGet<components::TextEdit>(entity))
+        if (const auto* edit = m_reg->try_get<components::TextEdit>(entity))
         {
             isInteractive = !policies::HasFlag(edit->inputMode, policies::TextFlag::READ_ONLY);
         }
@@ -214,12 +215,13 @@ bool HitTestSystem::isEntityInteractable(entt::entity entity)
         return false;
     }
 
-    return !Registry::AnyOf<components::DisabledTag>(entity) && Registry::AnyOf<components::VisibleTag>(entity);
+    return !m_reg->any_of<components::DisabledTag>(entity) && m_reg->any_of<components::VisibleTag>(entity);
 }
 
-int HitTestSystem::calculateZOrder(entt::entity entity)
+int HitTestSystem::calculateZOrder(entt::entity entity) const
 {
-    if (const auto* zOrderComp = Registry::TryGet<components::ZOrderIndex>(entity))
+    const auto& reg = *m_reg;
+    if (const auto* zOrderComp = m_reg->try_get<components::ZOrderIndex>(entity))
     {
         return zOrderComp->value;
     }
@@ -229,7 +231,7 @@ int HitTestSystem::calculateZOrder(entt::entity entity)
     entt::entity current = entity;
     while (current != entt::null)
     {
-        const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current);
+        const auto* hierarchy = m_reg->try_get<components::Hierarchy>(current);
         current = hierarchy != nullptr ? hierarchy->parent : entt::null;
         depth++;
     }
@@ -246,19 +248,19 @@ entt::entity HitTestSystem::resolveHitEntity(const Vec2& pos, uint32_t windowID)
 void HitTestSystem::onRawPointerMove(const events::RawPointerMove& event)
 {
     const entt::entity hit = resolveHitEntity(event.position, event.windowID);
-    Dispatcher::Enqueue<events::HitPointerMove>(events::HitPointerMove{.raw = event, .hitEntity = hit});
+    m_disp->enqueue<events::HitPointerMove>(events::HitPointerMove{.raw = event, .hitEntity = hit});
 }
 
 void HitTestSystem::onRawPointerButton(const events::RawPointerButton& event)
 {
     const entt::entity hit = resolveHitEntity(event.position, event.windowID);
-    Dispatcher::Enqueue<events::HitPointerButton>(events::HitPointerButton{.raw = event, .hitEntity = hit});
+    m_disp->enqueue<events::HitPointerButton>(events::HitPointerButton{.raw = event, .hitEntity = hit});
 }
 
 void HitTestSystem::onRawPointerWheel(const events::RawPointerWheel& event)
 {
     const entt::entity hit = resolveHitEntity(event.position, event.windowID);
-    Dispatcher::Enqueue<events::HitPointerWheel>(events::HitPointerWheel{.raw = event, .hitEntity = hit});
+    m_disp->enqueue<events::HitPointerWheel>(events::HitPointerWheel{.raw = event, .hitEntity = hit});
 }
 
 } // namespace ui::systems

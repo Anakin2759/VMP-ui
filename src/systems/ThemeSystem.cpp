@@ -1116,7 +1116,7 @@ void ThemeSystem::unregisterHandlersImpl()
 
 ui::interface::SystemPhase ThemeSystem::getPhase()
 {
-    return ui::interface::SystemPhase::Logic;
+    return ui::interface::SystemPhase::LOGIC;
 }
 
 void ThemeSystem::update()

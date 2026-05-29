@@ -80,7 +80,7 @@ public:
     void pollInput() { pollSdlEvents(); }
 
     /// OP-22: Input 阶段
-    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Input; }
+    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::INPUT; }
 
     /**
      * @brief 处理 SDL每tick事件

@@ -6,7 +6,6 @@
 #include "common/components/Layout.hpp"
 #include "common/components/Window.hpp"
 #include "common/Tags.hpp"
-#include "singleton/Registry.hpp"
 #include "singleton/Dispatcher.hpp"
 #include "core/RuntimeFacade.hpp"
 #include "HitTestSystem.hpp"
@@ -94,32 +93,34 @@ void StateSystem::unregisterHandlersImpl()
 
 bool StateSystem::SliderStateHelpers::tryHandlePress(StateSystem& system, const events::HitPointerButton& event)
 {
-    if (event.hitEntity == entt::null || !Registry::Valid(event.hitEntity))
+    const auto& reg = *system.m_reg;
+    if (event.hitEntity == entt::null || !reg.valid(event.hitEntity))
     {
         return false;
     }
 
-    if (Registry::TryGet<components::SliderInfo>(event.hitEntity) == nullptr)
+    if (reg.try_get<components::SliderInfo>(event.hitEntity) == nullptr)
     {
         return false;
     }
 
     system.m_isDraggingSlider = true;
     system.m_dragSliderEntity = event.hitEntity;
-    updateValueFromPointer(event.hitEntity, event.raw.position);
+    updateValueFromPointer(system, event.hitEntity, event.raw.position);
     return true;
 }
 
 void StateSystem::SliderStateHelpers::handleDrag(StateSystem& system, const events::HitPointerMove& event)
 {
-    if (!Registry::Valid(system.m_dragSliderEntity)
-        || Registry::TryGet<components::SliderInfo>(system.m_dragSliderEntity) == nullptr)
+    const auto& reg = *system.m_reg;
+    if (!reg.valid(system.m_dragSliderEntity)
+        || reg.try_get<components::SliderInfo>(system.m_dragSliderEntity) == nullptr)
     {
         stopDrag(system);
         return;
     }
 
-    updateValueFromPointer(system.m_dragSliderEntity, event.raw.position);
+    updateValueFromPointer(system, system.m_dragSliderEntity, event.raw.position);
 }
 
 void StateSystem::SliderStateHelpers::stopDrag(StateSystem& system)
@@ -128,10 +129,13 @@ void StateSystem::SliderStateHelpers::stopDrag(StateSystem& system)
     system.m_dragSliderEntity = entt::null;
 }
 
-void StateSystem::SliderStateHelpers::updateValueFromPointer(entt::entity entity, const Vec2& mousePos)
+void StateSystem::SliderStateHelpers::updateValueFromPointer(StateSystem& system,
+                                                             entt::entity entity,
+                                                             const Vec2& mousePos)
 {
-    auto* slider = Registry::TryGet<components::SliderInfo>(entity);
-    const auto* sizeComp = Registry::TryGet<components::Size>(entity);
+    auto& reg = *system.m_reg;
+    auto* slider = reg.try_get<components::SliderInfo>(entity);
+    const auto* sizeComp = reg.try_get<components::Size>(entity);
     if (slider == nullptr || sizeComp == nullptr)
     {
         return;
@@ -181,17 +185,18 @@ void StateSystem::SliderStateHelpers::updateValueFromPointer(entt::entity entity
 // ScrollbarStateHelpers
 // =============================================================================
 
-entt::entity StateSystem::ScrollbarStateHelpers::findScrollTargetFromHit(entt::entity hitEntity)
+entt::entity StateSystem::ScrollbarStateHelpers::findScrollTargetFromHit(StateSystem& system, entt::entity hitEntity)
 {
+    const auto& reg = *system.m_reg;
     entt::entity current = hitEntity;
-    while (current != entt::null && Registry::Valid(current))
+    while (current != entt::null && reg.valid(current))
     {
-        if (Registry::AnyOf<components::ScrollArea>(current))
+        if (reg.any_of<components::ScrollArea>(current))
         {
             return current;
         }
 
-        if (const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current))
+        if (const auto* hierarchy = reg.try_get<components::Hierarchy>(current))
         {
             current = hierarchy->parent;
         }
@@ -204,10 +209,11 @@ entt::entity StateSystem::ScrollbarStateHelpers::findScrollTargetFromHit(entt::e
     return entt::null;
 }
 
-entt::entity StateSystem::ScrollbarStateHelpers::findScrollTargetAtPosition(const Vec2& pointerPosition)
+entt::entity StateSystem::ScrollbarStateHelpers::findScrollTargetAtPosition(StateSystem& system,
+                                                                            const Vec2& pointerPosition)
 {
-    auto view =
-        Registry::View<components::ScrollArea, components::Size, components::VisibleTag, components::Position>();
+    auto& reg = *system.m_reg;
+    auto view = reg.view<components::ScrollArea, components::Size, components::VisibleTag, components::Position>();
     for (auto entity : view)
     {
         const auto& size = view.get<components::Size>(entity);
@@ -221,9 +227,12 @@ entt::entity StateSystem::ScrollbarStateHelpers::findScrollTargetAtPosition(cons
     return entt::null;
 }
 
-void StateSystem::ScrollbarStateHelpers::applyScrollWheelDelta(entt::entity target, const Vec2& scrollDelta)
+void StateSystem::ScrollbarStateHelpers::applyScrollWheelDelta(StateSystem& system,
+                                                               entt::entity target,
+                                                               const Vec2& scrollDelta)
 {
-    auto& scroll = Registry::Get<components::ScrollArea>(target);
+    auto& reg = *system.m_reg;
+    auto& scroll = reg.get<components::ScrollArea>(target);
     bool changed = false;
 
     const bool canScrollVertical =
@@ -254,15 +263,17 @@ void StateSystem::ScrollbarStateHelpers::applyScrollWheelDelta(entt::entity targ
     }
 }
 
-void StateSystem::ScrollbarStateHelpers::updateHoverStates(const events::HitPointerMove& event,
+void StateSystem::ScrollbarStateHelpers::updateHoverStates(StateSystem& system,
+                                                           const events::HitPointerMove& event,
                                                            const globalcontext::StateContext& state)
 {
-    auto view = Registry::View<components::ScrollArea, components::Size, components::VisibleTag>();
+    auto& reg = *system.m_reg;
+    auto view = reg.view<components::ScrollArea, components::Size, components::VisibleTag>();
 
     for (auto entity : view)
     {
         auto& scrollArea = view.get<components::ScrollArea>(entity);
-        const auto* prevState = Registry::TryGet<components::ScrollBarInteractionState>(entity);
+        const auto* prevState = reg.try_get<components::ScrollBarInteractionState>(entity);
         const bool wasHovered = prevState != nullptr && (prevState->scrollbarHovered || prevState->trackHovered);
 
         if (state.hasScrollbarDrag() && state.dragScrollEntity == entity)
@@ -270,7 +281,7 @@ void StateSystem::ScrollbarStateHelpers::updateHoverStates(const events::HitPoin
             continue;
         }
 
-        auto& interState = Registry::GetOrEmplace<components::ScrollBarInteractionState>(entity);
+        auto& interState = reg.get_or_emplace<components::ScrollBarInteractionState>(entity);
         interState.scrollbarHovered = false;
         interState.trackHovered = false;
 
@@ -302,13 +313,15 @@ void StateSystem::ScrollbarStateHelpers::updateHoverStates(const events::HitPoin
     }
 }
 
-void StateSystem::ScrollbarStateHelpers::handleDrag(const events::HitPointerMove& event,
+void StateSystem::ScrollbarStateHelpers::handleDrag(StateSystem& system,
+                                                    const events::HitPointerMove& event,
                                                     globalcontext::StateContext& state)
 {
     const float deltaPix = state.isVerticalDrag ? (event.raw.position.y() - state.dragStartMousePos.y())
                                                 : (event.raw.position.x() - state.dragStartMousePos.x());
 
-    auto& scroll = Registry::Get<components::ScrollArea>(state.dragScrollEntity);
+    auto& reg = *system.m_reg;
+    auto& scroll = reg.get<components::ScrollArea>(state.dragScrollEntity);
     const float maxScroll = ui::utils::GetScrollMaxOffset(state.dragScrollEntity, state.isVerticalDrag);
     const float trackScrollableArea = state.dragTrackLength - state.dragThumbSize;
 
@@ -327,19 +340,21 @@ void StateSystem::ScrollbarStateHelpers::handleDrag(const events::HitPointerMove
     }
 }
 
-bool StateSystem::ScrollbarStateHelpers::tryHandlePress(const events::HitPointerButton& event,
+bool StateSystem::ScrollbarStateHelpers::tryHandlePress(StateSystem& system,
+                                                        const events::HitPointerButton& event,
                                                         globalcontext::StateContext& state)
 {
+    auto& reg = *system.m_reg;
     entt::entity scrollEntity = entt::null;
     bool isVertical = true;
     bool clickedOnThumb = false;
     entt::entity current = event.hitEntity;
 
-    while (current != entt::null && Registry::Valid(current))
+    while (current != entt::null && reg.valid(current))
     {
-        if (Registry::AnyOf<components::ScrollArea>(current))
+        if (reg.any_of<components::ScrollArea>(current))
         {
-            const auto hitType = checkHit(current, event.raw.position, isVertical);
+            const auto hitType = checkHit(system, current, event.raw.position, isVertical);
             if (hitType != ScrollbarHitType::NONE)
             {
                 scrollEntity = current;
@@ -348,7 +363,7 @@ bool StateSystem::ScrollbarStateHelpers::tryHandlePress(const events::HitPointer
             }
         }
 
-        const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current);
+        const auto* hierarchy = reg.try_get<components::Hierarchy>(current);
         current = hierarchy != nullptr ? hierarchy->parent : entt::null;
     }
 
@@ -357,10 +372,10 @@ bool StateSystem::ScrollbarStateHelpers::tryHandlePress(const events::HitPointer
         return false;
     }
 
-    auto& scroll = Registry::Get<components::ScrollArea>(scrollEntity);
+    auto& scroll = reg.get<components::ScrollArea>(scrollEntity);
     if (clickedOnThumb)
     {
-        Registry::GetOrEmplace<components::ScrollBarInteractionState>(scrollEntity).scrollbarPressed = true;
+        reg.get_or_emplace<components::ScrollBarInteractionState>(scrollEntity).scrollbarPressed = true;
 
         float trackLength = 0.0F;
         float thumbSize = 0.0F;
@@ -370,17 +385,20 @@ bool StateSystem::ScrollbarStateHelpers::tryHandlePress(const events::HitPointer
     }
     else
     {
-        handleTrackClick(scrollEntity, event.raw.position, isVertical);
+        handleTrackClick(system, scrollEntity, event.raw.position, isVertical);
     }
 
     ui::utils::MarkVisualChanged(scrollEntity);
     return true;
 }
 
-StateSystem::ScrollbarHitType
-    StateSystem::ScrollbarStateHelpers::checkHit(entt::entity entity, const Vec2& mousePos, bool& outIsVertical)
+StateSystem::ScrollbarHitType StateSystem::ScrollbarStateHelpers::checkHit(StateSystem& system,
+                                                                           entt::entity entity,
+                                                                           const Vec2& mousePos,
+                                                                           bool& outIsVertical)
 {
-    const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
+    auto& reg = *system.m_reg;
+    const auto* scrollArea = reg.try_get<components::ScrollArea>(entity);
     if (scrollArea == nullptr || policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::NO_VISIBILITY))
     {
         return ScrollbarHitType::NONE;
@@ -438,9 +456,13 @@ void StateSystem::ScrollbarStateHelpers::calculateGeometry(entt::entity entity,
     outThumbSize = std::max(components::ScrollArea::SCROLLBAR_THUMB_MIN_SIZE, outTrackLen * visibleRatio);
 }
 
-void StateSystem::ScrollbarStateHelpers::handleTrackClick(entt::entity entity, const Vec2& mousePos, bool isVertical)
+void StateSystem::ScrollbarStateHelpers::handleTrackClick(StateSystem& system,
+                                                          entt::entity entity,
+                                                          const Vec2& mousePos,
+                                                          bool isVertical)
 {
-    auto& scrollArea = Registry::Get<components::ScrollArea>(entity);
+    auto& reg = *system.m_reg;
+    auto& scrollArea = reg.get<components::ScrollArea>(entity);
     const Rect entityRect = ui::utils::GetEntityRect(entity);
     const float viewportSize = ui::utils::GetScrollViewportLength(entity, isVertical);
     const float contentSize = ui::utils::GetScrollContentLength(entity, isVertical);
@@ -470,35 +492,38 @@ void StateSystem::ScrollbarStateHelpers::handleTrackClick(entt::entity entity, c
 // PointerStateHelpers
 // =============================================================================
 
-bool StateSystem::PointerStateHelpers::isWritableTextEdit(entt::entity entity)
+bool StateSystem::PointerStateHelpers::isWritableTextEdit(StateSystem& system, entt::entity entity)
 {
-    if (!Registry::Valid(entity) || !Registry::AnyOf<components::TextEditTag>(entity))
+    const auto& reg = *system.m_reg;
+    if (!reg.valid(entity) || !reg.any_of<components::TextEditTag>(entity))
     {
         return false;
     }
 
-    const auto* edit = Registry::TryGet<components::TextEdit>(entity);
+    const auto* edit = reg.try_get<components::TextEdit>(entity);
     return edit == nullptr || !policies::HasFlag(edit->inputMode, policies::TextFlag::READ_ONLY);
 }
 
-bool StateSystem::PointerStateHelpers::shouldEmitPressForEntity(entt::entity entity)
+bool StateSystem::PointerStateHelpers::shouldEmitPressForEntity(StateSystem& system, entt::entity entity)
 {
-    return Registry::Valid(entity)
-        && (Registry::AnyOf<components::Pressable>(entity) || Registry::AnyOf<components::Clickable>(entity)
-            || Registry::AnyOf<components::TextEditTag>(entity));
+    const auto& reg = *system.m_reg;
+    return reg.valid(entity)
+        && (reg.any_of<components::Pressable>(entity) || reg.any_of<components::Clickable>(entity)
+            || reg.any_of<components::TextEditTag>(entity));
 }
 
 void StateSystem::PointerStateHelpers::queueHoveredEntity(StateSystem& system,
                                                           globalcontext::StateContext& state,
                                                           entt::entity entity)
 {
-    if (state.hoveredEntity != entt::null && Registry::Valid(state.hoveredEntity))
+    const auto& reg = *system.m_reg;
+    if (state.hoveredEntity != entt::null && reg.valid(state.hoveredEntity))
     {
         system.m_pendingHoverRemove.insert(state.hoveredEntity);
     }
 
     state.hoveredEntity = entity;
-    if (Registry::Valid(entity))
+    if (reg.valid(entity))
     {
         system.m_pendingHoverAdd.insert(entity);
         system.m_pendingHoverRemove.erase(entity);
@@ -509,7 +534,8 @@ void StateSystem::PointerStateHelpers::queueHoverClear(StateSystem& system,
                                                        globalcontext::StateContext& state,
                                                        entt::entity entity)
 {
-    if (Registry::Valid(entity))
+    const auto& reg = *system.m_reg;
+    if (reg.valid(entity))
     {
         system.m_pendingHoverRemove.insert(entity);
         system.m_pendingHoverAdd.erase(entity);
@@ -527,13 +553,14 @@ void StateSystem::PointerStateHelpers::queueActiveEntity(StateSystem& system,
 {
     state.activeDragMoved = false;
 
-    if (state.activeEntity != entt::null && Registry::Valid(state.activeEntity))
+    const auto& reg = *system.m_reg;
+    if (state.activeEntity != entt::null && reg.valid(state.activeEntity))
     {
         system.m_pendingActiveRemove.insert(state.activeEntity);
     }
 
     state.activeEntity = entity;
-    if (Registry::Valid(entity))
+    if (reg.valid(entity))
     {
         system.m_pendingActiveAdd.insert(entity);
         system.m_pendingActiveRemove.erase(entity);
@@ -544,7 +571,8 @@ void StateSystem::PointerStateHelpers::queueActiveClear(StateSystem& system,
                                                         globalcontext::StateContext& state,
                                                         entt::entity entity)
 {
-    if (Registry::Valid(entity))
+    const auto& reg = *system.m_reg;
+    if (reg.valid(entity))
     {
         system.m_pendingActiveRemove.insert(entity);
         system.m_pendingActiveAdd.erase(entity);
@@ -558,42 +586,46 @@ void StateSystem::PointerStateHelpers::queueActiveClear(StateSystem& system,
     state.activeDragMoved = false;
 }
 
-void StateSystem::PointerStateHelpers::handleHoverUpdate(const events::HitPointerMove& event,
+void StateSystem::PointerStateHelpers::handleHoverUpdate(StateSystem& system,
+                                                         const events::HitPointerMove& event,
                                                          const globalcontext::StateContext& state)
 {
+    const auto& reg = *system.m_reg;
+    auto& disp = *system.m_disp;
     if (event.hitEntity != state.hoveredEntity)
     {
-        if (state.hoveredEntity != entt::null && Registry::Valid(state.hoveredEntity))
+        if (state.hoveredEntity != entt::null && reg.valid(state.hoveredEntity))
         {
-            Dispatcher::Enqueue<events::UnhoverEvent>(events::UnhoverEvent{state.hoveredEntity});
+            disp.enqueue<events::UnhoverEvent>(events::UnhoverEvent{state.hoveredEntity});
         }
         if (event.hitEntity != entt::null)
         {
-            Dispatcher::Enqueue<events::HoverEvent>(events::HoverEvent{event.hitEntity});
+            disp.enqueue<events::HoverEvent>(events::HoverEvent{event.hitEntity});
         }
     }
 }
 
-void StateSystem::PointerStateHelpers::setFocus(entt::entity entity, SDL_Window* sdlWindow)
+void StateSystem::PointerStateHelpers::setFocus(StateSystem& system, entt::entity entity, SDL_Window* sdlWindow)
 {
     auto& state = RuntimeFacade::current().state();
+    auto& reg = *system.m_reg;
 
-    if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
+    if (state.focusedEntity != entt::null && reg.valid(state.focusedEntity))
     {
         ui::utils::MarkVisualChanged(state.focusedEntity);
-        Registry::Remove<components::FocusedTag>(state.focusedEntity);
+        reg.remove<components::FocusedTag>(state.focusedEntity);
     }
 
     state.focusedEntity = entity;
-    if (entity != entt::null && Registry::Valid(entity))
+    if (entity != entt::null && reg.valid(entity))
     {
-        Registry::EmplaceOrReplace<components::FocusedTag>(entity);
+        reg.emplace_or_replace<components::FocusedTag>(entity);
         ui::utils::MarkVisualChanged(entity);
 
-        if (Registry::AnyOf<components::TextEditTag>(entity))
+        if (reg.any_of<components::TextEditTag>(entity))
         {
-            Registry::EmplaceOrReplace<components::Caret>(entity);
-            auto& caret = Registry::Get<components::Caret>(entity);
+            reg.emplace_or_replace<components::Caret>(entity);
+            auto& caret = reg.get<components::Caret>(entity);
             caret.visible = true;
             caret.elapsedTime = 0.0F;
 
@@ -605,14 +637,15 @@ void StateSystem::PointerStateHelpers::setFocus(entt::entity entity, SDL_Window*
     }
 }
 
-void StateSystem::PointerStateHelpers::clearFocus(SDL_Window* sdlWindow)
+void StateSystem::PointerStateHelpers::clearFocus(StateSystem& system, SDL_Window* sdlWindow)
 {
     auto& state = RuntimeFacade::current().state();
+    auto& reg = *system.m_reg;
 
-    if (state.focusedEntity != entt::null && Registry::Valid(state.focusedEntity))
+    if (state.focusedEntity != entt::null && reg.valid(state.focusedEntity))
     {
         ui::utils::MarkVisualChanged(state.focusedEntity);
-        Registry::Remove<components::FocusedTag>(state.focusedEntity);
+        reg.remove<components::FocusedTag>(state.focusedEntity);
         state.focusedEntity = entt::null;
     }
 
@@ -622,24 +655,24 @@ void StateSystem::PointerStateHelpers::clearFocus(SDL_Window* sdlWindow)
     }
 }
 
-void StateSystem::PointerStateHelpers::handleEntityPress(const events::HitPointerButton& event)
+void StateSystem::PointerStateHelpers::handleEntityPress(StateSystem& system, const events::HitPointerButton& event)
 {
     if (event.hitEntity == entt::null)
     {
         return;
     }
 
-    if (isWritableTextEdit(event.hitEntity))
+    if (isWritableTextEdit(system, event.hitEntity))
     {
         if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
         {
-            setFocus(event.hitEntity, sdlWindow);
+            setFocus(system, event.hitEntity, sdlWindow);
         }
     }
 
-    if (shouldEmitPressForEntity(event.hitEntity))
+    if (shouldEmitPressForEntity(system, event.hitEntity))
     {
-        Dispatcher::Trigger<events::MousePressEvent>(events::MousePressEvent{event.hitEntity});
+        system.m_disp->trigger<events::MousePressEvent>(events::MousePressEvent{event.hitEntity});
     }
 }
 
@@ -671,56 +704,61 @@ void StateSystem::PointerStateHelpers::handleEntityRelease(StateSystem& system,
 
     if (!suppressClick)
     {
-        tryEmitTableCellClicked(event.hitEntity, event.raw.position);
+        tryEmitTableCellClicked(system, event.hitEntity, event.raw.position);
     }
 
+    auto& reg = *system.m_reg;
+    auto& disp = *system.m_disp;
     if (!suppressClick && releasedEntity != entt::null && releasedEntity == event.hitEntity)
     {
-        if (Registry::TryGet<components::Clickable>(releasedEntity) != nullptr)
+        if (reg.try_get<components::Clickable>(releasedEntity) != nullptr)
         {
-            Dispatcher::Trigger<events::ClickEvent>(events::ClickEvent{releasedEntity});
+            disp.trigger<events::ClickEvent>(events::ClickEvent{releasedEntity});
         }
 
         if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
         {
-            if (isWritableTextEdit(releasedEntity))
+            if (isWritableTextEdit(system, releasedEntity))
             {
-                setFocus(releasedEntity, sdlWindow);
+                setFocus(system, releasedEntity, sdlWindow);
                 return;
             }
-            clearFocus(sdlWindow);
+            clearFocus(system, sdlWindow);
         }
     }
     else
     {
         if (!suppressClick && event.hitEntity != entt::null
-            && Registry::TryGet<components::Clickable>(event.hitEntity) != nullptr)
+            && reg.try_get<components::Clickable>(event.hitEntity) != nullptr)
         {
             Logger::debug("StateSystem: Click Event (fallback) on entity {}", static_cast<uint32_t>(event.hitEntity));
-            Dispatcher::Trigger<events::ClickEvent>(events::ClickEvent{event.hitEntity});
+            disp.trigger<events::ClickEvent>(events::ClickEvent{event.hitEntity});
         }
 
         if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.raw.windowID))
         {
-            clearFocus(sdlWindow);
+            clearFocus(system, sdlWindow);
         }
     }
 
     if (releasedEntity != entt::null)
     {
-        Dispatcher::Trigger<events::MouseReleaseEvent>(events::MouseReleaseEvent{releasedEntity});
+        disp.trigger<events::MouseReleaseEvent>(events::MouseReleaseEvent{releasedEntity});
     }
 }
 
-void StateSystem::PointerStateHelpers::tryEmitTableCellClicked(entt::entity hitEntity, const Vec2& pointerPosition)
+void StateSystem::PointerStateHelpers::tryEmitTableCellClicked(StateSystem& system,
+                                                               entt::entity hitEntity,
+                                                               const Vec2& pointerPosition)
 {
-    if (!Registry::Valid(hitEntity) || !Registry::AnyOf<components::TableTag>(hitEntity))
+    auto& reg = *system.m_reg;
+    if (!reg.valid(hitEntity) || !reg.any_of<components::TableTag>(hitEntity))
     {
         return;
     }
 
-    const auto* info = Registry::TryGet<components::TableInfo>(hitEntity);
-    const auto* sizeComp = Registry::TryGet<components::Size>(hitEntity);
+    const auto* info = reg.try_get<components::TableInfo>(hitEntity);
+    const auto* sizeComp = reg.try_get<components::Size>(hitEntity);
     if (info == nullptr || sizeComp == nullptr || info->columnCount <= 0)
     {
         return;
@@ -743,7 +781,7 @@ void StateSystem::PointerStateHelpers::tryEmitTableCellClicked(entt::entity hitE
 
     float bodyY = localY - info->headerHeight;
     float contentX = localX; // 将本地坐标转换为内容坐标（加上水平滚动偏移）
-    if (const auto* scroll = Registry::TryGet<components::ScrollArea>(hitEntity))
+    if (const auto* scroll = reg.try_get<components::ScrollArea>(hitEntity))
     {
         bodyY += scroll->scrollOffset.y();
         contentX += scroll->scrollOffset.x();
@@ -787,49 +825,53 @@ void StateSystem::PointerStateHelpers::tryEmitTableCellClicked(entt::entity hitE
         return;
     }
 
-    Dispatcher::Trigger<events::TableCellClicked>(events::TableCellClicked{hitEntity, row, col});
+    system.m_disp->trigger<events::TableCellClicked>(events::TableCellClicked{hitEntity, row, col});
 }
 
 // =============================================================================
 // WindowStateHelpers
 // =============================================================================
 
-void StateSystem::WindowStateHelpers::handleClose(const events::CloseWindow& event)
+void StateSystem::WindowStateHelpers::handleClose(StateSystem& system, const events::CloseWindow& event)
 {
-    if (Registry::Valid(event.entity))
+    auto& reg = *system.m_reg;
+    if (reg.valid(event.entity))
     {
-        StateSystem::destroyWidget(event.entity);
+        system.destroyWidget(event.entity);
     }
 
-    if (Registry::View<components::Window>().empty())
+    if (reg.view<components::Window>().empty())
     {
-        Dispatcher::Trigger<events::QuitRequested>();
+        system.m_disp->trigger<events::QuitRequested>();
     }
 }
 
-void StateSystem::WindowStateHelpers::handlePixelSizeChanged(const events::WindowPixelSizeChanged& event)
+void StateSystem::WindowStateHelpers::handlePixelSizeChanged(StateSystem& system,
+                                                             const events::WindowPixelSizeChanged& event)
 {
+    auto& reg = *system.m_reg;
     const auto entity = RuntimeFacade::current().windowLookup().findById(event.windowID);
-    if (!Registry::Valid(entity) || !Registry::AllOf<components::Size>(entity))
+    if (!reg.valid(entity) || !reg.all_of<components::Size>(entity))
     {
         return;
     }
 
-    auto& size = Registry::Get<components::Size>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.size.x() = static_cast<float>(event.width);
     size.size.y() = static_cast<float>(event.height);
     ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 
-void StateSystem::WindowStateHelpers::handleMoved(const events::WindowMoved& event)
+void StateSystem::WindowStateHelpers::handleMoved(StateSystem& system, const events::WindowMoved& event)
 {
+    auto& reg = *system.m_reg;
     const auto entity = RuntimeFacade::current().windowLookup().findById(event.windowID);
-    if (!Registry::Valid(entity) || !Registry::AllOf<components::Position>(entity))
+    if (!reg.valid(entity) || !reg.all_of<components::Position>(entity))
     {
         return;
     }
 
-    auto& pos = Registry::Get<components::Position>(entity);
+    auto& pos = reg.get<components::Position>(entity);
     pos.value.x() = static_cast<float>(event.x);
     pos.value.y() = static_cast<float>(event.y);
 }
@@ -882,27 +924,27 @@ void StateSystem::EndFrameStateHelpers::flush(StateSystem& system)
 
 bool StateSystem::isWritableTextEdit(entt::entity entity)
 {
-    return PointerStateHelpers::isWritableTextEdit(entity);
+    return PointerStateHelpers::isWritableTextEdit(*this, entity);
 }
 
 bool StateSystem::shouldEmitPressForEntity(entt::entity entity)
 {
-    return PointerStateHelpers::shouldEmitPressForEntity(entity);
+    return PointerStateHelpers::shouldEmitPressForEntity(*this, entity);
 }
 
 entt::entity StateSystem::findScrollTargetFromHit(entt::entity hitEntity)
 {
-    return ScrollbarStateHelpers::findScrollTargetFromHit(hitEntity);
+    return ScrollbarStateHelpers::findScrollTargetFromHit(*this, hitEntity);
 }
 
 entt::entity StateSystem::findScrollTargetAtPosition(const Vec2& pointerPosition)
 {
-    return ScrollbarStateHelpers::findScrollTargetAtPosition(pointerPosition);
+    return ScrollbarStateHelpers::findScrollTargetAtPosition(*this, pointerPosition);
 }
 
 void StateSystem::applyScrollWheelDelta(entt::entity target, const Vec2& scrollDelta)
 {
-    ScrollbarStateHelpers::applyScrollWheelDelta(target, scrollDelta);
+    ScrollbarStateHelpers::applyScrollWheelDelta(*this, target, scrollDelta);
 }
 
 void StateSystem::queueHoveredEntity(globalcontext::StateContext& state, entt::entity entity)
@@ -982,12 +1024,12 @@ void StateSystem::onHitPointerMove(const events::HitPointerMove& event)
 
     if (state.hasScrollbarDrag() && Registry::Valid(state.dragScrollEntity))
     {
-        ScrollbarStateHelpers::handleDrag(event, state);
+        ScrollbarStateHelpers::handleDrag(*this, event, state);
         return;
     }
 
-    ScrollbarStateHelpers::updateHoverStates(event, state);
-    PointerStateHelpers::handleHoverUpdate(event, state);
+    ScrollbarStateHelpers::updateHoverStates(*this, event, state);
+    PointerStateHelpers::handleHoverUpdate(*this, event, state);
 }
 
 void StateSystem::onHitPointerButton(const events::HitPointerButton& event)
@@ -1003,7 +1045,7 @@ void StateSystem::onHitPointerButton(const events::HitPointerButton& event)
     if (event.raw.pressed)
     {
         closeDropDownsOnOutsideClick(event.hitEntity);
-        if (ScrollbarStateHelpers::tryHandlePress(event, state))
+        if (ScrollbarStateHelpers::tryHandlePress(*this, event, state))
         {
             return;
         }
@@ -1011,7 +1053,7 @@ void StateSystem::onHitPointerButton(const events::HitPointerButton& event)
         {
             return;
         }
-        PointerStateHelpers::handleEntityPress(event);
+        PointerStateHelpers::handleEntityPress(*this, event);
         return;
     }
 
@@ -1040,7 +1082,7 @@ void StateSystem::onHitPointerWheel(const events::HitPointerWheel& event)
  */
 void StateSystem::setFocus(entt::entity entity, SDL_Window* sdlWindow)
 {
-    PointerStateHelpers::setFocus(entity, sdlWindow);
+    PointerStateHelpers::setFocus(*this, entity, sdlWindow);
 }
 
 /**
@@ -1048,12 +1090,12 @@ void StateSystem::setFocus(entt::entity entity, SDL_Window* sdlWindow)
  */
 void StateSystem::clearFocus(SDL_Window* sdlWindow)
 {
-    PointerStateHelpers::clearFocus(sdlWindow);
+    PointerStateHelpers::clearFocus(*this, sdlWindow);
 }
 
 void StateSystem::onCloseWindow(const events::CloseWindow& event)
 {
-    WindowStateHelpers::handleClose(event);
+    WindowStateHelpers::handleClose(*this, event);
 }
 
 /**
@@ -1061,7 +1103,7 @@ void StateSystem::onCloseWindow(const events::CloseWindow& event)
  */
 void StateSystem::onWindowPixelSizeChanged(const events::WindowPixelSizeChanged& event)
 {
-    WindowStateHelpers::handlePixelSizeChanged(event);
+    WindowStateHelpers::handlePixelSizeChanged(*this, event);
 }
 
 /**
@@ -1069,7 +1111,7 @@ void StateSystem::onWindowPixelSizeChanged(const events::WindowPixelSizeChanged&
  */
 void StateSystem::onWindowMoved(const events::WindowMoved& event)
 {
-    WindowStateHelpers::handleMoved(event);
+    WindowStateHelpers::handleMoved(*this, event);
 }
 
 // =============================================================================
@@ -1080,17 +1122,17 @@ void StateSystem::onWindowMoved(const events::WindowMoved& event)
  */
 void StateSystem::updateScrollbarHoverStates(const events::HitPointerMove& event)
 {
-    ScrollbarStateHelpers::updateHoverStates(event, RuntimeFacade::current().state());
+    ScrollbarStateHelpers::updateHoverStates(*this, event, RuntimeFacade::current().state());
 }
 
 void StateSystem::handleScrollbarDrag(const events::HitPointerMove& event, globalcontext::StateContext& state)
 {
-    ScrollbarStateHelpers::handleDrag(event, state);
+    ScrollbarStateHelpers::handleDrag(*this, event, state);
 }
 
 void StateSystem::handleHoverUpdate(const events::HitPointerMove& event, const globalcontext::StateContext& state)
 {
-    PointerStateHelpers::handleHoverUpdate(event, state);
+    PointerStateHelpers::handleHoverUpdate(*this, event, state);
 }
 
 /**
@@ -1101,30 +1143,32 @@ void StateSystem::handleHoverUpdate(const events::HitPointerMove& event, const g
  */
 bool StateSystem::tryHandleScrollbarPress(const events::HitPointerButton& event, globalcontext::StateContext& state)
 {
-    return ScrollbarStateHelpers::tryHandlePress(event, state);
+    return ScrollbarStateHelpers::tryHandlePress(*this, event, state);
 }
 
 void StateSystem::handleEntityPress(const events::HitPointerButton& event)
 {
-    PointerStateHelpers::handleEntityPress(event);
+    PointerStateHelpers::handleEntityPress(*this, event);
 }
 
 void StateSystem::closeDropDownsOnOutsideClick(entt::entity hitEntity)
 {
-    auto view = Registry::View<components::DropDown>();
+    auto& reg = *m_reg;
+    auto& disp = *m_disp;
+    auto view = reg.view<components::DropDown>();
     for (auto ddEntity : view)
     {
         auto& dropDown = view.template get<components::DropDown>(ddEntity);
         if (!dropDown.open) continue;
 
-        const auto inSubtree = [hitEntity](entt::entity ancestor) -> bool
+        const auto inSubtree = [&reg, hitEntity](entt::entity ancestor) -> bool
         {
             if (ancestor == entt::null) return false;
             entt::entity cur = hitEntity;
-            while (cur != entt::null && Registry::Valid(cur))
+            while (cur != entt::null && reg.valid(cur))
             {
                 if (cur == ancestor) return true;
-                const auto* hier = Registry::TryGet<components::Hierarchy>(cur);
+                const auto* hier = reg.try_get<components::Hierarchy>(cur);
                 cur = (hier != nullptr) ? hier->parent : entt::null;
             }
             return false;
@@ -1133,7 +1177,7 @@ void StateSystem::closeDropDownsOnOutsideClick(entt::entity hitEntity)
         if (inSubtree(ddEntity)) continue;
         if (inSubtree(dropDown.popupEntity)) continue;
 
-        Dispatcher::Trigger<events::DropDownCloseRequested>({ddEntity});
+        disp.trigger<events::DropDownCloseRequested>({ddEntity});
     }
 }
 
@@ -1164,7 +1208,7 @@ void StateSystem::stopSliderDrag()
 
 void StateSystem::updateSliderValueFromPointer(entt::entity entity, const Vec2& mousePos)
 {
-    SliderStateHelpers::updateValueFromPointer(entity, mousePos);
+    SliderStateHelpers::updateValueFromPointer(*this, entity, mousePos);
 }
 
 /**
@@ -1175,7 +1219,7 @@ void StateSystem::updateSliderValueFromPointer(entt::entity entity, const Vec2& 
 StateSystem::ScrollbarHitType
     StateSystem::checkScrollbarHit(entt::entity entity, const Vec2& mousePos, bool& outIsVertical)
 {
-    return ScrollbarStateHelpers::checkHit(entity, mousePos, outIsVertical);
+    return ScrollbarStateHelpers::checkHit(*this, entity, mousePos, outIsVertical);
 }
 
 void StateSystem::calculateScrollbarGeometry(entt::entity entity,
@@ -1194,7 +1238,7 @@ void StateSystem::calculateScrollbarGeometry(entt::entity entity,
  */
 void StateSystem::handleTrackClick(entt::entity entity, const Vec2& mousePos, bool isVertical)
 {
-    ScrollbarStateHelpers::handleTrackClick(entity, mousePos, isVertical);
+    ScrollbarStateHelpers::handleTrackClick(*this, entity, mousePos, isVertical);
 }
 
 // =============================================================================
@@ -1214,7 +1258,9 @@ void StateSystem::onEndFrame()
 
 void StateSystem::destroyWidget(entt::entity entity)
 {
-    if (!Registry::Valid(entity)) return;
+    auto& reg = *m_reg;
+    auto& disp = *m_disp;
+    if (!reg.valid(entity)) return;
 
     // 使用迭代代替递归，避免深层嵌套导致栈溢出
     std::vector<entt::entity> stack;
@@ -1228,12 +1274,12 @@ void StateSystem::destroyWidget(entt::entity entity)
         entt::entity current = stack.back();
         stack.pop_back();
 
-        if (!Registry::Valid(current)) continue;
+        if (!reg.valid(current)) continue;
 
         toDestroy.push_back(current);
 
         // 将子节点加入栈（逆序添加以保持遍历顺序）
-        if (auto* hierarchy = Registry::TryGet<components::Hierarchy>(current))
+        if (auto* hierarchy = reg.try_get<components::Hierarchy>(current))
         {
             // 复制子节点列表，防止在遍历过程中引用失效
             auto children = hierarchy->children;
@@ -1247,10 +1293,10 @@ void StateSystem::destroyWidget(entt::entity entity)
     // 2. 逆序销毁：先销毁叶子节点，最后销毁根节点
     for (entt::entity entity : std::ranges::reverse_view(toDestroy))
     {
-        if (!Registry::Valid(entity)) continue;
+        if (!reg.valid(entity)) continue;
 
         // 如果是窗口，查找并销毁关联的 SDL_Window 资源
-        if (auto* windowComp = Registry::TryGet<components::Window>(entity))
+        if (auto* windowComp = reg.try_get<components::Window>(entity))
         {
             RuntimeFacade::current().windowLookup().invalidateId(windowComp->windowID);
 
@@ -1258,14 +1304,13 @@ void StateSystem::destroyWidget(entt::entity entity)
             if (SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID))
             {
                 // 通知 RenderSystem 解绑上下文（尽管 RenderSystem 可能目前未执行动作，保留逻辑完整性）
-                Dispatcher::Trigger<events::WindowGraphicsContextUnsetEvent>(
-                    events::WindowGraphicsContextUnsetEvent{entity});
+                disp.trigger<events::WindowGraphicsContextUnsetEvent>(events::WindowGraphicsContextUnsetEvent{entity});
 
                 SDL_DestroyWindow(sdlWindow);
             }
         }
 
-        Registry::Destroy(entity);
+        reg.destroy(entity);
     }
 }
 

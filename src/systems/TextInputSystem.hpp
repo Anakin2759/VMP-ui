@@ -42,7 +42,7 @@ public:
         m_disp->sink<events::RawKeyInput>().disconnect<&TextInputSystem::onRawKeyInput>(*this);
     }
 
-    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Input; }
+    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::INPUT; }
 
 private:
     void onRawTextInput(const events::RawTextInput& event) { core::TextEditingService::handleTextInput(event.text); }

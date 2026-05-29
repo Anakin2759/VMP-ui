@@ -55,7 +55,7 @@ public:
     void unregisterHandlersImpl();
     void update();
 
-    interface::SystemPhase getPhase() { return interface::SystemPhase::Layout; }
+    interface::SystemPhase getPhase() { return interface::SystemPhase::LAYOUT; }
 
 private:
     [[nodiscard]] entt::entity findRoot(entt::entity entity) const;

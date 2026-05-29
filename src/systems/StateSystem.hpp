@@ -52,26 +52,32 @@ private:
         static bool tryHandlePress(StateSystem& system, const events::HitPointerButton& event);
         static void handleDrag(StateSystem& system, const events::HitPointerMove& event);
         static void stopDrag(StateSystem& system);
-        static void updateValueFromPointer(entt::entity entity, const Vec2& mousePos);
+        static void updateValueFromPointer(StateSystem& system, entt::entity entity, const Vec2& mousePos);
     };
 
     struct ScrollbarStateHelpers
     {
-        static entt::entity findScrollTargetFromHit(entt::entity hitEntity);
-        static entt::entity findScrollTargetAtPosition(const Vec2& pointerPosition);
-        static void applyScrollWheelDelta(entt::entity target, const Vec2& scrollDelta);
-        static void updateHoverStates(const events::HitPointerMove& event, const globalcontext::StateContext& state);
-        static void handleDrag(const events::HitPointerMove& event, globalcontext::StateContext& state);
-        static bool tryHandlePress(const events::HitPointerButton& event, globalcontext::StateContext& state);
-        static ScrollbarHitType checkHit(entt::entity entity, const Vec2& mousePos, bool& outIsVertical);
+        static entt::entity findScrollTargetFromHit(StateSystem& system, entt::entity hitEntity);
+        static entt::entity findScrollTargetAtPosition(StateSystem& system, const Vec2& pointerPosition);
+        static void applyScrollWheelDelta(StateSystem& system, entt::entity target, const Vec2& scrollDelta);
+        static void updateHoverStates(StateSystem& system,
+                                      const events::HitPointerMove& event,
+                                      const globalcontext::StateContext& state);
+        static void
+            handleDrag(StateSystem& system, const events::HitPointerMove& event, globalcontext::StateContext& state);
+        static bool tryHandlePress(StateSystem& system,
+                                   const events::HitPointerButton& event,
+                                   globalcontext::StateContext& state);
+        static ScrollbarHitType
+            checkHit(StateSystem& system, entt::entity entity, const Vec2& mousePos, bool& outIsVertical);
         static void calculateGeometry(entt::entity entity, bool isVertical, float& outTrackLen, float& outThumbSize);
-        static void handleTrackClick(entt::entity entity, const Vec2& mousePos, bool isVertical);
+        static void handleTrackClick(StateSystem& system, entt::entity entity, const Vec2& mousePos, bool isVertical);
     };
 
     struct PointerStateHelpers
     {
-        static bool isWritableTextEdit(entt::entity entity);
-        static bool shouldEmitPressForEntity(entt::entity entity);
+        static bool isWritableTextEdit(StateSystem& system, entt::entity entity);
+        static bool shouldEmitPressForEntity(StateSystem& system, entt::entity entity);
 
         static void queueHoveredEntity(StateSystem& system, globalcontext::StateContext& state, entt::entity entity);
 
@@ -81,26 +87,28 @@ private:
 
         static void queueActiveClear(StateSystem& system, globalcontext::StateContext& state, entt::entity entity);
 
-        static void handleHoverUpdate(const events::HitPointerMove& event, const globalcontext::StateContext& state);
+        static void handleHoverUpdate(StateSystem& system,
+                                      const events::HitPointerMove& event,
+                                      const globalcontext::StateContext& state);
 
-        static void setFocus(entt::entity entity, SDL_Window* sdlWindow = nullptr);
+        static void setFocus(StateSystem& system, entt::entity entity, SDL_Window* sdlWindow = nullptr);
 
-        static void clearFocus(SDL_Window* sdlWindow = nullptr);
+        static void clearFocus(StateSystem& system, SDL_Window* sdlWindow = nullptr);
 
-        static void handleEntityPress(const events::HitPointerButton& event);
+        static void handleEntityPress(StateSystem& system, const events::HitPointerButton& event);
 
         static void handleEntityRelease(StateSystem& system,
                                         const events::HitPointerButton& event,
                                         globalcontext::StateContext& state);
 
-        static void tryEmitTableCellClicked(entt::entity hitEntity, const Vec2& pointerPosition);
+        static void tryEmitTableCellClicked(StateSystem& system, entt::entity hitEntity, const Vec2& pointerPosition);
     };
 
     struct WindowStateHelpers
     {
-        static void handleClose(const events::CloseWindow& event);
-        static void handlePixelSizeChanged(const events::WindowPixelSizeChanged& event);
-        static void handleMoved(const events::WindowMoved& event);
+        static void handleClose(StateSystem& system, const events::CloseWindow& event);
+        static void handlePixelSizeChanged(StateSystem& system, const events::WindowPixelSizeChanged& event);
+        static void handleMoved(StateSystem& system, const events::WindowMoved& event);
     };
 
     struct EndFrameStateHelpers
@@ -108,11 +116,11 @@ private:
         static void flush(StateSystem& system);
     };
 
-    static bool isWritableTextEdit(entt::entity entity);
-    static bool shouldEmitPressForEntity(entt::entity entity);
-    static entt::entity findScrollTargetFromHit(entt::entity hitEntity);
-    static entt::entity findScrollTargetAtPosition(const Vec2& pointerPosition);
-    static void applyScrollWheelDelta(entt::entity target, const Vec2& scrollDelta);
+    bool isWritableTextEdit(entt::entity entity);
+    bool shouldEmitPressForEntity(entt::entity entity);
+    entt::entity findScrollTargetFromHit(entt::entity hitEntity);
+    entt::entity findScrollTargetAtPosition(const Vec2& pointerPosition);
+    void applyScrollWheelDelta(entt::entity target, const Vec2& scrollDelta);
     void queueHoveredEntity(globalcontext::StateContext& state, entt::entity entity);
     void queueHoverClear(globalcontext::StateContext& state, entt::entity entity);
     void queueActiveEntity(globalcontext::StateContext& state, entt::entity entity);
@@ -149,12 +157,12 @@ private:
 
     /**
      */
-    static void setFocus(entt::entity entity, SDL_Window* sdlWindow = nullptr);
+    void setFocus(entt::entity entity, SDL_Window* sdlWindow = nullptr);
 
     /**
      * @brief 清除当前焦点
      */
-    static void clearFocus(SDL_Window* sdlWindow = nullptr);
+    void clearFocus(SDL_Window* sdlWindow = nullptr);
 
     // ===================================================================
     // ===================================================================
@@ -193,7 +201,7 @@ private:
 
     void handleEntityPress(const events::HitPointerButton& event);
 
-    static void closeDropDownsOnOutsideClick(entt::entity hitEntity);
+    void closeDropDownsOnOutsideClick(entt::entity hitEntity);
     /**
      * @brief 处理实体释放事件
      * @param event 点击事件
@@ -250,7 +258,7 @@ private:
     // 工具方法
     // ===================================================================
 
-    static void destroyWidget(entt::entity entity);
+    void destroyWidget(entt::entity entity);
 };
 
 } // namespace ui::systems

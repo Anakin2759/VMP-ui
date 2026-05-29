@@ -127,7 +127,7 @@ void RenderSystem::unregisterHandlersImpl()
 
 interface::SystemPhase RenderSystem::getPhase()
 {
-    return interface::SystemPhase::Render;
+    return interface::SystemPhase::RENDER;
 }
 
 RenderSystem::RenderSystem(entt::registry& /*reg*/, entt::dispatcher& disp)

@@ -57,7 +57,7 @@ public:
         auto& dispatcher = m_disp != nullptr ? *m_disp : RuntimeFacade::current().enttDispatcher();
         dispatcher.sink<events::UpdateEvent>().disconnect<&TweenSystem::update>(*this);
     }
-    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::Animation; }
+    ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::ANIMATION; }
 
 private:
     entt::registry* m_reg = nullptr;

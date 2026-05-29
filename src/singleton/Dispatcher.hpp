@@ -48,7 +48,8 @@ public:
         auto* instance = activeInstance();
         if (instance == nullptr) [[unlikely]]
         {
-            std::fputs("[Dispatcher] current() called outside UiRuntimeScope\n", stderr);
+            [[maybe_unused]] const int ignored =
+                std::fputs("[Dispatcher] current() called outside UiRuntimeScope\n", stderr);
             std::terminate();
         }
         return *instance;
@@ -61,25 +62,38 @@ public:
     // Legacy PascalCase entrypoints stay for compatibility with existing UI call sites.
     // NOLINTBEGIN(readability-identifier-naming)
     template <traits::Events Event>
+    [[deprecated("Use injected entt::dispatcher& or RuntimeFacade::current().enttDispatcher().trigger(...) instead of "
+                 "Dispatcher::Trigger().")]]
     static void Trigger(Event&& event = {})
     {
         current().m_dispatcher.trigger(std::forward<decltype(event)>(event));
     }
     template <traits::Events Event>
+    [[deprecated("Use injected entt::dispatcher& or RuntimeFacade::current().enttDispatcher().enqueue(...) instead of "
+                 "Dispatcher::Enqueue().")]]
     static void Enqueue(Event&& event = {})
     {
         current().m_dispatcher.enqueue(std::forward<decltype(event)>(event));
     }
 
-    static void Update() { current().m_dispatcher.update(); }
+    [[deprecated("Use injected entt::dispatcher& or RuntimeFacade::current().enttDispatcher().update() instead of "
+                 "Dispatcher::Update().")]]
+    static void Update()
+    {
+        current().m_dispatcher.update();
+    }
 
     template <traits::Events Event>
+    [[deprecated("Use injected entt::dispatcher& or RuntimeFacade::current().enttDispatcher().update<Event>() instead "
+                 "of Dispatcher::Update<Event>().")]]
     static void Update()
     {
         current().m_dispatcher.update<Event>();
     }
 
     template <traits::Events Type>
+    [[deprecated("Use injected entt::dispatcher& or RuntimeFacade::current().enttDispatcher().sink<Type>() instead of "
+                 "Dispatcher::Sink().")]]
     static auto Sink()
     {
         return current().m_dispatcher.sink<Type>();

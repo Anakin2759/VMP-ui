@@ -25,12 +25,12 @@ namespace ui::interface
  */
 enum class SystemPhase : uint8_t
 {
-    Input = 0,     ///< 平台/输入层 (PlatformWindow / Interaction / TextInput)
-    Logic = 1,     ///< 业务逻辑层 (HitTest / State / Action / Shortcut)
-    Animation = 2, ///< 动画层 (Tween)
-    Layout = 3,    ///< 布局层 (Layout)
-    Render = 4,    ///< 渲染层 (Render)
-    Frame = 5,     ///< 帧尾层 (Timer)
+    INPUT = 0,     ///< 平台/输入层 (PlatformWindow / Interaction / TextInput)
+    LOGIC = 1,     ///< 业务逻辑层 (HitTest / State / Action / Shortcut)
+    ANIMATION = 2, ///< 动画层 (Tween)
+    LAYOUT = 3,    ///< 布局层 (Layout)
+    RENDER = 4,    ///< 渲染层 (Render)
+    FRAME = 5,     ///< 帧尾层 (Timer)
 };
 
 /**
@@ -64,6 +64,6 @@ struct EnableRegister
     void pollInput() {}
 
     /// 默认阶段为 Logic；Input/Animation/Layout/Render/Frame 系统应重写
-    SystemPhase getPhase() { return SystemPhase::Logic; }
+    SystemPhase getPhase() { return SystemPhase::LOGIC; }
 };
 } // namespace ui::interface
