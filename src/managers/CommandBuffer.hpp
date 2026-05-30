@@ -256,10 +256,10 @@ private:
 
         auto scaleScissor = [effectiveDpiScale](SDL_Rect rect)
         {
-            return SDL_Rect{static_cast<int>(std::floor(static_cast<float>(rect.x) * effectiveDpiScale)),
-                            static_cast<int>(std::floor(static_cast<float>(rect.y) * effectiveDpiScale)),
-                            static_cast<int>(std::ceil(static_cast<float>(rect.w) * effectiveDpiScale)),
-                            static_cast<int>(std::ceil(static_cast<float>(rect.h) * effectiveDpiScale))};
+            return SDL_Rect{.x= static_cast<int>(std::floor(static_cast<float>(rect.x) * effectiveDpiScale)),
+                            .y= static_cast<int>(std::floor(static_cast<float>(rect.y) * effectiveDpiScale)),
+                            .w= static_cast<int>(std::ceil(static_cast<float>(rect.w) * effectiveDpiScale)),
+                            .h= static_cast<int>(std::ceil(static_cast<float>(rect.h) * effectiveDpiScale))};
         };
 
         for (const auto& batch : batches)
