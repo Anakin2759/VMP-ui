@@ -18,8 +18,8 @@
 #include "api/Utils.hpp"
 #include "common/components/Data.hpp"
 #include "common/Tags.hpp"
+#include "core/RuntimeFacade.hpp"
 #include "core/TextUtils.hpp"
-#include "singleton/Registry.hpp"
 
 namespace ui::core
 {
@@ -456,10 +456,11 @@ class TextEditingService
 public:
     static void handleTextInput(const std::string& rawText)
     {
-        auto view = Registry::View<components::FocusedTag, components::TextEdit, components::Text>();
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto view = reg.view<components::FocusedTag, components::TextEdit, components::Text>();
         for (auto entity : view)
         {
-            if (!Registry::AnyOf<components::TextEditTag>(entity)) continue;
+            if (!reg.any_of<components::TextEditTag>(entity)) continue;
 
             auto& edit = view.get<components::TextEdit>(entity);
             if (policies::HasFlag(edit.inputMode, policies::TextFlag::READ_ONLY)) continue;
@@ -471,10 +472,11 @@ public:
 
     static void handleKeyDown(SDL_Keycode key, SDL_Keymod modState)
     {
-        auto view = Registry::View<components::FocusedTag, components::TextEdit, components::Text>();
+        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto view = reg.view<components::FocusedTag, components::TextEdit, components::Text>();
         for (auto entity : view)
         {
-            if (!Registry::AnyOf<components::TextEditTag>(entity)) continue;
+            if (!reg.any_of<components::TextEditTag>(entity)) continue;
 
             auto& edit = view.get<components::TextEdit>(entity);
             bool ctrl = (modState & SDL_KMOD_CTRL) != 0;

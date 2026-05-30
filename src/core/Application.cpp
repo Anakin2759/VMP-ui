@@ -54,7 +54,7 @@ void WriteStderr(const char* text) noexcept
 namespace ui
 {
 Application::Application(std::span<char*> arg) // NOLINT
-    : m_runtimeScope(m_runtime), m_systems(m_runtime.registry().raw(), m_runtime.dispatcher().raw())
+    : m_runtimeScope(m_runtime), m_systems(m_runtime.registry(), m_runtime.dispatcher())
 {
     config::AppConfig::instance().parseCommandLine(arg);
 
@@ -104,15 +104,16 @@ Application::Application(std::span<char*> arg) // NOLINT
         });
 
     runtime.sink<ui::events::QuitRequested>().connect<&Application::onQuitRequested>(*this);
-    Dispatcher::Sink<events::DropDownCloseRequested>().connect<&OnDropDownCloseRequested>();
+    runtime.sink<events::DropDownCloseRequested>().connect<&OnDropDownCloseRequested>();
 }
 
 Application::~Application() noexcept
 {
     try
     {
-        RuntimeFacade::current().sink<ui::events::QuitRequested>().disconnect<&Application::onQuitRequested>(*this);
-        Dispatcher::Sink<events::DropDownCloseRequested>().disconnect<&OnDropDownCloseRequested>();
+        auto& runtime = RuntimeFacade::current();
+        runtime.sink<ui::events::QuitRequested>().disconnect<&Application::onQuitRequested>(*this);
+        runtime.sink<events::DropDownCloseRequested>().disconnect<&OnDropDownCloseRequested>();
         m_systems.unregisterAllHandlers();
         SDL_Quit();
     }

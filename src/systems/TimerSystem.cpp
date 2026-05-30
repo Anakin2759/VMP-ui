@@ -121,8 +121,8 @@ void TimerSystem::update(uint32_t deltaMs)
 
     // 驱动所有获焦 TextEdit 的 Caret 闪烁（固定时间间隔，点击后立即显示）
     const float deltaSec = static_cast<float>(deltaMs) / 1000.0F;
-    auto& reg = *m_reg;
-    auto caretView = reg.view<components::Caret, components::FocusedTag>();
+
+    auto caretView = m_reg->view<components::Caret, components::FocusedTag>();
     for (auto entity : caretView)
     {
         auto& caret = caretView.get<components::Caret>(entity);

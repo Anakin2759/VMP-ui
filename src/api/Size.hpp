@@ -1,15 +1,16 @@
 #pragma once
 
-#include <entt/entt.hpp>
+#include "Entity.hpp"
+
 #include "common/Policies.hpp"
 #include "Chains.hpp" // Changed: Include Chains.hpp for DSL
 
 namespace ui::size
 {
-void SetFixedSize(::entt::entity entity, float width, float height);
-void SetSizePolicy(::entt::entity entity, policies::Size policy);
-void SetSize(::entt::entity entity, float width, float height);
-void SetPosition(::entt::entity entity, float positionX, float positionY);
+void SetFixedSize(ui::entity entity, float width, float height);
+void SetSizePolicy(ui::entity entity, policies::Size policy);
+void SetSize(ui::entity entity, float width, float height);
+void SetPosition(ui::entity entity, float positionX, float positionY);
 
 } // namespace ui::size
 

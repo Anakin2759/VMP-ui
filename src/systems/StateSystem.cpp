@@ -676,30 +676,54 @@ void StateSystem::PointerStateHelpers::handleEntityPress(StateSystem& system, co
     }
 }
 
+bool StateSystem::PointerStateHelpers::finishScrollbarDragRelease(StateSystem& system,
+                                                                  globalcontext::StateContext& state,
+                                                                  entt::entity releasedEntity)
+{
+    if (!state.hasScrollbarDrag())
+    {
+        return false;
+    }
+
+    auto& reg = *system.m_reg;
+    if (reg.valid(state.dragScrollEntity))
+    {
+        if (auto* ist = reg.try_get<components::ScrollBarInteractionState>(state.dragScrollEntity))
+        {
+            ist->scrollbarPressed = false;
+        }
+        ui::utils::MarkVisualChanged(state.dragScrollEntity);
+    }
+
+    state.stopScrollbarDrag();
+    if (releasedEntity != entt::null)
+    {
+        queueActiveClear(system, state, releasedEntity);
+    }
+    return true;
+}
+
 void StateSystem::PointerStateHelpers::handleEntityRelease(StateSystem& system,
                                                            const events::HitPointerButton& event,
                                                            globalcontext::StateContext& state)
 {
+    auto& reg = *system.m_reg;
+    auto& disp = *system.m_disp;
     const entt::entity releasedEntity = state.activeEntity;
-    const bool suppressClick = state.activeDragMoved;
+    const bool hadScrollbarDrag = state.hasScrollbarDrag();
+    constexpr float CLICK_DRAG_THRESHOLD_SQ = 9.0F;
+    const Vec2 releaseDragDistance = event.raw.position - state.activePressPosition;
+    const bool suppressClick =
+        state.activeDragMoved || hadScrollbarDrag || releaseDragDistance.squaredNorm() > CLICK_DRAG_THRESHOLD_SQ;
 
     if (system.m_isDraggingSlider)
     {
         SliderStateHelpers::stopDrag(system);
     }
 
-    if (state.hasScrollbarDrag())
+    if (finishScrollbarDragRelease(system, state, releasedEntity))
     {
-        if (Registry::Valid(state.dragScrollEntity))
-        {
-            if (auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(state.dragScrollEntity))
-            {
-                ist->scrollbarPressed = false;
-            }
-            ui::utils::MarkVisualChanged(state.dragScrollEntity);
-        }
-
-        state.stopScrollbarDrag();
+        return;
     }
 
     if (!suppressClick)
@@ -707,8 +731,6 @@ void StateSystem::PointerStateHelpers::handleEntityRelease(StateSystem& system,
         tryEmitTableCellClicked(system, event.hitEntity, event.raw.position);
     }
 
-    auto& reg = *system.m_reg;
-    auto& disp = *system.m_disp;
     if (!suppressClick && releasedEntity != entt::null && releasedEntity == event.hitEntity)
     {
         if (reg.try_get<components::Clickable>(releasedEntity) != nullptr)
@@ -882,33 +904,35 @@ void StateSystem::WindowStateHelpers::handleMoved(StateSystem& system, const eve
 
 void StateSystem::EndFrameStateHelpers::flush(StateSystem& system)
 {
+    auto& reg = *system.m_reg;
+
     for (entt::entity entity : system.m_pendingHoverRemove)
     {
-        if (Registry::Valid(entity))
+        if (reg.valid(entity))
         {
-            Registry::Remove<components::HoveredTag>(entity);
+            reg.remove<components::HoveredTag>(entity);
         }
     }
     for (entt::entity entity : system.m_pendingHoverAdd)
     {
-        if (Registry::Valid(entity))
+        if (reg.valid(entity))
         {
-            Registry::EmplaceOrReplace<components::HoveredTag>(entity);
+            reg.emplace_or_replace<components::HoveredTag>(entity);
         }
     }
 
     for (entt::entity entity : system.m_pendingActiveRemove)
     {
-        if (Registry::Valid(entity))
+        if (reg.valid(entity))
         {
-            Registry::Remove<components::ActiveTag>(entity);
+            reg.remove<components::ActiveTag>(entity);
         }
     }
     for (entt::entity entity : system.m_pendingActiveAdd)
     {
-        if (Registry::Valid(entity))
+        if (reg.valid(entity))
         {
-            Registry::EmplaceOrReplace<components::ActiveTag>(entity);
+            reg.emplace_or_replace<components::ActiveTag>(entity);
         }
     }
 
@@ -1006,14 +1030,15 @@ void StateSystem::onMouseReleaseEvent(const events::MouseReleaseEvent& event)
 
 void StateSystem::onHitPointerMove(const events::HitPointerMove& event)
 {
+    auto& reg = *m_reg;
     auto& state = RuntimeFacade::current().state();
     state.syncLatestPointer(event.raw.position, event.raw.delta);
 
-    if (!state.activeDragMoved && state.activeEntity != entt::null && Registry::Valid(state.activeEntity)
-        && Registry::TryGet<components::Draggable>(state.activeEntity) != nullptr
-        && event.raw.delta != Vec2{0.0F, 0.0F})
+    if (!state.activeDragMoved && state.activeEntity != entt::null && reg.valid(state.activeEntity))
     {
-        state.activeDragMoved = true;
+        constexpr float CLICK_DRAG_THRESHOLD_SQ = 9.0F;
+        const Vec2 dragDistance = event.raw.position - state.activePressPosition;
+        state.activeDragMoved = dragDistance.squaredNorm() > CLICK_DRAG_THRESHOLD_SQ;
     }
 
     if (m_isDraggingSlider)
@@ -1022,7 +1047,7 @@ void StateSystem::onHitPointerMove(const events::HitPointerMove& event)
         return;
     }
 
-    if (state.hasScrollbarDrag() && Registry::Valid(state.dragScrollEntity))
+    if (state.hasScrollbarDrag() && reg.valid(state.dragScrollEntity))
     {
         ScrollbarStateHelpers::handleDrag(*this, event, state);
         return;
@@ -1044,6 +1069,7 @@ void StateSystem::onHitPointerButton(const events::HitPointerButton& event)
 
     if (event.raw.pressed)
     {
+        state.activePressPosition = event.raw.position;
         closeDropDownsOnOutsideClick(event.hitEntity);
         if (ScrollbarStateHelpers::tryHandlePress(*this, event, state))
         {

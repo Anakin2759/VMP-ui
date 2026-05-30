@@ -28,7 +28,7 @@
 
 #pragma once
 #include <cstdint>
-#include <entt/entt.hpp>
+#include "EntityTypes.hpp"
 #include <string>
 #include "Types.hpp"
 #ifdef CreateWindow
@@ -47,8 +47,8 @@ namespace ui::events
  */
 struct ApplicationReadyEvent
 {
-    using is_event_tag = void;
-    entt::entity rootEntity;
+    using is_event_tag = void; // 事件标签
+    ui::entity rootEntity;     // 根实体，包含全局上下文组件
 };
 
 /**
@@ -59,13 +59,13 @@ struct ApplicationReadyEvent
 struct WindowGraphicsContextSetEvent
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
 };
 
 struct WindowGraphicsContextUnsetEvent
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
 };
 
 // =====================================================================
@@ -89,7 +89,7 @@ struct QuitRequested
 struct DropDownCloseRequested
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
 };
 
 /**
@@ -135,13 +135,13 @@ struct WindowMoved
 struct ClickEvent
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
 };
 
 struct TableCellClicked
 {
     using is_event_tag = void;
-    entt::entity table;
+    ui::entity table;
     int row;
     int col;
 };
@@ -153,7 +153,7 @@ struct TableCellClicked
 struct UnhoverEvent
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
 };
 
 /**
@@ -163,7 +163,7 @@ struct UnhoverEvent
 struct HoverEvent
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
 };
 
 /**
@@ -173,7 +173,7 @@ struct HoverEvent
 struct MousePressEvent
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
 };
 
 /**
@@ -183,7 +183,7 @@ struct MousePressEvent
 struct MouseReleaseEvent
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
 };
 
 /**
@@ -193,7 +193,7 @@ struct MouseReleaseEvent
 struct DragStartEvent
 {
     using is_event_tag = void;
-    entt::entity source = entt::null;
+    ui::entity source = ui::null_entity;
 };
 
 /**
@@ -203,9 +203,9 @@ struct DragStartEvent
 struct DragMoveEvent
 {
     using is_event_tag = void;
-    entt::entity source = entt::null;
+    ui::entity source = ui::null_entity;
     Vec2 delta;
-    entt::entity hoverTarget = entt::null;
+    ui::entity hoverTarget = ui::null_entity;
 };
 
 /**
@@ -215,8 +215,8 @@ struct DragMoveEvent
 struct DragEndEvent
 {
     using is_event_tag = void;
-    entt::entity source = entt::null;
-    entt::entity dropTarget = entt::null;
+    ui::entity source = ui::null_entity;
+    ui::entity dropTarget = ui::null_entity;
 };
 
 /**
@@ -226,8 +226,8 @@ struct DragEndEvent
 struct DragDroppedEvent
 {
     using is_event_tag = void;
-    entt::entity source = entt::null;
-    entt::entity target = entt::null;
+    ui::entity source = ui::null_entity;
+    ui::entity target = ui::null_entity;
 };
 /**
  * @brief 文本内容改变事件 (TextEdit/Input)
@@ -236,7 +236,7 @@ struct DragDroppedEvent
 struct ValueChangedText
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
     std::string newText;
 };
 
@@ -247,7 +247,7 @@ struct ValueChangedText
 struct ValueChangedSelection
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
     int selectedIndex;
 };
 
@@ -283,7 +283,7 @@ struct CreateWindow
 struct CloseWindow
 {
     using is_event_tag = void;
-    entt::entity entity;
+    ui::entity entity;
 };
 
 /**
@@ -396,7 +396,7 @@ struct HitPointerMove
 {
     using is_event_tag = void;
     RawPointerMove raw{};
-    entt::entity hitEntity = entt::null; // 鼠标当前悬停的实体 (可能为 null)
+    ui::entity hitEntity = ui::null_entity; // 鼠标当前悬停的实体 (可能为 null)
 };
 
 // 命中测试后的按键事件
@@ -405,7 +405,7 @@ struct HitPointerButton
 {
     using is_event_tag = void;
     RawPointerButton raw{};
-    entt::entity hitEntity = entt::null; // 按键发生位置的实体 (可能为 null)
+    ui::entity hitEntity = ui::null_entity; // 按键发生位置的实体 (可能为 null)
 };
 
 // 命中测试后的滚轮事件
@@ -414,7 +414,7 @@ struct HitPointerWheel
 {
     using is_event_tag = void;
     RawPointerWheel raw{};
-    entt::entity hitEntity = entt::null; // 滚轮发生位置的实体 (可能为 null)
+    ui::entity hitEntity = ui::null_entity; // 滚轮发生位置的实体 (可能为 null)
 };
 
 /**

@@ -26,7 +26,7 @@ class TextInputSystem : public ui::interface::EnableRegister<TextInputSystem>
 {
 public:
     TextInputSystem() = default;
-    explicit TextInputSystem(entt::registry& /*reg*/, entt::dispatcher& disp) : m_disp(&disp) {}
+    explicit TextInputSystem(Registry& /*reg*/, Dispatcher& disp) : m_disp(&disp) {}
 
     void registerHandlersImpl()
     {
@@ -71,7 +71,7 @@ private:
 
         m_lastRepeatTime = now;
         core::TextEditingService::handleKeyDown(m_heldKey, SDL_GetModState());
-        Dispatcher::Trigger<ui::events::UpdateRendering>(ui::events::UpdateRendering{});
+        m_disp->trigger<ui::events::UpdateRendering>(ui::events::UpdateRendering{});
     }
 
     void beginKeyRepeat(SDL_Keycode key)
@@ -95,7 +95,7 @@ private:
     uint64_t m_lastRepeatTime = 0;
     static constexpr uint64_t KEY_REPEAT_DELAY = 500;
     static constexpr uint64_t KEY_REPEAT_INTERVAL = 50;
-    entt::dispatcher* m_disp = nullptr;
+    Dispatcher* m_disp = nullptr;
 };
 
 } // namespace ui::systems

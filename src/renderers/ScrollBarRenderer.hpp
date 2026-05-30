@@ -33,9 +33,9 @@ namespace ui::renderers
 class ScrollBarRenderer : public core::IRenderer
 {
 public:
-    ScrollBarRenderer() = default;
+    explicit ScrollBarRenderer(Registry& reg) : m_reg(&reg) {}
 
-    bool canHandle(entt::entity entity) const override { return Registry::AnyOf<components::ScrollArea>(entity); }
+    bool canHandle(entt::entity entity) const override { return m_reg->any_of<components::ScrollArea>(entity); }
 
     void collect(entt::entity entity, core::RenderContext& context) override
     {
@@ -44,7 +44,7 @@ public:
             return;
         }
 
-        const auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
+        const auto* scrollArea = m_reg->try_get<components::ScrollArea>(entity);
         if (scrollArea == nullptr || policies::HasFlag(scrollArea->scrollBar, policies::ScrollBar::NO_VISIBILITY))
         {
             return;
@@ -91,10 +91,10 @@ private:
         context.batchManager->addRect(pos, size, color);
     }
 
-    [[nodiscard]] static Eigen::Vector4f verticalTrackColor(entt::entity entity)
+    [[nodiscard]] Eigen::Vector4f verticalTrackColor(entt::entity entity) const
     {
         Eigen::Vector4f trackColor = {0.2F, 0.2F, 0.2F, 0.3F};
-        if (const auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(entity))
+        if (const auto* ist = m_reg->try_get<components::ScrollBarInteractionState>(entity))
         {
             if (ist->trackHovered || ist->scrollbarHovered || ist->scrollbarPressed)
             {
@@ -104,10 +104,10 @@ private:
         return trackColor;
     }
 
-    [[nodiscard]] static Eigen::Vector4f verticalThumbColor(entt::entity entity)
+    [[nodiscard]] Eigen::Vector4f verticalThumbColor(entt::entity entity) const
     {
         Eigen::Vector4f thumbColor = {0.6F, 0.6F, 0.6F, 0.7F};
-        if (const auto* ist = Registry::TryGet<components::ScrollBarInteractionState>(entity))
+        if (const auto* ist = m_reg->try_get<components::ScrollBarInteractionState>(entity))
         {
             if (ist->scrollbarPressed)
             {
@@ -197,7 +197,7 @@ private:
                         core::RenderContext& context)
     {
         float viewportHeight = size.y();
-        if (const auto* padding = Registry::TryGet<components::Padding>(entity))
+        if (const auto* padding = m_reg->try_get<components::Padding>(entity))
         {
             viewportHeight = std::max(0.0F, size.y() - padding->values.x() - padding->values.z());
         }
@@ -205,6 +205,8 @@ private:
         drawVerticalScrollBar(entity, pos, size, scrollArea, viewportHeight, alpha, context);
         drawHorizontalScrollBar(pos, size, scrollArea, alpha, context);
     }
+
+    Registry* m_reg = nullptr;
 };
 
 } // namespace ui::renderers

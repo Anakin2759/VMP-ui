@@ -40,17 +40,14 @@ namespace ui::renderers
 class IconRenderer : public core::IRenderer
 {
 public:
-    explicit IconRenderer(managers::IconManager* iconManager) : m_iconManager(iconManager) {}
+    IconRenderer(Registry& reg, managers::IconManager* iconManager) : m_reg(&reg), m_iconManager(iconManager) {}
     /**
      * @brief 判断能否处理
      * @param entity 控件
      * @return true 控件可处理
      * @return false 控件不可处理
      */
-    [[nodiscard]] bool canHandle(entt::entity entity) const override
-    {
-        return Registry::AnyOf<components::Icon>(entity);
-    }
+    [[nodiscard]] bool canHandle(entt::entity entity) const override { return m_reg->any_of<components::Icon>(entity); }
 
     void collect(entt::entity entity, core::RenderContext& context) override
     {
@@ -59,7 +56,7 @@ public:
             return;
         }
 
-        const auto* iconComp = Registry::TryGet<components::Icon>(entity);
+        const auto* iconComp = m_reg->try_get<components::Icon>(entity);
         if (iconComp == nullptr) return;
 
         // 计算图标的绘制位置和大小
@@ -119,7 +116,7 @@ public:
             Eigen::Vector2f contentPos = context.position;
             Eigen::Vector2f contentSize = context.size;
 
-            if (const auto* padding = Registry::TryGet<components::Padding>(entity))
+            if (const auto* padding = m_reg->try_get<components::Padding>(entity))
             {
                 // Padding values: x=Top, y=Right, z=Bottom, w=Left
                 contentPos.x() += padding->values.w();
@@ -131,7 +128,7 @@ public:
             Eigen::Vector2f drawPos = contentPos;
 
             // 如果存在文本且非空，则将图标与文本一起居中（图标在文本左侧）
-            if (const auto* textComp = Registry::TryGet<components::Text>(entity);
+            if (const auto* textComp = m_reg->try_get<components::Text>(entity);
                 textComp != nullptr && !textComp->content.empty() && context.fontManager != nullptr)
             {
                 auto textWidth = static_cast<float>(
@@ -173,6 +170,7 @@ public:
     }
 
 private:
+    Registry* m_reg = nullptr;
     managers::IconManager* m_iconManager;
 };
 

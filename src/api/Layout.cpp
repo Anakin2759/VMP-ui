@@ -1,5 +1,5 @@
 #include "Layout.hpp"
-#include "singleton/Registry.hpp"
+#include "core/RuntimeFacade.hpp"
 #include "common/Policies.hpp"
 #include "Utils.hpp"
 #include "entt/entity/fwd.hpp"
@@ -7,19 +7,28 @@
 #include <algorithm>
 namespace ui::layout
 {
+namespace
+{
+[[nodiscard]] entt::registry& CurrentRegistry()
+{
+    return RuntimeFacade::current().enttRegistry();
+}
+} // namespace
 
 void SetLayoutDirection(::entt::entity entity, policies::LayoutDirection direction)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& layout = Registry::GetOrEmplace<components::LayoutInfo>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& layout = reg.get_or_emplace<components::LayoutInfo>(entity);
     layout.direction = direction;
     utils::MarkLayoutDirty(entity);
 }
 
 void SetLayoutSpacing(::entt::entity entity, float spacing)
 {
-    if (!Registry::Valid(entity)) return;
-    if (auto* layout = Registry::TryGet<components::LayoutInfo>(entity))
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    if (auto* layout = reg.try_get<components::LayoutInfo>(entity))
     {
         layout->spacing = std::max(0.0F, spacing);
         utils::MarkLayoutDirty(entity);
@@ -28,8 +37,9 @@ void SetLayoutSpacing(::entt::entity entity, float spacing)
 
 void SetPadding(::entt::entity entity, float left, float top, float right, float bottom)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& padding = Registry::GetOrEmplace<components::Padding>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& padding = reg.get_or_emplace<components::Padding>(entity);
     padding.values = Vec4(top, right, bottom, left);
     utils::MarkLayoutDirty(entity);
 }

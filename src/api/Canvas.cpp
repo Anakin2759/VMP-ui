@@ -1,6 +1,6 @@
 #include "Canvas.hpp"
 
-#include "singleton/Registry.hpp"
+#include "core/RuntimeFacade.hpp"
 #include "entt/entity/fwd.hpp"
 #include "common/components/Data.hpp"
 #include "common/Types.hpp"
@@ -10,17 +10,27 @@
 namespace ui::canvas
 {
 
+namespace
+{
+[[nodiscard]] entt::registry& CurrentRegistry()
+{
+    return RuntimeFacade::current().enttRegistry();
+}
+} // namespace
+
 void Clear(entt::entity entity)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& list = reg.get_or_emplace<components::CanvasDrawList>(entity);
     list.commands.clear();
 }
 
 void DrawLine(entt::entity entity, Vec2 from, Vec2 endPos, Color color, float lineWidth)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& list = reg.get_or_emplace<components::CanvasDrawList>(entity);
     list.commands.push_back({.type = components::CanvasDrawType::LINE,
                              .p1 = from,
                              .p2 = endPos,
@@ -33,8 +43,9 @@ void DrawLine(entt::entity entity, Vec2 from, Vec2 endPos, Color color, float li
 
 void DrawRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color, float lineWidth)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& list = reg.get_or_emplace<components::CanvasDrawList>(entity);
     list.commands.push_back({.type = components::CanvasDrawType::RECT,
                              .p1 = topLeft,
                              .p2 = bottomRight,
@@ -47,8 +58,9 @@ void DrawRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color, 
 
 void DrawFilledRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color color)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& list = reg.get_or_emplace<components::CanvasDrawList>(entity);
     list.commands.push_back({.type = components::CanvasDrawType::FILLED_RECT,
                              .p1 = topLeft,
                              .p2 = bottomRight,
@@ -61,8 +73,9 @@ void DrawFilledRect(entt::entity entity, Vec2 topLeft, Vec2 bottomRight, Color c
 
 void DrawCircle(entt::entity entity, Vec2 center, float radius, Color color, float lineWidth)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& list = reg.get_or_emplace<components::CanvasDrawList>(entity);
     list.commands.push_back({.type = components::CanvasDrawType::CIRCLE,
                              .p1 = center,
                              .p2 = {radius, 0.0F},
@@ -75,8 +88,9 @@ void DrawCircle(entt::entity entity, Vec2 center, float radius, Color color, flo
 
 void DrawFilledCircle(entt::entity entity, Vec2 center, float radius, Color color)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& list = reg.get_or_emplace<components::CanvasDrawList>(entity);
     list.commands.push_back({.type = components::CanvasDrawType::FILLED_CIRCLE,
                              .p1 = center,
                              .p2 = {radius, 0.0F},
@@ -89,8 +103,9 @@ void DrawFilledCircle(entt::entity entity, Vec2 center, float radius, Color colo
 
 void DrawPolyline(entt::entity entity, std::vector<Vec2> points, Color color, float lineWidth)
 {
-    if (!Registry::Valid(entity) || points.size() < 2) return;
-    auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity) || points.size() < 2) return;
+    auto& list = reg.get_or_emplace<components::CanvasDrawList>(entity);
     components::CanvasDrawCommand cmd;
     cmd.type = components::CanvasDrawType::POLYLINE;
     cmd.color = color;
@@ -101,8 +116,9 @@ void DrawPolyline(entt::entity entity, std::vector<Vec2> points, Color color, fl
 
 void DrawCubicBezier(entt::entity entity, Vec2 startPos, Vec2 cp1, Vec2 cp2, Vec2 endPos, Color color, float lineWidth)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& list = Registry::GetOrEmplace<components::CanvasDrawList>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& list = reg.get_or_emplace<components::CanvasDrawList>(entity);
     components::CanvasDrawCommand cmd;
     cmd.type = components::CanvasDrawType::CUBIC_BEZIER;
     cmd.p1 = startPos;

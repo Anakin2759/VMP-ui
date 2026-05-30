@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ************************************************************************
  *
  * @file ActionSystem.h
@@ -41,12 +41,11 @@ class ActionSystem : public ui::interface::EnableRegister<ActionSystem>
 {
 public:
     ActionSystem() = default;
-    explicit ActionSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+    explicit ActionSystem(Registry& reg, Dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
 
     void registerHandlersImpl()
     {
-        auto& disp = m_disp != nullptr ? *m_disp : RuntimeFacade::current().enttDispatcher();
-        // 只监听抽象事件
+        auto& disp = effectiveDisp();
         disp.sink<ui::events::ClickEvent>().connect<&ActionSystem::onClickEvent>(*this);
         disp.sink<ui::events::HoverEvent>().connect<&ActionSystem::onHoverEvent>(*this);
         disp.sink<ui::events::UnhoverEvent>().connect<&ActionSystem::onUnhoverEvent>(*this);
@@ -61,7 +60,7 @@ public:
     }
     void unregisterHandlersImpl()
     {
-        auto& disp = m_disp != nullptr ? *m_disp : RuntimeFacade::current().enttDispatcher();
+        auto& disp = effectiveDisp();
         disp.sink<ui::events::ClickEvent>().disconnect<&ActionSystem::onClickEvent>(*this);
         disp.sink<ui::events::HoverEvent>().disconnect<&ActionSystem::onHoverEvent>(*this);
         disp.sink<ui::events::UnhoverEvent>().disconnect<&ActionSystem::onUnhoverEvent>(*this);
@@ -74,12 +73,10 @@ public:
     }
 
 private:
-    entt::registry* m_reg = nullptr;
-    entt::dispatcher* m_disp = nullptr;
-    [[nodiscard]] entt::registry& effectiveReg() noexcept
-    {
-        return m_reg != nullptr ? *m_reg : RuntimeFacade::current().enttRegistry();
-    }
+    Registry* m_reg = nullptr;
+    Dispatcher* m_disp = nullptr;
+    [[nodiscard]] Registry& effectiveReg() noexcept { return *m_reg; }
+    [[nodiscard]] Dispatcher& effectiveDisp() noexcept { return *m_disp; }
     void applyAnimation(entt::entity entity,
                         const std::optional<Vec2>& targetScale,
                         const std::optional<Vec2>& targetOffset,
@@ -96,7 +93,7 @@ private:
         ui::animation::StartTransformAnimation(entity, targetScale, targetOffset, options, defaultScale, defaultOffset);
     }
 
-    [[nodiscard]] static bool isDropTargetEnabled(entt::registry& reg, entt::entity target)
+    [[nodiscard]] static bool isDropTargetEnabled(Registry& reg, entt::entity target)
     {
         if (!reg.valid(target)) return false;
 
@@ -113,7 +110,7 @@ private:
         return true;
     }
 
-    [[nodiscard]] static bool wouldCreateHierarchyCycle(entt::registry& reg, entt::entity source, entt::entity target)
+    [[nodiscard]] static bool wouldCreateHierarchyCycle(Registry& reg, entt::entity source, entt::entity target)
     {
         if (!reg.valid(source) || !reg.valid(target)) return true;
         if (source == target) return true;
@@ -138,14 +135,11 @@ private:
         if (draggable.dragging) return;
 
         draggable.dragging = true;
-        Dispatcher::Trigger<events::DragStartEvent>(events::DragStartEvent{entity});
+        RuntimeFacade::current().trigger(events::DragStartEvent{entity});
         if (draggable.onDragStart) draggable.onDragStart();
     }
 
-    void applyDragDelta(entt::registry& reg,
-                        entt::entity entity,
-                        const components::Draggable& draggable,
-                        const Vec2& delta)
+    void applyDragDelta(Registry& reg, entt::entity entity, const components::Draggable& draggable, const Vec2& delta)
     {
         auto* pos = reg.try_get<components::Position>(entity);
         if (pos == nullptr) return;
@@ -154,7 +148,7 @@ private:
         if (!draggable.lockY) pos->value.y() += delta.y();
     }
 
-    void applyDragAnimation(entt::registry& reg, entt::entity entity)
+    void applyDragAnimation(Registry& reg, entt::entity entity)
     {
         auto* interact = reg.try_get<components::InteractiveAnimation>(entity);
         if (interact == nullptr) return;
@@ -187,7 +181,7 @@ private:
         startDragging(entity, *draggable);
         applyDragDelta(reg, entity, *draggable, event.raw.delta);
 
-        Dispatcher::Trigger<events::DragMoveEvent>(events::DragMoveEvent{
+        RuntimeFacade::current().trigger(events::DragMoveEvent{
             .source = entity,
             .delta = event.raw.delta,
             .hoverTarget = ctx.hoveredEntity,
@@ -238,12 +232,10 @@ private:
                 if (isDropTargetEnabled(reg, hovered) && !wouldCreateHierarchyCycle(reg, entity, hovered))
                 {
                     dropTarget = hovered;
-                    Dispatcher::Trigger<events::DragDroppedEvent>(
-                        events::DragDroppedEvent{.source = entity, .target = dropTarget});
+                    RuntimeFacade::current().trigger(events::DragDroppedEvent{.source = entity, .target = dropTarget});
                 }
 
-                Dispatcher::Trigger<events::DragEndEvent>(
-                    events::DragEndEvent{.source = entity, .dropTarget = dropTarget});
+                RuntimeFacade::current().trigger(events::DragEndEvent{.source = entity, .dropTarget = dropTarget});
                 if (draggable->onDragEnd) draggable->onDragEnd();
             }
             draggable->dragging = false;

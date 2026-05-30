@@ -22,7 +22,8 @@
 
 #include "interface/ISystem.hpp"
 #include "common/Events.hpp"
-
+#include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 #include "common/GlobalContext.hpp"
 
 namespace ui::systems
@@ -34,7 +35,7 @@ class StateSystem : public ui::interface::EnableRegister<StateSystem>
 {
 public:
     StateSystem() = default;
-    explicit StateSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+    explicit StateSystem(Registry& reg, Dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
 
     enum class ScrollbarHitType : std::uint8_t
     {
@@ -96,6 +97,10 @@ private:
         static void clearFocus(StateSystem& system, SDL_Window* sdlWindow = nullptr);
 
         static void handleEntityPress(StateSystem& system, const events::HitPointerButton& event);
+
+        static bool finishScrollbarDragRelease(StateSystem& system,
+                                               globalcontext::StateContext& state,
+                                               entt::entity releasedEntity);
 
         static void handleEntityRelease(StateSystem& system,
                                         const events::HitPointerButton& event,
@@ -247,8 +252,8 @@ private:
     std::unordered_set<entt::entity> m_pendingActiveRemove;
     bool m_isDraggingSlider = false;
     entt::entity m_dragSliderEntity = entt::null;
-    entt::registry* m_reg = nullptr;
-    entt::dispatcher* m_disp = nullptr;
+    Registry* m_reg = nullptr;
+    Dispatcher* m_disp = nullptr;
 
     /**
      */

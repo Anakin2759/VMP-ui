@@ -36,6 +36,8 @@
 #include <entt/entt.hpp>
 #include "common/Events.hpp"
 #include "interface/ISystem.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 namespace ui::systems
 {
 /**
@@ -45,7 +47,7 @@ class TimerSystem : public interface::EnableRegister<TimerSystem>
 {
 public:
     TimerSystem() = default;
-    explicit TimerSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+    explicit TimerSystem(Registry& reg, Dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
 
     /**
      * @brief 注册事件处理器
@@ -82,7 +84,7 @@ public:
 
 private:
     void onUpdateTimer(const events::UpdateTimer& event);
-    entt::registry* m_reg = nullptr;
-    entt::dispatcher* m_disp = nullptr;
+    Registry* m_reg = nullptr;
+    Dispatcher* m_disp = nullptr;
 };
 } // namespace ui::systems

@@ -13,13 +13,17 @@ using namespace ui::chains;
  */
 inline void CreateMenuDialog()
 {
-    auto view = ui::Registry::View<ui::components::BaseInfo>();
-    for (auto entity : view)
+    auto existing = ui::query::FindByAlias("menuDialog");
+    if (existing.has_value())
     {
-        if (view.get<ui::components::BaseInfo>(entity).alias == "menuDialog")
-        {
-            return; // 已存在，直接返回
-        }
+        ui::log::Info("Menu dialog already exists, skipping creation.");
+        return;
+    }
+
+    if (existing.error() != ui::MakeErrorCode(ui::UiErrc::INVALID_ENTITY))
+    {
+        ui::log::Error("Failed to check for existing menu dialog: {}", existing.error().message());
+        return;
     }
 
     // 创建菜单对话框

@@ -12,6 +12,8 @@
 
 #include <entt/entt.hpp>
 #include "interface/ISystem.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui::systems
 {
@@ -20,7 +22,7 @@ class ThemeSystem : public ui::interface::EnableRegister<ThemeSystem>
 {
 public:
     ThemeSystem() = default;
-    explicit ThemeSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+    explicit ThemeSystem(Registry& reg, Dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
 
     void registerHandlersImpl();
     void unregisterHandlersImpl();
@@ -28,8 +30,8 @@ public:
 
 private:
     void update();
-    entt::registry* m_reg = nullptr;
-    entt::dispatcher* m_disp = nullptr;
+    Registry* m_reg = nullptr;
+    Dispatcher* m_disp = nullptr;
 };
 
 } // namespace ui::systems

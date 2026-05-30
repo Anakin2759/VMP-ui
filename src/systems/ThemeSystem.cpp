@@ -108,7 +108,7 @@ bool IsDefaultProgressBackgroundColor(const Color& color)
 }
 
 bool ApplyBackground(
-    entt::registry& reg, entt::entity entity, const Color& nextColor, const Color& previousColor, const Vec4& radius)
+    Registry& reg, entt::entity entity, const Color& nextColor, const Color& previousColor, const Vec4& radius)
 {
     const auto* styleState = reg.try_get<components::ThemeStyleState>(entity);
     auto* background = reg.try_get<components::Background>(entity);
@@ -138,7 +138,7 @@ bool ApplyBackground(
     return false;
 }
 
-bool ApplyBorder(entt::registry& reg,
+bool ApplyBorder(Registry& reg,
                  entt::entity entity,
                  const Color& nextColor,
                  const Color& previousColor,
@@ -175,7 +175,7 @@ bool ApplyBorder(entt::registry& reg,
     return false;
 }
 
-bool ApplyTextColor(entt::registry& reg, entt::entity entity, const Color& nextColor, const Color& previousColor)
+bool ApplyTextColor(Registry& reg, entt::entity entity, const Color& nextColor, const Color& previousColor)
 {
     auto* text = reg.try_get<components::Text>(entity);
     if (text == nullptr)
@@ -192,7 +192,7 @@ bool ApplyTextColor(entt::registry& reg, entt::entity entity, const Color& nextC
     return false;
 }
 
-bool ApplyTextEditColor(entt::registry& reg, entt::entity entity, const Color& nextColor, const Color& previousColor)
+bool ApplyTextEditColor(Registry& reg, entt::entity entity, const Color& nextColor, const Color& previousColor)
 {
     auto* textEdit = reg.try_get<components::TextEdit>(entity);
     if (textEdit == nullptr)
@@ -209,7 +209,7 @@ bool ApplyTextEditColor(entt::registry& reg, entt::entity entity, const Color& n
     return false;
 }
 
-bool ApplyDropDownArrowColor(entt::registry& reg,
+bool ApplyDropDownArrowColor(Registry& reg,
                              entt::entity entity,
                              const Color& nextColor,
                              const Color& previousColor)
@@ -229,7 +229,7 @@ bool ApplyDropDownArrowColor(entt::registry& reg,
     return false;
 }
 
-bool ApplyCheckBoxColors(entt::registry& reg,
+bool ApplyCheckBoxColors(Registry& reg,
                          entt::entity entity,
                          const theme::ThemePalette& nextTheme,
                          const theme::ThemePalette& previousTheme)
@@ -254,7 +254,7 @@ bool ApplyCheckBoxColors(entt::registry& reg,
     return changed;
 }
 
-bool ApplySliderColors(entt::registry& reg,
+bool ApplySliderColors(Registry& reg,
                        entt::entity entity,
                        const theme::ThemePalette& nextTheme,
                        const theme::ThemePalette& previousTheme)
@@ -284,7 +284,7 @@ bool ApplySliderColors(entt::registry& reg,
     return changed;
 }
 
-bool ApplyProgressBarColors(entt::registry& reg,
+bool ApplyProgressBarColors(Registry& reg,
                             entt::entity entity,
                             const theme::ThemePalette& nextTheme,
                             const theme::ThemePalette& previousTheme)
@@ -310,7 +310,7 @@ bool ApplyProgressBarColors(entt::registry& reg,
     return changed;
 }
 
-void ClearThemedTags(entt::registry& reg)
+void ClearThemedTags(Registry& reg)
 {
     std::vector<entt::entity> themedEntities;
     auto themedView = reg.view<components::ThemedTag>();
@@ -344,7 +344,7 @@ Color ResolveFocusedBorderColor(
     return normalColor;
 }
 
-void InitializeManagedButtonColors(entt::registry& reg,
+void InitializeManagedButtonColors(Registry& reg,
                                    entt::entity entity,
                                    const theme::ThemePalette& theme,
                                    components::ThemeStyleState& styleState)
@@ -376,7 +376,7 @@ void InitializeManagedButtonColors(entt::registry& reg,
     }
 }
 
-void InitializeManagedDropDownColors(entt::registry& reg,
+void InitializeManagedDropDownColors(Registry& reg,
                                      entt::entity entity,
                                      const theme::ThemePalette& theme,
                                      components::ThemeStyleState& styleState)
@@ -417,7 +417,7 @@ void InitializeManagedDropDownColors(entt::registry& reg,
     }
 }
 
-void InitializeManagedDropDownPopupPanelColors(entt::registry& reg,
+void InitializeManagedDropDownPopupPanelColors(Registry& reg,
                                                entt::entity entity,
                                                const theme::ThemePalette& theme,
                                                components::ThemeStyleState& styleState)
@@ -437,7 +437,7 @@ void InitializeManagedDropDownPopupPanelColors(entt::registry& reg,
     }
 }
 
-void InitializeManagedDropDownPopupItemColors(entt::registry& reg,
+void InitializeManagedDropDownPopupItemColors(Registry& reg,
                                               entt::entity entity,
                                               const theme::ThemePalette& theme,
                                               components::ThemeStyleState& styleState)
@@ -461,7 +461,7 @@ void InitializeManagedDropDownPopupItemColors(entt::registry& reg,
     }
 }
 
-void InitializeManagedCheckBoxColors(entt::registry& reg,
+void InitializeManagedCheckBoxColors(Registry& reg,
                                      entt::entity entity,
                                      const theme::ThemePalette& theme,
                                      components::ThemeStyleState& styleState)
@@ -488,7 +488,7 @@ void InitializeManagedCheckBoxColors(entt::registry& reg,
     }
 }
 
-void InitializeManagedInteractiveColors(entt::registry& reg, entt::entity entity, const theme::ThemePalette& theme)
+void InitializeManagedInteractiveColors(Registry& reg, entt::entity entity, const theme::ThemePalette& theme)
 {
     auto& styleState = reg.get_or_emplace<components::ThemeStyleState>(entity);
 
@@ -541,7 +541,7 @@ void InitializeManagedInteractiveColors(entt::registry& reg, entt::entity entity
     }
 }
 
-bool UpdateManagedBackground(entt::registry& reg, entt::entity entity, const Color& desiredColor)
+bool UpdateManagedBackground(Registry& reg, entt::entity entity, const Color& desiredColor)
 {
     auto* background = reg.try_get<components::Background>(entity);
     auto* styleState = reg.try_get<components::ThemeStyleState>(entity);
@@ -562,7 +562,7 @@ bool UpdateManagedBackground(entt::registry& reg, entt::entity entity, const Col
     return true;
 }
 
-bool UpdateManagedBorder(entt::registry& reg, entt::entity entity, const Color& desiredColor)
+bool UpdateManagedBorder(Registry& reg, entt::entity entity, const Color& desiredColor)
 {
     auto* border = reg.try_get<components::Border>(entity);
     auto* styleState = reg.try_get<components::ThemeStyleState>(entity);
@@ -582,7 +582,7 @@ bool UpdateManagedBorder(entt::registry& reg, entt::entity entity, const Color& 
     return true;
 }
 
-bool UpdateManagedTextColor(entt::registry& reg, entt::entity entity, const Color& desiredColor)
+bool UpdateManagedTextColor(Registry& reg, entt::entity entity, const Color& desiredColor)
 {
     auto* text = reg.try_get<components::Text>(entity);
     auto* styleState = reg.try_get<components::ThemeStyleState>(entity);
@@ -601,7 +601,7 @@ bool UpdateManagedTextColor(entt::registry& reg, entt::entity entity, const Colo
     return true;
 }
 
-bool UpdateManagedCheckBoxBoxColor(entt::registry& reg, entt::entity entity, const Color& desiredColor)
+bool UpdateManagedCheckBoxBoxColor(Registry& reg, entt::entity entity, const Color& desiredColor)
 {
     auto* checkBox = reg.try_get<components::CheckBox>(entity);
     auto* styleState = reg.try_get<components::ThemeStyleState>(entity);
@@ -621,7 +621,7 @@ bool UpdateManagedCheckBoxBoxColor(entt::registry& reg, entt::entity entity, con
     return true;
 }
 
-bool UpdateManagedIndicatorColor(entt::registry& reg, entt::entity entity, const Color& desiredColor)
+bool UpdateManagedIndicatorColor(Registry& reg, entt::entity entity, const Color& desiredColor)
 {
     auto* styleState = reg.try_get<components::ThemeStyleState>(entity);
     if (styleState == nullptr || !styleState->managedIndicatorColor.has_value())
@@ -658,7 +658,7 @@ bool UpdateManagedIndicatorColor(entt::registry& reg, entt::entity entity, const
     return false;
 }
 
-bool IsDropDownPopupItemSelected(entt::registry& reg, const components::DropDownPopupItem& popupItem)
+bool IsDropDownPopupItemSelected(Registry& reg, const components::DropDownPopupItem& popupItem)
 {
     const auto* ownerDropDown = reg.try_get<components::DropDown>(popupItem.owner);
     if (ownerDropDown == nullptr)
@@ -669,7 +669,7 @@ bool IsDropDownPopupItemSelected(entt::registry& reg, const components::DropDown
     return ownerDropDown->selectedIndex == popupItem.optionIndex;
 }
 
-bool ApplyButtonInteractiveTheme(entt::registry& reg, entt::entity entity, const theme::ThemePalette& theme)
+bool ApplyButtonInteractiveTheme(Registry& reg, entt::entity entity, const theme::ThemePalette& theme)
 {
     const bool disabled = reg.any_of<components::DisabledTag>(entity);
     bool changed = false;
@@ -699,7 +699,7 @@ bool ApplyButtonInteractiveTheme(entt::registry& reg, entt::entity entity, const
     return changed;
 }
 
-bool ApplyTextEditInteractiveTheme(entt::registry& reg, entt::entity entity, const theme::ThemePalette& theme)
+bool ApplyTextEditInteractiveTheme(Registry& reg, entt::entity entity, const theme::ThemePalette& theme)
 {
     return UpdateManagedBorder(reg,
                                entity,
@@ -710,7 +710,7 @@ bool ApplyTextEditInteractiveTheme(entt::registry& reg, entt::entity entity, con
                                                          theme.inputBorderDisabled));
 }
 
-bool ApplyDropDownInteractiveTheme(entt::registry& reg, entt::entity entity, const theme::ThemePalette& theme)
+bool ApplyDropDownInteractiveTheme(Registry& reg, entt::entity entity, const theme::ThemePalette& theme)
 {
     const bool disabled = reg.any_of<components::DisabledTag>(entity);
     bool changed = false;
@@ -744,7 +744,7 @@ bool ApplyDropDownInteractiveTheme(entt::registry& reg, entt::entity entity, con
     return changed;
 }
 
-bool ApplyCheckBoxInteractiveTheme(entt::registry& reg, entt::entity entity, const theme::ThemePalette& theme)
+bool ApplyCheckBoxInteractiveTheme(Registry& reg, entt::entity entity, const theme::ThemePalette& theme)
 {
     const bool disabled = reg.any_of<components::DisabledTag>(entity);
     bool changed = false;
@@ -768,7 +768,7 @@ bool ApplyCheckBoxInteractiveTheme(entt::registry& reg, entt::entity entity, con
     return changed;
 }
 
-bool ApplyDropDownPopupItemInteractiveTheme(entt::registry& reg, entt::entity entity, const theme::ThemePalette& theme)
+bool ApplyDropDownPopupItemInteractiveTheme(Registry& reg, entt::entity entity, const theme::ThemePalette& theme)
 {
     const auto* popupItem = reg.try_get<components::DropDownPopupItem>(entity);
     if (popupItem == nullptr)
@@ -798,7 +798,7 @@ bool ApplyDropDownPopupItemInteractiveTheme(entt::registry& reg, entt::entity en
     return changed;
 }
 
-bool ApplyInteractiveThemeToEntity(entt::registry& reg, entt::entity entity, const theme::ThemePalette& theme)
+bool ApplyInteractiveThemeToEntity(Registry& reg, entt::entity entity, const theme::ThemePalette& theme)
 {
     bool changed = false;
 
@@ -830,7 +830,7 @@ bool ApplyInteractiveThemeToEntity(entt::registry& reg, entt::entity entity, con
     return changed;
 }
 
-bool ApplyButtonTheme(entt::registry& reg,
+bool ApplyButtonTheme(Registry& reg,
                       entt::entity entity,
                       const theme::ThemePalette& nextTheme,
                       const theme::ThemePalette& previousTheme)
@@ -851,7 +851,7 @@ bool ApplyButtonTheme(entt::registry& reg,
     return changed;
 }
 
-bool ApplyLabelTheme(entt::registry& reg,
+bool ApplyLabelTheme(Registry& reg,
                      entt::entity entity,
                      const theme::ThemePalette& nextTheme,
                      const theme::ThemePalette& previousTheme)
@@ -859,7 +859,7 @@ bool ApplyLabelTheme(entt::registry& reg,
     return ApplyTextColor(reg, entity, nextTheme.textPrimary, previousTheme.textPrimary);
 }
 
-bool ApplyTextEditTheme(entt::registry& reg,
+bool ApplyTextEditTheme(Registry& reg,
                         entt::entity entity,
                         const theme::ThemePalette& nextTheme,
                         const theme::ThemePalette& previousTheme)
@@ -878,7 +878,7 @@ bool ApplyTextEditTheme(entt::registry& reg,
     return changed;
 }
 
-bool ApplyCheckBoxTheme(entt::registry& reg,
+bool ApplyCheckBoxTheme(Registry& reg,
                         entt::entity entity,
                         const theme::ThemePalette& nextTheme,
                         const theme::ThemePalette& previousTheme)
@@ -889,7 +889,7 @@ bool ApplyCheckBoxTheme(entt::registry& reg,
     return changed;
 }
 
-bool ApplyDropDownTheme(entt::registry& reg,
+bool ApplyDropDownTheme(Registry& reg,
                         entt::entity entity,
                         const theme::ThemePalette& nextTheme,
                         const theme::ThemePalette& previousTheme)
@@ -908,7 +908,7 @@ bool ApplyDropDownTheme(entt::registry& reg,
     return changed;
 }
 
-bool ReapplyManagedBackgroundRadius(entt::registry& reg,
+bool ReapplyManagedBackgroundRadius(Registry& reg,
                                     entt::entity entity,
                                     const Color& expectedColor,
                                     const Vec4& previousRadius,
@@ -925,7 +925,7 @@ bool ReapplyManagedBackgroundRadius(entt::registry& reg,
     return true;
 }
 
-bool ReapplyManagedBorderRadius(entt::registry& reg,
+bool ReapplyManagedBorderRadius(Registry& reg,
                                 entt::entity entity,
                                 const Color& expectedColor,
                                 const Vec4& previousRadius,
@@ -942,7 +942,7 @@ bool ReapplyManagedBorderRadius(entt::registry& reg,
     return true;
 }
 
-bool ApplyDropDownPopupPanelTheme(entt::registry& reg,
+bool ApplyDropDownPopupPanelTheme(Registry& reg,
                                   entt::entity entity,
                                   const theme::ThemePalette& nextTheme,
                                   const theme::ThemePalette& previousTheme)
@@ -965,7 +965,7 @@ bool ApplyDropDownPopupPanelTheme(entt::registry& reg,
     return changed;
 }
 
-bool ApplyDropDownPopupItemTheme(entt::registry& reg,
+bool ApplyDropDownPopupItemTheme(Registry& reg,
                                  entt::entity entity,
                                  const theme::ThemePalette& nextTheme,
                                  const theme::ThemePalette& previousTheme)
@@ -994,7 +994,7 @@ bool ApplyDropDownPopupItemTheme(entt::registry& reg,
     return changed;
 }
 
-bool ApplySliderTheme(entt::registry& reg,
+bool ApplySliderTheme(Registry& reg,
                       entt::entity entity,
                       const theme::ThemePalette& nextTheme,
                       const theme::ThemePalette& previousTheme)
@@ -1002,7 +1002,7 @@ bool ApplySliderTheme(entt::registry& reg,
     return ApplySliderColors(reg, entity, nextTheme, previousTheme);
 }
 
-bool ApplyProgressBarTheme(entt::registry& reg,
+bool ApplyProgressBarTheme(Registry& reg,
                            entt::entity entity,
                            const theme::ThemePalette& nextTheme,
                            const theme::ThemePalette& previousTheme)
@@ -1010,7 +1010,7 @@ bool ApplyProgressBarTheme(entt::registry& reg,
     return ApplyProgressBarColors(reg, entity, nextTheme, previousTheme);
 }
 
-bool ApplyWindowTheme(entt::registry& reg,
+bool ApplyWindowTheme(Registry& reg,
                       entt::entity entity,
                       const theme::ThemePalette& nextTheme,
                       const theme::ThemePalette& previousTheme)
@@ -1033,7 +1033,7 @@ bool ApplyWindowTheme(entt::registry& reg,
     return changed;
 }
 
-bool ApplyThemeToEntity(entt::registry& reg,
+bool ApplyThemeToEntity(Registry& reg,
                         entt::entity entity,
                         const theme::ThemePalette& nextTheme,
                         const theme::ThemePalette& previousTheme)
@@ -1121,7 +1121,7 @@ ui::interface::SystemPhase ThemeSystem::getPhase()
 
 void ThemeSystem::update()
 {
-    auto& reg = m_reg != nullptr ? *m_reg : RuntimeFacade::current().enttRegistry();
+    auto& reg = m_reg != nullptr ? *m_reg : RuntimeFacade::current().registry();
     auto& themeContext = RuntimeFacade::current().ensureContext<theme::ThemeContext>();
 
     if (themeContext.reapplyRequested)
@@ -1129,7 +1129,7 @@ void ThemeSystem::update()
         ClearThemedTags(reg);
     }
 
-    auto unthemedView = reg.view<components::BaseInfo>(entt::exclude<components::ThemedTag>);
+    auto unthemedView = m_reg->view<components::BaseInfo>(entt::exclude<components::ThemedTag>);
     for (const entt::entity entity : unthemedView)
     {
         const bool changed = ApplyThemeToEntity(reg, entity, themeContext.palette, themeContext.previousPalette);

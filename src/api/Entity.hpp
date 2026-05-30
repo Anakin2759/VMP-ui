@@ -1,14 +1,14 @@
 /**
  * ************************************************************************
  *
- * @file DslPaser.hpp
+ * @file Entity.hpp
  * @author AnakinLiu (azrael2759@qq.com)
- * @date 2026-02-09
+ * @date 2026-05-30
  * @version 0.1
- * @brief  实现解析js文件 的 UI 定义解析器
- *  - 支持从 DSL 定义创建 UI 组件和布局
- *  - 提供灵活的属性映射和组件配置
- *  - 简化 UI 创建流程，支持快速原型设计
+ * @brief ui::entity — 公开 API 层对实体句柄别名的再导出。
+ *
+ * 实际定义在 common/EntityTypes.hpp，此文件仅做转发，
+ * 保持 api/ 层命名一致性，供外部消费者直接包含。
  *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
@@ -16,6 +16,7 @@
  * ************************************************************************
  */
 #pragma once
-// TODO: JS DSL 解析器尚未实现。
-// 此文件是功能规划存根，暂不提供任何接口。
-// 参见 docs/ideas/ 获取设计说明。
+
+// IWYU pragma: begin_exports
+#include "common/EntityTypes.hpp"
+// IWYU pragma: end_exports

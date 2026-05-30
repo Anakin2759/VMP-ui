@@ -167,6 +167,7 @@ set(UI_SOURCES
     api/Utils.cpp
     api/Factory.cpp
     api/Controls.cpp
+    api/Query.cpp
     api/Canvas.cpp
     api/Table.cpp
     api/Theme.cpp
@@ -269,13 +270,14 @@ target_precompile_headers(ui PRIVATE
 
 # 头文件目录
 target_include_directories(ui
-    PRIVATE 
+    PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/third_party/stb
     PUBLIC
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/third_party/entt/single_include
 )
 
 if(_UI_DO_SHADER_COMPILE)
@@ -432,6 +434,11 @@ if(UI_RESOURCE_BACKEND STREQUAL "CMRC")
     set_target_properties(ui_fonts PROPERTIES
         CXX_CLANG_TIDY ""
         INTERPROCEDURAL_OPTIMIZATION FALSE
+        # 不把自动生成的巨型字节数组 lib.cpp 写入 compile_commands.json。
+        # 否则 clangd 会把这条“缺少 entt/SDL/yoga 等头文件搜索路径”的命令
+        # 误推断给 include/ui.hpp，导致 'entt/entt.hpp' file not found 误报。
+        # 关闭后 clangd 会改从真实消费者（main.cpp / ui 源文件）推断完整 flags。
+        EXPORT_COMPILE_COMMANDS OFF
     )
 endif()
 
@@ -459,8 +466,10 @@ if(UI_RESOURCE_BACKEND STREQUAL "CMRC")
     target_link_libraries(ui PRIVATE ui_fonts)
 endif()
 
-target_link_libraries(ui PUBLIC
+target_link_libraries(ui PRIVATE
     EnTT::EnTT
+)
+target_link_libraries(ui PUBLIC
     asio::asio
     Eigen3::Eigen
     spdlog::spdlog_header_only

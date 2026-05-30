@@ -18,7 +18,7 @@
  */
 #pragma once
 
-#include <entt/entt.hpp>
+#include "Entity.hpp"
 #include "common/Policies.hpp"
 #include "Chains.hpp" // Changed: Include Chains.hpp for DSL
 
@@ -29,11 +29,11 @@ namespace ui::layout
  * @param entity 目标实体
  * @param direction 布局方向（水平或垂直）
  */
-void SetLayoutDirection(::entt::entity entity, policies::LayoutDirection direction);
-void SetLayoutSpacing(::entt::entity entity, float spacing);
-void SetPadding(::entt::entity entity, float left, float top, float right, float bottom);
-void SetPadding(::entt::entity entity, float padding);
-void CenterInParent(::entt::entity entity);
+void SetLayoutDirection(ui::entity entity, policies::LayoutDirection direction);
+void SetLayoutSpacing(ui::entity entity, float spacing);
+void SetPadding(ui::entity entity, float left, float top, float right, float bottom);
+void SetPadding(ui::entity entity, float padding);
+void CenterInParent(ui::entity entity);
 
 } // namespace ui::layout
 
@@ -43,9 +43,9 @@ namespace layout
 {
 inline constexpr EntityAction<&ui::layout::SetLayoutDirection> SET_LAYOUT_DIRECTION_ACTION{};
 inline constexpr EntityAction<&ui::layout::SetLayoutSpacing> SET_LAYOUT_SPACING_ACTION{};
-inline constexpr EntityAction<static_cast<void (*)(::entt::entity, float, float, float, float)>(ui::layout::SetPadding)>
+inline constexpr EntityAction<static_cast<void (*)(ui::entity, float, float, float, float)>(ui::layout::SetPadding)>
     SET_PADDING_EDGES_ACTION{};
-inline constexpr EntityAction<static_cast<void (*)(::entt::entity, float)>(ui::layout::SetPadding)>
+inline constexpr EntityAction<static_cast<void (*)(ui::entity, float)>(ui::layout::SetPadding)>
     SET_PADDING_ALL_ACTION{};
 inline constexpr EntityAction<&ui::layout::CenterInParent> CENTER_IN_PARENT_ACTION{};
 } // namespace layout

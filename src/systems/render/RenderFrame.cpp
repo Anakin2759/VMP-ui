@@ -38,7 +38,7 @@ namespace ui::systems
 // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size)
 void RenderSystem::update()
 {
-    auto windowView = Registry::View<components::Window, components::RenderDirtyTag>();
+    auto windowView = m_reg->view<components::Window, components::RenderDirtyTag>();
 
     if (windowView.begin() == windowView.end())
     {
@@ -135,7 +135,7 @@ void RenderSystem::update()
         m_impl->m_renderQueue.clear();
         m_impl->m_submissionIndex = 0;
 
-        if (Registry::AnyOf<components::VisibleTag>(windowEntity))
+        if (m_reg->any_of<components::VisibleTag>(windowEntity))
         {
             core::RenderContext rootContext;
             rootContext.screenWidth = m_impl->m_screenWidth;
@@ -151,7 +151,7 @@ void RenderSystem::update()
                 m_impl->m_useFallback ? m_impl->m_fallbackWhiteTextureTag : m_impl->m_whiteTexture.get();
 
             Eigen::Vector2f rootOffset = Eigen::Vector2f(0, 0);
-            if (const auto* pos = Registry::TryGet<components::Position>(windowEntity))
+            if (const auto* pos = m_reg->try_get<components::Position>(windowEntity))
             {
                 rootOffset = -pos->value;
             }
@@ -225,10 +225,10 @@ void RenderSystem::update()
         }
     }
 
-    auto dirtyView = Registry::View<components::RenderDirtyTag>();
+    auto dirtyView = m_reg->view<components::RenderDirtyTag>();
     for (auto entity : dirtyView)
     {
-        Registry::Remove<components::RenderDirtyTag>(entity);
+        m_reg->remove<components::RenderDirtyTag>(entity);
     }
 }
 
@@ -249,14 +249,14 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
         auto [currentEntity, currentContext] = std::move(stack.top());
         stack.pop();
 
-        if (!Registry::AnyOf<components::VisibleTag>(currentEntity)) continue;
-        if (Registry::AnyOf<components::SpacerTag>(currentEntity)) continue;
+        if (!m_reg->any_of<components::VisibleTag>(currentEntity)) continue;
+        if (m_reg->any_of<components::SpacerTag>(currentEntity)) continue;
 
-        const auto& pos = Registry::Get<components::Position>(currentEntity);
-        const auto& size = Registry::Get<components::Size>(currentEntity);
-        const auto* alphaComp = Registry::TryGet<components::Alpha>(currentEntity);
-        const auto* scaleComp = Registry::TryGet<components::Scale>(currentEntity);
-        const auto* offsetComp = Registry::TryGet<components::RenderOffset>(currentEntity);
+        const auto& pos = m_reg->get<components::Position>(currentEntity);
+        const auto& size = m_reg->get<components::Size>(currentEntity);
+        const auto* alphaComp = m_reg->try_get<components::Alpha>(currentEntity);
+        const auto* scaleComp = m_reg->try_get<components::Scale>(currentEntity);
+        const auto* offsetComp = m_reg->try_get<components::RenderOffset>(currentEntity);
 
         float const globalAlpha = currentContext.alpha * (alphaComp != nullptr ? alphaComp->value : 1.0F);
         Eigen::Vector2f absolutePos = currentContext.position + pos.value;
@@ -282,7 +282,7 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
         entityContext.alpha = globalAlpha;
         core::RenderContext childBaseContext = entityContext;
 
-        const auto* scrollArea = Registry::TryGet<components::ScrollArea>(currentEntity);
+        const auto* scrollArea = m_reg->try_get<components::ScrollArea>(currentEntity);
         if (scrollArea != nullptr)
         {
             const Rect viewportRect = ui::utils::GetScrollViewportRect(currentEntity);
@@ -295,7 +295,7 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
             childBaseContext.pushScissor(scissorRect);
             contentOffset = -scrollArea->scrollOffset;
         }
-        else if (Registry::AnyOf<components::LayoutInfo>(currentEntity))
+        else if (m_reg->any_of<components::LayoutInfo>(currentEntity))
         {
             const SDL_Rect containerScissor{.x = static_cast<int>(absolutePos.x()),
                                             .y = static_cast<int>(absolutePos.y()),
@@ -306,7 +306,7 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
 
         // Determine Z-Order
         int32_t zOrder = 0;
-        if (const auto* zOrderComp = Registry::TryGet<components::ZOrderIndex>(currentEntity))
+        if (const auto* zOrderComp = m_reg->try_get<components::ZOrderIndex>(currentEntity))
         {
             zOrder = zOrderComp->value;
         }
@@ -331,7 +331,7 @@ void RenderSystem::collectRenderData(entt::entity entity, core::RenderContext& c
             }
         }
 
-        const auto* hierarchy = Registry::TryGet<components::Hierarchy>(currentEntity);
+        const auto* hierarchy = m_reg->try_get<components::Hierarchy>(currentEntity);
         if (hierarchy != nullptr && !hierarchy->children.empty())
         {
             for (auto childEntity : std::views::reverse(hierarchy->children))

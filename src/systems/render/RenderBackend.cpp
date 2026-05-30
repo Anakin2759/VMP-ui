@@ -130,14 +130,14 @@ interface::SystemPhase RenderSystem::getPhase()
     return interface::SystemPhase::RENDER;
 }
 
-RenderSystem::RenderSystem(entt::registry& /*reg*/, entt::dispatcher& disp)
-    : m_disp(&disp), m_impl(std::make_unique<RenderSystemImpl>(
+RenderSystem::RenderSystem(Registry& reg, Dispatcher& disp)
+    : m_reg(&reg), m_disp(&disp), m_impl(std::make_unique<RenderSystemImpl>(
 #ifdef UI_FORCE_CPU_RENDER
-                         true
+                                      true
 #else
-                         IsTruthyEnvironmentValue(SDL_getenv("PESTMANKILL_FORCE_FALLBACK"))
+                                      IsTruthyEnvironmentValue(SDL_getenv("PESTMANKILL_FORCE_FALLBACK"))
 #endif
-                         ))
+                                      ))
 {
     if (m_impl->m_forceFallback)
     {
@@ -172,8 +172,10 @@ RenderSystem::~RenderSystem()
     }
 }
 
-RenderSystem::RenderSystem(RenderSystem&& other) noexcept : m_disp(other.m_disp), m_impl(std::move(other.m_impl))
+RenderSystem::RenderSystem(RenderSystem&& other) noexcept
+    : m_reg(other.m_reg), m_disp(other.m_disp), m_impl(std::move(other.m_impl))
 {
+    other.m_reg = nullptr;
     other.m_disp = nullptr;
 }
 
@@ -190,6 +192,8 @@ RenderSystem& RenderSystem::operator=(RenderSystem&& other) noexcept
             WriteStderr("[RenderSystem] move assignment cleanup failed\n");
         }
 
+        m_reg = other.m_reg;
+        other.m_reg = nullptr;
         m_disp = other.m_disp;
         other.m_disp = nullptr;
         m_impl = std::move(other.m_impl);
@@ -201,7 +205,7 @@ void RenderSystem::onWindowsGraphicsContextSet(const events::WindowGraphicsConte
 {
     Logger::info("[RenderSystem] 收到窗口图形上下文设置事件，实体ID: {}", static_cast<uint32_t>(event.entity));
     ensureInitialized();
-    uint32_t windowID = Registry::Get<components::Window>(event.entity).windowID;
+    uint32_t windowID = m_reg->get<components::Window>(event.entity).windowID;
     SDL_Window* sdlWindow = SDL_GetWindowFromID(windowID);
     if (sdlWindow == nullptr)
     {
@@ -238,7 +242,7 @@ void RenderSystem::onWindowsGraphicsContextUnset(const events::WindowGraphicsCon
         return;
     }
 
-    if (auto* windowComp = Registry::TryGet<components::Window>(event.entity))
+    if (auto* windowComp = m_reg->try_get<components::Window>(event.entity))
     {
         SDL_Window* sdlWindow = SDL_GetWindowFromID(windowComp->windowID);
         if (sdlWindow != nullptr)

@@ -43,7 +43,7 @@ namespace ui::renderers
 class TextRenderer : public core::IRenderer
 {
 public:
-    TextRenderer() = default;
+    explicit TextRenderer(Registry& reg) : m_reg(&reg) {}
 
     /**
      * @param entity 要检查的实体
@@ -52,8 +52,8 @@ public:
      */
     [[nodiscard]] bool canHandle(entt::entity entity) const override
     {
-        return Registry::
-            AnyOf<components::TextTag, components::ButtonTag, components::LabelTag, components::TextEditTag>(entity);
+        return m_reg->any_of<components::TextTag, components::ButtonTag, components::LabelTag, components::TextEditTag>(
+            entity);
     }
 
     void collect(entt::entity entity, core::RenderContext& context) override
@@ -63,19 +63,19 @@ public:
             return;
         }
 
-        if (Registry::AnyOf<components::TextTag, components::ButtonTag, components::LabelTag>(entity))
+        if (m_reg->any_of<components::TextTag, components::ButtonTag, components::LabelTag>(entity))
         {
-            const auto* textComp = Registry::TryGet<components::Text>(entity);
+            const auto* textComp = m_reg->try_get<components::Text>(entity);
             if (textComp != nullptr && !textComp->content.empty())
             {
                 renderText(entity, *textComp, context);
             }
         }
 
-        if (Registry::AnyOf<components::TextEditTag>(entity))
+        if (m_reg->any_of<components::TextEditTag>(entity))
         {
-            const auto* textComp = Registry::TryGet<components::Text>(entity);
-            const auto* textEdit = Registry::TryGet<components::TextEdit>(entity);
+            const auto* textComp = m_reg->try_get<components::Text>(entity);
+            const auto* textEdit = m_reg->try_get<components::TextEdit>(entity);
             if (textComp != nullptr && textEdit != nullptr)
             {
                 renderTextEdit(entity, *textComp, *textEdit, context);
@@ -243,7 +243,7 @@ private:
 
         if (wrapMode != policies::TextWrap::NONE && wrapWidth > 0.0F)
         {
-            if (auto* sizeComp = Registry::TryGet<components::Size>(entity))
+            if (auto* sizeComp = m_reg->try_get<components::Size>(entity))
             {
                 if (policies::HasFlag(sizeComp->sizePolicy, policies::Size::V_AUTO))
                 {
@@ -256,7 +256,7 @@ private:
                         if (std::abs(sizeComp->size.y() - desiredHeight) > 0.5F)
                         {
                             sizeComp->size.y() = desiredHeight;
-                            Registry::EmplaceOrReplace<components::LayoutDirtyTag>(entity);
+                            m_reg->emplace_or_replace<components::LayoutDirtyTag>(entity);
                         }
                     }
                 }
@@ -329,7 +329,7 @@ private:
                                Eigen::Vector2f& textSize,
                                core::RenderContext& textEditContext) const
     {
-        if (const auto* padding = Registry::TryGet<components::Padding>(entity))
+        if (const auto* padding = m_reg->try_get<components::Padding>(entity))
         {
             textPos.x() += padding->values.w();
             textPos.y() += padding->values.x();
@@ -353,7 +353,7 @@ private:
         const auto& effectiveColor = textEdit.textColor;
         Eigen::Vector4f color(effectiveColor.red, effectiveColor.green, effectiveColor.blue, effectiveColor.alpha);
 
-        if (displayText.empty() && !textEdit.placeholder.empty() && !Registry::AnyOf<components::FocusedTag>(entity))
+        if (displayText.empty() && !textEdit.placeholder.empty() && !m_reg->any_of<components::FocusedTag>(entity))
         {
             displayText = textEdit.placeholder;
             color = Eigen::Vector4f(0.5F, 0.5F, 0.5F, contextAlpha);
@@ -371,12 +371,12 @@ private:
 
     bool shouldRenderTextEditCaret(entt::entity entity, const core::RenderContext& context) const
     {
-        if (!Registry::AnyOf<components::FocusedTag>(entity))
+        if (!m_reg->any_of<components::FocusedTag>(entity))
         {
             return false;
         }
 
-        const auto* caret = Registry::TryGet<components::Caret>(entity);
+        const auto* caret = m_reg->try_get<components::Caret>(entity);
         return context.sdlWindow != nullptr && caret != nullptr && caret->visible;
     }
 
@@ -632,7 +632,7 @@ private:
             ui::utils::WrapTextLines(args.textValue(), static_cast<int>(args.textSize.x()), wrapMode, measureFunc);
         const float totalTextHeight = static_cast<float>(lines.size()) * args.lineHeight;
 
-        if (auto* scrollArea = Registry::TryGet<components::ScrollArea>(args.entity))
+        if (auto* scrollArea = m_reg->try_get<components::ScrollArea>(args.entity))
         {
             renderScrollAreaTextEdit(args, *scrollArea, lines, totalTextHeight);
             return;
@@ -650,19 +650,19 @@ private:
         entt::entity current = entity;
         while (current != entt::null)
         {
-            const auto* hierarchy = Registry::TryGet<components::Hierarchy>(current);
+            const auto* hierarchy = m_reg->try_get<components::Hierarchy>(current);
             if (hierarchy == nullptr) break;
 
             current = hierarchy->parent;
             if (current == entt::null) break;
 
-            if (Registry::AnyOf<components::ScrollArea>(current))
+            if (m_reg->any_of<components::ScrollArea>(current))
             {
-                const auto* size = Registry::TryGet<components::Size>(current);
+                const auto* size = m_reg->try_get<components::Size>(current);
                 if (size == nullptr) return 0.0F;
 
                 float width = size->size.x();
-                if (const auto* padding = Registry::TryGet<components::Padding>(current))
+                if (const auto* padding = m_reg->try_get<components::Padding>(current))
                 {
                     width -= (padding->values.y() + padding->values.w());
                 }
@@ -857,6 +857,7 @@ private:
         renderWrappedTextLines(args, lines, lineHeight, startY, horizontalAlign);
     }
 
+    Registry* m_reg = nullptr;
     std::unordered_map<std::string, FallbackTextBitmap> m_fallbackTextCache;
 };
 

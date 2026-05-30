@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include <entt/entt.hpp>
+#include "Entity.hpp"
 #include <concepts>
 #include <functional>
 #include <memory>
@@ -55,9 +55,9 @@ struct ChainActionTag
 // § 2  Concepts
 // =========================================================================
 
-/// 宽松：任意可以接受 entt::entity 的可调用对象（entity | x 入口使用）
+/// 宽松：任意可以接受 ui::entity 的可调用对象（entity | x 入口使用）
 template <typename T>
-concept Action = std::invocable<T, ::entt::entity>;
+concept Action = std::invocable<T, ui::entity>;
 
 /// 标签检测：类型是否携带 ChainActionTag（独立为辅助 concept，便于单独 static_assert 诊断）
 template <typename T>
@@ -87,7 +87,7 @@ public:
         Concept& operator=(const Concept&) = delete;
         Concept(Concept&&) = delete;
         Concept& operator=(Concept&&) = delete;
-        virtual void invoke(::entt::entity) = 0;
+        virtual void invoke(ui::entity) = 0;
         virtual ~Concept() = default;
     };
 
@@ -103,7 +103,7 @@ public:
     AnyChain& operator=(const AnyChain&) = delete;
     ~AnyChain() = default;
 
-    void operator()(::entt::entity entity) { m_impl->invoke(entity); }
+    void operator()(ui::entity entity) { m_impl->invoke(entity); }
 
     friend AnyChain operator|(AnyChain&& lhs, AnyChain&& rhs);
 
@@ -115,7 +115,7 @@ private:
     {
         F func;
         explicit Model(F callable) : func(std::move(callable)) {}
-        void invoke(::entt::entity entity) override { std::invoke(func, entity); }
+        void invoke(ui::entity entity) override { std::invoke(func, entity); }
     };
 
     explicit AnyChain(std::unique_ptr<Concept> impl) noexcept : m_impl(std::move(impl)) {}
@@ -130,7 +130,7 @@ inline AnyChain operator|(AnyChain&& lhs, AnyChain&& rhs)
     {
         AnyChain left, right;
         Combined(AnyChain lhsChain, AnyChain rhsChain) : left(std::move(lhsChain)), right(std::move(rhsChain)) {}
-        void invoke(::entt::entity entity) override
+        void invoke(ui::entity entity) override
         {
             left(entity);
             right(entity);
@@ -160,7 +160,7 @@ struct Chain : ChainActionTag
     {
         auto combined =
             // C++23 std::forward_like：按 Self 的值类别转发 func（rvalue→move，lvalue→copy）
-            [lhs = std::forward_like<Self>(self.func), rhs = std::forward<Next>(next)](::entt::entity entity) mutable
+            [lhs = std::forward_like<Self>(self.func), rhs = std::forward<Next>(next)](ui::entity entity) mutable
         {
             std::invoke(lhs, entity);
             std::invoke(rhs, entity);
@@ -169,7 +169,7 @@ struct Chain : ChainActionTag
     }
 
     // deducing-this：const/非const/rvalue 均正确分发
-    void operator()(this auto&& self, ::entt::entity entity)
+    void operator()(this auto&& self, ui::entity entity)
     {
         std::invoke(std::forward_like<decltype(self)>(self.func), entity);
     }
@@ -185,33 +185,33 @@ Chain(F&&) -> Chain<std::decay_t<F>>;
 //      Chain | x 则由成员 operator| 严格要求 ChainAction
 // =========================================================================
 template <Action F>
-::entt::entity operator|(::entt::entity entity, Chain<F>& chain)
+ui::entity operator|(ui::entity entity, Chain<F>& chain)
 {
     chain(entity);
     return entity;
 }
 
 template <Action F>
-::entt::entity operator|(::entt::entity entity, const Chain<F>& chain)
+ui::entity operator|(ui::entity entity, const Chain<F>& chain)
 {
     chain(entity);
     return entity;
 }
 
 template <Action F>
-::entt::entity operator|(::entt::entity entity, Chain<F>&& chain)
+ui::entity operator|(ui::entity entity, Chain<F>&& chain)
 {
     std::move(chain)(entity);
     return entity;
 }
 
-inline ::entt::entity operator|(::entt::entity entity, AnyChain& chain)
+inline ui::entity operator|(ui::entity entity, AnyChain& chain)
 {
     chain(entity);
     return entity;
 }
 
-inline ::entt::entity operator|(::entt::entity entity, AnyChain&& chain)
+inline ui::entity operator|(ui::entity entity, AnyChain&& chain)
 {
     auto owned = std::move(chain);
     owned(entity);
@@ -239,7 +239,7 @@ template <auto Fn>
 struct EntityAction
 {
     template <typename... Args>
-    void operator()(::entt::entity entity, Args&&... args) const
+    void operator()(ui::entity entity, Args&&... args) const
     {
         Fn(entity, std::forward<Args>(args)...);
     }
@@ -247,7 +247,7 @@ struct EntityAction
     template <typename... Args>
     auto bind(Args&&... args) const
     {
-        return ui::chains::Chain{[... args = std::forward<Args>(args)](::entt::entity entity) mutable
+        return ui::chains::Chain{[... args = std::forward<Args>(args)](ui::entity entity) mutable
                                  { Fn(entity, std::move(args)...); }};
     }
 };

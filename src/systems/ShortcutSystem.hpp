@@ -32,6 +32,8 @@
 #include "api/Shortcut.hpp"
 #include "common/Events.hpp"
 #include "interface/ISystem.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui::systems
 {
@@ -46,7 +48,7 @@ class ShortcutSystem final : public ui::interface::EnableRegister<ShortcutSystem
 {
 public:
     ShortcutSystem() = default;
-    explicit ShortcutSystem(entt::registry& /*reg*/, entt::dispatcher& disp) : m_disp(&disp) {}
+    explicit ShortcutSystem(Registry& /*reg*/, Dispatcher& disp) : m_disp(&disp) {}
 
     void registerHandlersImpl()
     {
@@ -145,7 +147,7 @@ private:
 
     inline static std::vector<Entry> sShortcuts{};
     inline static shortcut::ShortcutId sNextId{1};
-    entt::dispatcher* m_disp = nullptr;
+    Dispatcher* m_disp = nullptr;
 };
 
 } // namespace ui::systems

@@ -102,7 +102,7 @@ docs/               架构文档（本文）
 | `TextInputSystem` | BUFFERED 事件 | 文字输入、键盘重复、IME |
 | `ShortcutSystem` | BUFFERED 事件 | 全局快捷键分发 |
 | `PlatformWindowSystem` | `SDL_AddEventWatch` | 窗口移动/缩放/最大化/关闭事件桥接 |
-| `ThemeSystem` | — | **存根，待实现** |
+| `ThemeSystem` | `ThemeChanged` / `ThemedTag` | 默认控件样式注入、交互态主题、调色板切换、`ThemedTag` 增量重应用（实现在 `ThemeSystem.cpp` ~1157 行 + `api/Theme.cpp`） |
 
 ### 3.4 renderers — 分离渲染器
 
@@ -406,6 +406,9 @@ cmake -B build -DENABLE_CLANG_TIDY=ON
 | `test_VisibilityCoverage.cpp` | `api/Visibility` Show/Hide |
 | `test_HierarchyCoverage.cpp` | `api/Hierarchy` AddChild/RemoveChild |
 | `test_MainWindow.cpp` | 主窗口创建集成验证 |
+| `test_ThemeSystem.cpp` | `ThemeSystem` 主题 token / 默认样式 / 调色板切换 |
+| `test_DragDrop.cpp` | `Draggable/Droppable` 拖放事件与默认 reparent |
+| `test_UmbrellaHeader.cpp` | 伞头废止后的包含完整性（待清理/改名） |
 
 **缺失覆盖**：`LayoutSystem`、`RenderSystem`、`HitTestSystem`、`StateSystem`、`TimerSystem`、`InteractionSystem`、`TextInputSystem`、`TableRenderer`、`IconRenderer`。
 

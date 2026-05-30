@@ -30,7 +30,7 @@
 #include "common/GlobalContext.hpp"
 #include "RuntimeFacade.hpp"
 #include "SystemManager.hpp"
-#include "singleton/Dispatcher.hpp"
+
 namespace ui::tasks
 {
 
@@ -125,10 +125,11 @@ struct RenderTask
         }
         remainingTime = delayTime;
         // 常规帧刷新顺序：补间动画更新，再布局，再渲染，最后提交帧尾状态。
-        Dispatcher::Trigger<ui::events::UpdateEvent>();
-        Dispatcher::Trigger<ui::events::UpdateLayout>();
-        Dispatcher::Trigger<ui::events::UpdateRendering>();
-        Dispatcher::Trigger<ui::events::EndFrame>(); // 帧结束时批量应用状态更新
+        auto& runtime = RuntimeFacade::current();
+        runtime.trigger<ui::events::UpdateEvent>();
+        runtime.trigger<ui::events::UpdateLayout>();
+        runtime.trigger<ui::events::UpdateRendering>();
+        runtime.trigger<ui::events::EndFrame>(); // 帧结束时批量应用状态更新
     }
 };
 
@@ -147,8 +148,8 @@ struct InputTask
             return;
         }
         remainingTime = delayTime;
-        systems->pollInput();                         // InteractionSystem::pollSdlEvents()
-        Dispatcher::Trigger<events::TickKeyRepeat>(); // 驱动 TextInputSystem::doProcessKeyRepeat()
+        systems->pollInput();                                      // InteractionSystem::pollSdlEvents()
+        RuntimeFacade::current().trigger<events::TickKeyRepeat>(); // 驱动 TextInputSystem::doProcessKeyRepeat()
     }
 };
 
@@ -170,8 +171,9 @@ struct QueuedTask
         auto& frameContext = RuntimeFacade::current().frame();
         frameContext.intervalMs = delta;
         frameContext.frameSlot = (frameContext.frameSlot + 1) % 2;
-        Dispatcher::Trigger<ui::events::UpdateTimer>();
-        Dispatcher::Update();
+        auto& runtime = RuntimeFacade::current();
+        runtime.trigger<ui::events::UpdateTimer>();
+        runtime.update();
     }
 };
 

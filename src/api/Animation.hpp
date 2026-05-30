@@ -19,7 +19,7 @@
 
 #include <optional>
 
-#include <entt/entt.hpp>
+#include "Entity.hpp"
 #include "common/Policies.hpp"
 #include "common/Types.hpp"
 #include "Chains.hpp"
@@ -34,30 +34,30 @@ struct TweenOptions
     bool autoCleanup = true;
 };
 
-void StartPositionAnimation(::entt::entity entity,
+void StartPositionAnimation(ui::entity entity,
                             const Vec2& startPos,
                             const Vec2& endPos,
                             const TweenOptions& options = {});
-void StartAlphaAnimation(::entt::entity entity, float startAlpha, float endAlpha, const TweenOptions& options = {});
-void StartScaleAnimation(::entt::entity entity,
+void StartAlphaAnimation(ui::entity entity, float startAlpha, float endAlpha, const TweenOptions& options = {});
+void StartScaleAnimation(ui::entity entity,
                          const Vec2& startScale,
                          const Vec2& endScale,
                          const TweenOptions& options = {});
-void StartRenderOffsetAnimation(::entt::entity entity,
+void StartRenderOffsetAnimation(ui::entity entity,
                                 const Vec2& startOffset,
                                 const Vec2& endOffset,
                                 const TweenOptions& options = {});
-void StartColorAnimation(::entt::entity entity,
+void StartColorAnimation(ui::entity entity,
                          const Color& startColor,
                          const Color& endColor,
                          const TweenOptions& options = {});
-void StartTransformAnimation(::entt::entity entity,
+void StartTransformAnimation(ui::entity entity,
                              const std::optional<Vec2>& targetScale,
                              const std::optional<Vec2>& targetOffset,
                              const TweenOptions& options = {},
                              const Vec2& defaultScale = {1.0F, 1.0F},
                              const Vec2& defaultOffset = {0.0F, 0.0F});
-void StopAnimation(::entt::entity entity);
+void StopAnimation(ui::entity entity);
 
 } // namespace ui::animation
 

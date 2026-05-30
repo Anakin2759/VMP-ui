@@ -26,6 +26,8 @@
 #include "../src/common/ErrorCodes.hpp"
 
 #include "../src/api/Utils.hpp"
+#include "../src/api/Entity.hpp"
+#include "../src/api/Query.hpp"
 #include "../src/api/Log.hpp"
 #include "../src/api/Size.hpp"
 #include "../src/api/Layout.hpp"

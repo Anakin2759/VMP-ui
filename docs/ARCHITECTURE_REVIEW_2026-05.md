@@ -1,5 +1,8 @@
 # VMP-ui 架构锐评与优化路线（2026-05）
 
+> ⚠️ **历史快照（只读）** — 本文为 2026-05-29 的增量评审快照，部分计数（如 `RuntimeFacade::current()` 49 处）与 TOP 大文件行数已过时。  
+> 👉 **最新评审以 [ARCHITECTURE_REVIEW_2026-05-30.md](ARCHITECTURE_REVIEW_2026-05-30.md) 为准**（含真实源码核对表、更新后的痛点排序与 OP-x 路线）。本文仅作历史参考，不再满足最新状态。
+
 > 基于 `src/` 全量扫描：139 个源文件 / ≈14,000 行 / 49 处 `RuntimeFacade::current()`。  
 > 评估对象：UI 静态库 `src/`（不含 example / tests / third_party）。  
 > **最后更新：2026-05-29 rev8** — StateSystem 的窗口/下拉框销毁路径已切到 `m_reg/m_disp`；Factory.cpp 已开始按告警热点分段迁移到 `RuntimeFacade::current().enttRegistry()/enttDispatcher()`。

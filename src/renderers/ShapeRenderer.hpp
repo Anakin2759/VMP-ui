@@ -40,12 +40,12 @@ namespace ui::renderers
 class ShapeRenderer : public core::IRenderer
 {
 public:
-    ShapeRenderer() = default;
+    explicit ShapeRenderer(Registry& reg) : m_reg(&reg) {}
 
     [[nodiscard]] bool canHandle(entt::entity entity) const override
     {
         // 任何有背景或边框的实体都需要形状渲染
-        return Registry::AnyOf<components::Background, components::Border>(entity);
+        return m_reg->any_of<components::Background, components::Border>(entity);
     }
 
     void collect(entt::entity entity, core::RenderContext& context) override
@@ -99,7 +99,7 @@ private:
 
     void renderBackground(entt::entity entity, core::RenderContext& context)
     {
-        const auto* background = Registry::TryGet<components::Background>(entity);
+        const auto* background = m_reg->try_get<components::Background>(entity);
         if (background == nullptr || background->enabled != policies::Feature::ENABLED)
         {
             return;
@@ -115,7 +115,7 @@ private:
         pushConstants.radius[3] = background->borderRadius.w();
 
         // 处理阴影
-        const auto* shadow = Registry::TryGet<components::Shadow>(entity);
+        const auto* shadow = m_reg->try_get<components::Shadow>(entity);
         if (shadow != nullptr && shadow->enabled == policies::Feature::ENABLED)
         {
             pushConstants.shadow_soft = shadow->softness;
@@ -134,8 +134,8 @@ private:
 
     void renderBorder(entt::entity entity, core::RenderContext& context)
     {
-        const auto* border = Registry::TryGet<components::Border>(entity);
-        const bool focused = Registry::AnyOf<components::FocusedTag>(entity);
+        const auto* border = m_reg->try_get<components::Border>(entity);
+        const bool focused = m_reg->any_of<components::FocusedTag>(entity);
 
         // 早期返回：既没有焦点也没有有效边框
         if (!focused && (border == nullptr || border->thickness <= 0.0F))
@@ -176,7 +176,7 @@ private:
         pushConstants.stroke_width = thickness;
         pushConstants.draw_mode = 1.0F;
 
-        if (const auto* border = Registry::TryGet<components::Border>(entity))
+        if (const auto* border = m_reg->try_get<components::Border>(entity))
         {
             pushConstants.radius[0] = border->borderRadius.x();
             pushConstants.radius[1] = border->borderRadius.y();
@@ -184,7 +184,7 @@ private:
             pushConstants.radius[3] = border->borderRadius.w();
         }
 
-        if (const auto* background = Registry::TryGet<components::Background>(entity))
+        if (const auto* background = m_reg->try_get<components::Background>(entity))
         {
             const float radiusSum =
                 pushConstants.radius[0] + pushConstants.radius[1] + pushConstants.radius[2] + pushConstants.radius[3];
@@ -200,6 +200,8 @@ private:
         context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, pushConstants);
         context.batchManager->addRect(context.position, context.size, color);
     }
+
+    Registry* m_reg = nullptr;
 };
 
 } // namespace ui::renderers

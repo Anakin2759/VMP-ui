@@ -1,5 +1,5 @@
 #include "Size.hpp"
-#include "singleton/Registry.hpp"
+#include "core/RuntimeFacade.hpp"
 #include "Utils.hpp"
 #include "entt/entity/fwd.hpp"
 #include "common/components/Layout.hpp"
@@ -7,11 +7,20 @@
 
 namespace ui::size
 {
+namespace
+{
+[[nodiscard]] entt::registry& CurrentRegistry()
+{
+    return RuntimeFacade::current().enttRegistry();
+}
+} // namespace
+
 void SetFixedSize(::entt::entity entity, float width, float height)
 {
-    if (!Registry::Valid(entity)) return;
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
 
-    auto& size = Registry::GetOrEmplace<components::Size>(entity);
+    auto& size = reg.get_or_emplace<components::Size>(entity);
     size.sizePolicy = policies::Size::FIXED;
     size.size = {width, height};
     utils::MarkLayoutDirty(entity);
@@ -19,24 +28,27 @@ void SetFixedSize(::entt::entity entity, float width, float height)
 
 void SetSizePolicy(::entt::entity entity, policies::Size policy)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& size = Registry::GetOrEmplace<components::Size>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& size = reg.get_or_emplace<components::Size>(entity);
     size.sizePolicy = policy;
     utils::MarkLayoutDirty(entity);
 }
 
 void SetSize(::entt::entity entity, float width, float height)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& size = Registry::GetOrEmplace<components::Size>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& size = reg.get_or_emplace<components::Size>(entity);
     size.size = {width, height};
     utils::MarkLayoutDirty(entity);
 }
 
 void SetPosition(::entt::entity entity, float positionX, float positionY)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& pos = Registry::GetOrEmplace<components::Position>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& pos = reg.get_or_emplace<components::Position>(entity);
     pos.value = {positionX, positionY};
     utils::MarkLayoutDirty(entity);
 }

@@ -15,7 +15,7 @@
 #pragma once
 
 #include <cstdint>
-#include <entt/entt.hpp>
+#include "Entity.hpp"
 #include "common/components/Layout.hpp"
 #include "common/Policies.hpp"
 #include "Chains.hpp"
@@ -23,24 +23,24 @@ namespace ui::utils
 {
 
 bool HasAlignment(policies::Alignment value, policies::Alignment flag);
-void SetWindowFlag(::entt::entity entity, policies::WindowFlag flag);
+void SetWindowFlag(ui::entity entity, policies::WindowFlag flag);
 
-void MarkLayoutChanged(::entt::entity entity);
-void MarkVisualChanged(::entt::entity entity);
-void MarkLayoutAndVisualChanged(::entt::entity entity);
+void MarkLayoutChanged(ui::entity entity);
+void MarkVisualChanged(ui::entity entity);
+void MarkLayoutAndVisualChanged(ui::entity entity);
 
-void MarkLayoutDirty(::entt::entity entity);
-void MarkRenderDirty(::entt::entity entity);
-void CloseWindow(::entt::entity entity);
+void MarkLayoutDirty(ui::entity entity);
+void MarkRenderDirty(ui::entity entity);
+void CloseWindow(ui::entity entity);
 void QuitUiEventLoop();
 
-[[nodiscard]] Vec2 GetAbsolutePosition(::entt::entity entity);
-[[nodiscard]] Rect GetEntityRect(::entt::entity entity);
-[[nodiscard]] Rect GetScrollViewportRect(::entt::entity entity);
-[[nodiscard]] float GetScrollViewportLength(::entt::entity entity, bool isVertical);
-[[nodiscard]] float GetScrollContentLength(::entt::entity entity, bool isVertical);
-[[nodiscard]] float GetScrollMaxOffset(::entt::entity entity, bool isVertical);
-[[nodiscard]] components::VerticalScrollbarGeometry GetVerticalScrollbarGeometry(::entt::entity entity);
+[[nodiscard]] Vec2 GetAbsolutePosition(ui::entity entity);
+[[nodiscard]] Rect GetEntityRect(ui::entity entity);
+[[nodiscard]] Rect GetScrollViewportRect(ui::entity entity);
+[[nodiscard]] float GetScrollViewportLength(ui::entity entity, bool isVertical);
+[[nodiscard]] float GetScrollContentLength(ui::entity entity, bool isVertical);
+[[nodiscard]] float GetScrollMaxOffset(ui::entity entity, bool isVertical);
+[[nodiscard]] components::VerticalScrollbarGeometry GetVerticalScrollbarGeometry(ui::entity entity);
 
 void InvokeTask(::ui::VoidCallback func);
 using TaskHandle = uint32_t;

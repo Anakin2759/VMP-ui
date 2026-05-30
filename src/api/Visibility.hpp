@@ -17,7 +17,7 @@
  */
 #pragma once
 
-#include <entt/entt.hpp>
+#include "Entity.hpp"
 #include "common/Types.hpp"
 #include "Chains.hpp" // Changed: Include Chains.hpp for DSL
 
@@ -28,19 +28,19 @@ namespace ui::visibility
  * @param entity 实体ID
  * @param visible 是否可见
  */
-void SetVisible(::entt::entity entity, bool visible);
-void Show(::entt::entity entity);
-void Hide(::entt::entity entity);
+void SetVisible(ui::entity entity, bool visible);
+void Show(ui::entity entity);
+void Hide(ui::entity entity);
 /**
  * @brief 设置透明度
  * @param entity 实体ID
  * @param alpha 透明度值（0.0 - 1.0）
  */
-void SetAlpha(::entt::entity entity, float alpha);
-void SetBackgroundColor(::entt::entity entity, const Color& color);
-void SetBorderRadius(::entt::entity entity, float radius);
-void SetBorderColor(::entt::entity entity, const Color& color);
-void SetBorderThickness(::entt::entity entity, float thickness);
+void SetAlpha(ui::entity entity, float alpha);
+void SetBackgroundColor(ui::entity entity, const Color& color);
+void SetBorderRadius(ui::entity entity, float radius);
+void SetBorderColor(ui::entity entity, const Color& color);
+void SetBorderThickness(ui::entity entity, float thickness);
 
 } // namespace ui::visibility
 

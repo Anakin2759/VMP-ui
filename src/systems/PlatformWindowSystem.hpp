@@ -28,7 +28,7 @@ class PlatformWindowSystem : public ui::interface::EnableRegister<PlatformWindow
 {
 public:
     PlatformWindowSystem() = default;
-    explicit PlatformWindowSystem(entt::registry& /*reg*/, entt::dispatcher& /*disp*/) {}
+    explicit PlatformWindowSystem(Registry& /*reg*/, Dispatcher& /*disp*/) {}
 
     void registerHandlersImpl() { SDL_AddEventWatch(&PlatformWindowSystem::platformEventWatch, nullptr); }
 
@@ -69,22 +69,22 @@ private:
     {
         if (windowEvent.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
         {
-            Dispatcher::Trigger<ui::events::WindowPixelSizeChanged>(
+            RuntimeFacade::current().trigger<ui::events::WindowPixelSizeChanged>(
                 ui::events::WindowPixelSizeChanged{windowEvent.windowID, windowEvent.data1, windowEvent.data2});
             return;
         }
 
         if (windowEvent.type == SDL_EVENT_WINDOW_MOVED)
         {
-            Dispatcher::Trigger<ui::events::WindowMoved>(
+            RuntimeFacade::current().trigger<ui::events::WindowMoved>(
                 ui::events::WindowMoved{windowEvent.windowID, windowEvent.data1, windowEvent.data2});
         }
     }
 
     static void triggerImmediateLayoutAndRenderRefresh()
     {
-        Dispatcher::Trigger<ui::events::UpdateLayout>(ui::events::UpdateLayout{});
-        Dispatcher::Trigger<ui::events::UpdateRendering>(ui::events::UpdateRendering{});
+        RuntimeFacade::current().trigger<ui::events::UpdateLayout>(ui::events::UpdateLayout{});
+        RuntimeFacade::current().trigger<ui::events::UpdateRendering>(ui::events::UpdateRendering{});
     }
 
     static void syncWindowPropertiesImmediately(uint32_t windowId)
@@ -93,9 +93,9 @@ private:
         if (sdlWindow == nullptr) return;
 
         const auto windowEntity = RuntimeFacade::current().windowLookup().findById(windowId);
-        if (!Registry::Valid(windowEntity)) return;
+        if (!RuntimeFacade::current().registry().valid(windowEntity)) return;
 
-        auto& windowComp = Registry::Get<components::Window>(windowEntity);
+        auto& windowComp = RuntimeFacade::current().registry().get<components::Window>(windowEntity);
         window_sync::SyncWindowProperties(windowEntity, windowComp, sdlWindow);
     }
 

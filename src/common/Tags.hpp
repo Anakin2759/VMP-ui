@@ -26,7 +26,6 @@
  * ************************************************************************
  */
 #pragma once
-#include <entt/entt.hpp>
 
 namespace ui::components
 {

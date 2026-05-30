@@ -22,6 +22,8 @@
 
 // 引入系统接口
 #include "interface/ISystem.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui
 {
@@ -33,8 +35,8 @@ namespace ui
 class SystemManager
 {
 public:
-    // 构造函数：初始化所有子系统（注入 registry 和 dispatcher 以替代全局单例访问）
-    explicit SystemManager(entt::registry& reg, entt::dispatcher& disp);
+    // 构造函数：初始化所有子系统（注入 Registry 和 Dispatcher 以替代全局单例访问）
+    explicit SystemManager(Registry& reg, Dispatcher& disp);
 
     ~SystemManager();
 
@@ -88,7 +90,7 @@ public:
 private:
     // 使用 entt::poly 动态管理所有系统
     std::vector<entt::poly<interface::ISystem>> m_systems;
-    entt::registry& m_reg;
-    entt::dispatcher& m_disp;
+    Registry& m_reg;
+    Dispatcher& m_disp;
 };
 } // namespace ui

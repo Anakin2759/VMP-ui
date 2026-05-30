@@ -65,8 +65,8 @@ public:
     void exec();
 
 private:
-    UiRuntime m_runtime;
-    UiRuntimeScope m_runtimeScope;
+    UiRuntime m_runtime; // 管理全局状态和资源
+    UiRuntimeScope m_runtimeScope;// 管理 UiRuntime 生命周期
     EventLoop m_eventLoop;
 
     // 核心 ECS 系统封装

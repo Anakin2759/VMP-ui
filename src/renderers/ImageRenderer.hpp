@@ -35,11 +35,11 @@ namespace ui::renderers
 class ImageRenderer : public core::IRenderer
 {
 public:
-    ImageRenderer() = default;
+    explicit ImageRenderer(Registry& reg) : m_reg(&reg) {}
 
     [[nodiscard]] bool canHandle(entt::entity entity) const override
     {
-        return Registry::AnyOf<components::ImageTag>(entity);
+        return m_reg->any_of<components::ImageTag>(entity);
     }
 
     void collect(entt::entity entity, core::RenderContext& context) override
@@ -50,7 +50,7 @@ public:
         }
 
         // 懒加载：若有 ImageSource 且尚未加载
-        if (auto* src = Registry::TryGet<components::ImageSource>(entity))
+        if (auto* src = m_reg->try_get<components::ImageSource>(entity))
         {
             if (!src->loaded && !src->loadFailed && !src->path.empty())
             {
@@ -58,7 +58,7 @@ public:
                 {
                     if (auto r = context.imageManager->loadTexture(src->path); r)
                     {
-                        auto& img = Registry::GetOrEmplace<components::Image>(entity);
+                        auto& img = m_reg->get_or_emplace<components::Image>(entity);
                         img.textureId = static_cast<void*>(*r);
                         src->loaded = true;
                     }
@@ -74,7 +74,7 @@ public:
             }
         }
 
-        const auto* img = Registry::TryGet<components::Image>(entity);
+        const auto* img = m_reg->try_get<components::Image>(entity);
         if (img == nullptr || img->textureId == nullptr)
         {
             return;
@@ -102,6 +102,9 @@ public:
     }
 
     [[nodiscard]] int getPriority() const override { return 5; }
+
+private:
+    Registry* m_reg = nullptr;
 };
 
 } // namespace ui::renderers

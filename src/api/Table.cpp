@@ -8,7 +8,7 @@
 
 #include "common/Policies.hpp"
 #include "common/Tags.hpp"
-#include "singleton/Registry.hpp"
+#include "core/RuntimeFacade.hpp"
 #include "common/Types.hpp"
 #include "common/components/Data.hpp"
 #include "common/components/Layout.hpp"
@@ -20,6 +20,11 @@ namespace ui::table
 
 namespace
 {
+
+[[nodiscard]] entt::registry& CurrentRegistry()
+{
+    return RuntimeFacade::current().enttRegistry();
+}
 
 [[nodiscard]] float MinColumnWidthAt(const components::TableInfo& info, int columnIndex)
 {
@@ -133,7 +138,7 @@ namespace
 
 void SetColumns(entt::entity entity, int count, std::vector<std::string> headers)
 {
-    auto& info = Registry::GetOrEmplace<components::TableInfo>(entity);
+    auto& info = CurrentRegistry().get_or_emplace<components::TableInfo>(entity);
     info.columnCount = count;
     info.headers = std::move(headers);
     // 调整已有行的列数
@@ -145,13 +150,13 @@ void SetColumns(entt::entity entity, int count, std::vector<std::string> headers
 
 void SetColumnWidths(entt::entity entity, std::vector<float> widths)
 {
-    auto& info = Registry::GetOrEmplace<components::TableInfo>(entity);
+    auto& info = CurrentRegistry().get_or_emplace<components::TableInfo>(entity);
     info.columnWidths = std::move(widths);
 }
 
 void AddRow(entt::entity entity, std::vector<std::string> texts)
 {
-    auto& info = Registry::GetOrEmplace<components::TableInfo>(entity);
+    auto& info = CurrentRegistry().get_or_emplace<components::TableInfo>(entity);
     std::vector<components::TableCell> row;
     row.resize(static_cast<size_t>(info.columnCount));
     for (int columnIndex = 0; columnIndex < info.columnCount && std::cmp_less(columnIndex, texts.size()); ++columnIndex)
@@ -163,7 +168,7 @@ void AddRow(entt::entity entity, std::vector<std::string> texts)
 
 void SetCell(entt::entity entity, int row, int col, std::string text)
 {
-    auto* info = Registry::TryGet<components::TableInfo>(entity);
+    auto* info = CurrentRegistry().try_get<components::TableInfo>(entity);
     if (info == nullptr) return;
     if (row < 0 || std::cmp_greater_equal(row, info->cells.size())) return;
     if (col < 0 || col >= info->columnCount) return;
@@ -172,7 +177,7 @@ void SetCell(entt::entity entity, int row, int col, std::string text)
 
 void SetCellColor(entt::entity entity, int row, int col, Color textColor, Color bgColor)
 {
-    auto* info = Registry::TryGet<components::TableInfo>(entity);
+    auto* info = CurrentRegistry().try_get<components::TableInfo>(entity);
     if (info == nullptr) return;
     if (row < 0 || std::cmp_greater_equal(row, info->cells.size())) return;
     if (col < 0 || col >= info->columnCount) return;
@@ -183,7 +188,7 @@ void SetCellColor(entt::entity entity, int row, int col, Color textColor, Color 
 
 void ClearRows(entt::entity entity)
 {
-    auto* info = Registry::TryGet<components::TableInfo>(entity);
+    auto* info = CurrentRegistry().try_get<components::TableInfo>(entity);
     if (info != nullptr)
     {
         info->cells.clear();
@@ -193,34 +198,34 @@ void ClearRows(entt::entity entity)
 
 void SetSelectedRow(entt::entity entity, int row)
 {
-    auto& info = Registry::GetOrEmplace<components::TableInfo>(entity);
+    auto& info = CurrentRegistry().get_or_emplace<components::TableInfo>(entity);
     info.selectedRow = row;
 }
 
 void SetHeaderTextColor(entt::entity entity, Color color)
 {
-    auto& info = Registry::GetOrEmplace<components::TableInfo>(entity);
+    auto& info = CurrentRegistry().get_or_emplace<components::TableInfo>(entity);
     info.headerTextColor = color;
 }
 
 void SetColumnSizing(entt::entity entity, policies::TableColumnSizing sizing)
 {
-    Registry::GetOrEmplace<components::TableInfo>(entity).columnSizing = sizing;
+    CurrentRegistry().get_or_emplace<components::TableInfo>(entity).columnSizing = sizing;
 }
 
 void SetMinColumnWidths(entt::entity entity, std::vector<float> minWidths)
 {
-    Registry::GetOrEmplace<components::TableInfo>(entity).minColumnWidths = std::move(minWidths);
+    CurrentRegistry().get_or_emplace<components::TableInfo>(entity).minColumnWidths = std::move(minWidths);
 }
 
 void SetMinRowHeight(entt::entity entity, float height)
 {
-    Registry::GetOrEmplace<components::TableInfo>(entity).minRowHeight = std::max(0.0F, height);
+    CurrentRegistry().get_or_emplace<components::TableInfo>(entity).minRowHeight = std::max(0.0F, height);
 }
 
 void SetRowHeight(entt::entity entity, float height)
 {
-    Registry::GetOrEmplace<components::TableInfo>(entity).rowHeight = std::max(0.0F, height);
+    CurrentRegistry().get_or_emplace<components::TableInfo>(entity).rowHeight = std::max(0.0F, height);
 }
 
 std::vector<float> ComputeColumnWidths(const components::TableInfo& info, float tableWidth)
@@ -248,24 +253,25 @@ std::vector<float> ComputeColumnWidths(const components::TableInfo& info, float 
 
 void SetCellWidget(entt::entity tableEntity, int row, int col, entt::entity widgetEntity)
 {
-    auto* info = Registry::TryGet<components::TableInfo>(tableEntity);
+    auto& reg = CurrentRegistry();
+    auto* info = reg.try_get<components::TableInfo>(tableEntity);
     if (info == nullptr) return;
     if (row < 0 || std::cmp_greater_equal(row, info->cells.size())) return;
     if (col < 0 || col >= info->columnCount) return;
-    if (!Registry::Valid(widgetEntity)) return;
+    if (!reg.valid(widgetEntity)) return;
 
     auto& cell = info->cells.at(static_cast<size_t>(row)).at(static_cast<size_t>(col));
 
     // 替换旧实体：从 Hierarchy 中移除旧 widget
-    if (cell.cellEntity != entt::null && cell.cellEntity != widgetEntity && Registry::Valid(cell.cellEntity))
+    if (cell.cellEntity != entt::null && cell.cellEntity != widgetEntity && reg.valid(cell.cellEntity))
     {
-        auto* parentHierarchy = Registry::TryGet<components::Hierarchy>(tableEntity);
+        auto* parentHierarchy = reg.try_get<components::Hierarchy>(tableEntity);
         if (parentHierarchy != nullptr)
         {
             auto& children = parentHierarchy->children;
             std::erase(children, cell.cellEntity);
         }
-        if (auto* childHierarchy = Registry::TryGet<components::Hierarchy>(cell.cellEntity))
+        if (auto* childHierarchy = reg.try_get<components::Hierarchy>(cell.cellEntity))
         {
             childHierarchy->parent = entt::null;
         }
@@ -274,17 +280,17 @@ void SetCellWidget(entt::entity tableEntity, int row, int col, entt::entity widg
     cell.cellEntity = widgetEntity;
 
     // 标记为 TableCellWidget，使其跳过 Yoga 布局
-    Registry::EmplaceOrReplace<components::TableCellWidgetTag>(widgetEntity);
+    reg.emplace_or_replace<components::TableCellWidgetTag>(widgetEntity);
 
     // 加入表格的 Hierarchy（若不已存在）
-    auto& parentHierarchy = Registry::GetOrEmplace<components::Hierarchy>(tableEntity);
+    auto& parentHierarchy = reg.get_or_emplace<components::Hierarchy>(tableEntity);
     const bool alreadyChild =
         std::ranges::find(parentHierarchy.children, widgetEntity) != parentHierarchy.children.end();
     if (!alreadyChild)
     {
-        auto& childHierarchy = Registry::GetOrEmplace<components::Hierarchy>(widgetEntity);
+        auto& childHierarchy = reg.get_or_emplace<components::Hierarchy>(widgetEntity);
         childHierarchy.parent = tableEntity;
-        Registry::Remove<components::RootTag>(widgetEntity);
+        reg.remove<components::RootTag>(widgetEntity);
         parentHierarchy.children.push_back(widgetEntity);
     }
 }

@@ -30,11 +30,11 @@ namespace ui::renderers
 class CanvasRenderer : public core::IRenderer
 {
 public:
-    CanvasRenderer() = default;
+    explicit CanvasRenderer(Registry& reg) : m_reg(&reg) {}
 
     [[nodiscard]] bool canHandle(entt::entity entity) const override
     {
-        return Registry::AnyOf<components::CanvasTag>(entity);
+        return m_reg->any_of<components::CanvasTag>(entity);
     }
 
     void collect(entt::entity entity, core::RenderContext& context) override
@@ -44,7 +44,7 @@ public:
             return;
         }
 
-        const auto* drawList = Registry::TryGet<components::CanvasDrawList>(entity);
+        const auto* drawList = m_reg->try_get<components::CanvasDrawList>(entity);
         if (drawList == nullptr || drawList->commands.empty())
         {
             return;
@@ -84,6 +84,8 @@ public:
     [[nodiscard]] int getPriority() const override { return 20; }
 
 private:
+    Registry* m_reg = nullptr;
+
     static constexpr int CIRCLE_SEGMENTS = 24;
 
     static Eigen::Vector4f toVec4(const Color& color, float alpha)

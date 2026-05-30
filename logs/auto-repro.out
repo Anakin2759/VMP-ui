@@ -1,0 +1,54 @@
+[14:13:01] [info] PestManKill: [ThreadPool] Running in single-threaded mode (UI_ENABLE_MULTITHREAD=OFF).
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 PlatformWindowSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 InteractionSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 TextInputSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 HitTestSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 TweenSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 LayoutSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 RenderSystem...
+[14:13:01] [info] PestManKill: [FontManager] FreeType initialized successfully
+[14:13:01] [info] PestManKill: [IconManager] FreeType initialized
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 StateSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 ActionSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 TimerSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 ThemeSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 正在注册 ShortcutSystem...
+[14:13:01] [info] PestManKill: [SystemManager] 系统管理器初始化完成，已注册 12 个系统
+[14:13:01] [info] PestManKill: SDL 初始化成功
+[14:13:01] [info] PestManKill: [RenderSystem] Registering event handlers
+[14:13:01] [info] PestManKill: [RenderSystem] Event handlers registered successfully
+[14:13:01] [info] PestManKill: [RenderSystem] update first call
+[14:13:01] [info] PestManKill: DeviceManager: 开始初始化 GPU 后端 (Strategy: Iterative Configuration)
+[14:13:01] [info] PestManKill: 尝试初始化后端: direct3d12...
+[14:13:02] [info] PestManKill: GPU 初始化成功，锁定后端: direct3d12
+[14:13:02] [info] PestManKill: [RenderSystem] 当前渲染后端: gpu (direct3d12)
+[14:13:02] [info] PestManKill: [FontManager] HarfBuzz font created successfully
+[14:13:02] [info] PestManKill: [FontManager] Font loaded: Noto Sans SC at 14px
+[14:13:02] [info] PestManKill: 着色器加载成功 (驱动: direct3d12)
+[14:13:02] [info] PestManKill: [TextTextureCache] Initialized with max size: 256
+[14:13:02] [info] PestManKill: [RenderSystem] 初始化 IconManager 并加载默认图标字体
+[14:13:02] [info] PestManKill: IconFont 'MaterialSymbols' loaded from memory: 4102 icons
+[14:13:02] [info] PestManKill: [RenderSystem]默认图标字体加载完成
+[14:13:02] [info] PestManKill: [RenderSystem] 初始化了 11 个渲染器
+[14:13:02] [warning] PestManKill: Window entity has no SDL window
+[14:13:02] [info] PestManKill: [Factory] Triggering WindowGraphicsContextSetEvent for dialog entity 0
+[14:13:02] [info] PestManKill: [RenderSystem] 收到窗口图形上下文设置事件，实体ID: 0
+[14:13:02] [info] PestManKill: [RenderSystem] 窗口图形上下文设置完成 (Entity: 0)
+[14:13:02] [info] PestManKill: Showing menu dialog...
+[14:13:02] [info] PestManKill: CreateMenuDialog completed.
+[14:13:02] [info] PestManKill: TimerSystem: Added task 1 with interval 5000ms (singleShot=false)
+[14:13:02] [info] PestManKill: Entity 3 clicked
+[14:13:02] [debug] PestManKill: Click target alias='startBtn' button=true checkbox=false dropdown=false textedit=false label=false
+[14:13:02] [warning] PestManKill: Window entity has no SDL window
+[14:13:02] [info] PestManKill: [Factory] Triggering WindowGraphicsContextSetEvent for window entity 8
+[14:13:02] [info] PestManKill: [RenderSystem] 收到窗口图形上下文设置事件，实体ID: 8
+[14:13:02] [info] PestManKill: [RenderSystem] 窗口图形上下文设置完成 (Entity: 8)
+[14:13:02] [info] PestManKill: [ImageManager] Loaded texture: D:\test\VMP-ui\example\ui_demo\assets\sample.png
+[14:13:02] [info] PestManKill: [ImageManager] Loaded texture: D:\test\VMP-ui\example\ui_demo\assets\sample.jpg
+[14:13:02] [info] PestManKill: [ImageManager] Loaded texture: D:\test\VMP-ui\example\ui_demo\assets\sample.bmp
+[14:13:02] [info] PestManKill: Main window created: full controls demo
+[14:13:02] [info] PestManKill: 已从 GPU 设备释放窗口 (ID: 3)
+[14:13:05] [debug] PestManKill: StateSystem: Click Event (fallback) on entity 43
+[14:13:05] [info] PestManKill: Entity 43 clicked
+[14:13:05] [debug] PestManKill: Click target alias='cb_row4' button=false checkbox=true dropdown=false textedit=false label=false
+[14:13:07] [info] PestManKill: 定时任务1执行！

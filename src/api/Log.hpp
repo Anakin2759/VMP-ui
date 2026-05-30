@@ -128,57 +128,57 @@ namespace ui::chains
 
 inline auto LogDebug(std::string_view message)
 {
-    return Chain{[msg = std::string(message)](::entt::entity) { ui::log::Debug(msg); }};
+    return Chain{[msg = std::string(message)](ui::entity) { ui::log::Debug(msg); }};
 }
 
 inline auto LogInfo(std::string_view message)
 {
-    return Chain{[msg = std::string(message)](::entt::entity) { ui::log::Info(msg); }};
+    return Chain{[msg = std::string(message)](ui::entity) { ui::log::Info(msg); }};
 }
 
 inline auto LogWarning(std::string_view message)
 {
-    return Chain{[msg = std::string(message)](::entt::entity) { ui::log::Warning(msg); }};
+    return Chain{[msg = std::string(message)](ui::entity) { ui::log::Warning(msg); }};
 }
 
 inline auto LogError(std::string_view message)
 {
-    return Chain{[msg = std::string(message)](::entt::entity) { ui::log::Error(msg); }};
+    return Chain{[msg = std::string(message)](ui::entity) { ui::log::Error(msg); }};
 }
 
 inline auto LogCritical(std::string_view message)
 {
-    return Chain{[msg = std::string(message)](::entt::entity) { ui::log::Critical(msg); }};
+    return Chain{[msg = std::string(message)](ui::entity) { ui::log::Critical(msg); }};
 }
 
 template <typename... Args>
 inline auto LogDebug(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Debug(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](ui::entity) { ui::log::Debug(msg); }};
 }
 
 template <typename... Args>
 inline auto LogInfo(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Info(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](ui::entity) { ui::log::Info(msg); }};
 }
 
 template <typename... Args>
 inline auto LogWarning(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Warning(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](ui::entity) { ui::log::Warning(msg); }};
 }
 
 template <typename... Args>
 inline auto LogError(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Error(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](ui::entity) { ui::log::Error(msg); }};
 }
 
 template <typename... Args>
 inline auto LogCritical(std::format_string<Args...> fmt, Args&&... args)
 {
-    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](::entt::entity) { ui::log::Critical(msg); }};
+    return Chain{[msg = std::format(fmt, std::forward<Args>(args)...)](ui::entity) { ui::log::Critical(msg); }};
 }
 
 } // namespace ui::chains

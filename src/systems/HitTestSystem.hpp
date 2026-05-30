@@ -21,6 +21,8 @@
 #include "common/Types.hpp"
 #include "common/Events.hpp"
 #include "interface/ISystem.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui::systems
 {
@@ -31,7 +33,7 @@ class HitTestSystem : public ui::interface::EnableRegister<HitTestSystem>
 {
 public:
     HitTestSystem() = default;
-    explicit HitTestSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+    explicit HitTestSystem(Registry& reg, Dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
 
     void registerHandlersImpl();
 
@@ -115,15 +117,14 @@ private:
     // 按窗口维护的 Z-Order 缓存
     std::unordered_map<entt::entity, ZOrderCache> m_zOrderCache;
 
-    entt::entity m_cacheInvalidationMarker = entt::null;
-    entt::registry* m_reg = nullptr;
-    entt::dispatcher* m_disp = nullptr;
+    bool m_hitCacheDirty = true;
+    Registry* m_reg = nullptr;
+    Dispatcher* m_disp = nullptr;
 
     /**
      * @brief 使所有窗口的缓存失效
      */
     void invalidateAllCaches();
-    void markGlobalHitCacheDirty();
 
     /**
      */

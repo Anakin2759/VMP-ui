@@ -28,15 +28,15 @@ namespace ui::renderers
 class CheckBoxRenderer : public core::IRenderer
 {
 public:
-    CheckBoxRenderer() = default;
+    explicit CheckBoxRenderer(Registry& reg) : m_reg(&reg) {}
 
-    bool canHandle(entt::entity entity) const override { return Registry::AnyOf<components::CheckBoxTag>(entity); }
+    bool canHandle(entt::entity entity) const override { return m_reg->any_of<components::CheckBoxTag>(entity); }
 
     void collect(entt::entity entity, core::RenderContext& context) override
     {
         if (context.batchManager == nullptr || context.whiteTexture == nullptr) return;
 
-        const auto* checkBox = Registry::TryGet<components::CheckBox>(entity);
+        const auto* checkBox = m_reg->try_get<components::CheckBox>(entity);
         if (checkBox == nullptr) return;
 
         constexpr float BOX_SIZE = 16.0F;
@@ -84,6 +84,9 @@ public:
     }
 
     int getPriority() const override { return 7; }
+
+private:
+    Registry* m_reg = nullptr;
 };
 
 } // namespace ui::renderers

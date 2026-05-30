@@ -44,6 +44,16 @@ namespace ui::factory
 
 namespace
 {
+Registry& CurrentRegistry()
+{
+    return RuntimeFacade::current().registry();
+}
+
+Dispatcher& CurrentDispatcher()
+{
+    return RuntimeFacade::current().dispatcher();
+}
+
 struct TitleBarDragState
 {
     Vec2 dragStartMouseGlobal{0.0F, 0.0F};
@@ -54,6 +64,7 @@ struct TitleBarDragState
 SDL_Window* CreateSdlWindowOrRollback(
     entt::entity entity, const char* title, int width, int height, SDL_WindowFlags flags, std::string_view entityType)
 {
+    auto& reg = CurrentRegistry();
     SDL_Window* sdlWindow = SDL_CreateWindow(title, width, height, flags);
     if (sdlWindow == nullptr)
     {
@@ -61,7 +72,7 @@ SDL_Window* CreateSdlWindowOrRollback(
                       entityType,
                       static_cast<uint32_t>(entity),
                       SDL_GetError());
-        Registry::Destroy(entity);
+        reg.destroy(entity);
         return nullptr;
     }
 
@@ -101,6 +112,7 @@ bool AssignWindowIdOrRollback(entt::entity entity,
                               SDL_Window* sdlWindow,
                               std::string_view entityType)
 {
+    auto& reg = CurrentRegistry();
     window.windowID = SDL_GetWindowID(sdlWindow);
     if (window.windowID == 0)
     {
@@ -109,7 +121,7 @@ bool AssignWindowIdOrRollback(entt::entity entity,
                       static_cast<uint32_t>(entity),
                       SDL_GetError());
         SDL_DestroyWindow(sdlWindow);
-        Registry::Destroy(entity);
+        reg.destroy(entity);
         return false;
     }
 
@@ -120,23 +132,24 @@ bool AssignWindowIdOrRollback(entt::entity entity,
 
 entt::entity CreateTitleBarContainer(std::string_view alias, float titleBarHeight)
 {
+    auto& reg = CurrentRegistry();
     auto titleBar = CreateBaseWidget(alias);
-    Registry::Emplace<components::TitleBarTag>(titleBar);
+    reg.emplace<components::TitleBarTag>(titleBar);
 
-    auto& layout = Registry::Emplace<components::LayoutInfo>(titleBar);
+    auto& layout = reg.emplace<components::LayoutInfo>(titleBar);
     layout.direction = policies::LayoutDirection::HORIZONTAL;
     layout.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
 
-    auto& titleBarSize = Registry::Get<components::Size>(titleBar);
+    auto& titleBarSize = reg.get<components::Size>(titleBar);
     titleBarSize.size = {0.0F, titleBarHeight};
     titleBarSize.sizePolicy = policies::Size::H_FILL | policies::Size::V_FIXED;
 
-    auto& background = Registry::Emplace<components::Background>(titleBar);
+    auto& background = reg.emplace<components::Background>(titleBar);
     background.color = {0.0F, 0.0F, 0.0F, 0.0F};
     background.enabled = policies::Feature::ENABLED;
 
-    Registry::Emplace<components::Clickable>(titleBar);
-    auto& draggable = Registry::Emplace<components::Draggable>(titleBar);
+    reg.emplace<components::Clickable>(titleBar);
+    auto& draggable = reg.emplace<components::Draggable>(titleBar);
     draggable.lockX = true;
     draggable.lockY = true;
 
@@ -145,13 +158,15 @@ entt::entity CreateTitleBarContainer(std::string_view alias, float titleBarHeigh
 
 void ConfigureTitleBarDragging(entt::entity titleBar, entt::entity windowEntity, uint32_t windowId)
 {
-    auto& draggable = Registry::Get<components::Draggable>(titleBar);
+    auto& reg = CurrentRegistry();
+    auto& draggable = reg.get<components::Draggable>(titleBar);
     auto dragState = std::make_shared<TitleBarDragState>();
 
     draggable.onDragStart = [windowEntity, windowId, dragState]()
     {
+        auto& reg = CurrentRegistry();
         SDL_Window* sdlWindow = SDL_GetWindowFromID(windowId);
-        auto* position = Registry::TryGet<components::Position>(windowEntity);
+        auto* position = reg.try_get<components::Position>(windowEntity);
         if (sdlWindow == nullptr || position == nullptr)
         {
             dragState->dragAnchorValid = false;
@@ -174,10 +189,11 @@ void ConfigureTitleBarDragging(entt::entity titleBar, entt::entity windowEntity,
 
     draggable.onDragMove = [windowEntity, windowId, dragState]([[maybe_unused]] Vec2 delta)
     {
+        auto& reg = CurrentRegistry();
         SDL_Window* sdlWindow = SDL_GetWindowFromID(windowId);
         if (sdlWindow == nullptr) return;
 
-        auto* position = Registry::TryGet<components::Position>(windowEntity);
+        auto* position = reg.try_get<components::Position>(windowEntity);
         if (position == nullptr) return;
 
         float globalMouseX = 0.0F;
@@ -218,17 +234,18 @@ void ConfigureTitleBarDragging(entt::entity titleBar, entt::entity windowEntity,
 entt::entity CreateWindowControlButton(
     const std::string& buttonAlias, uint32_t iconCodepoint, float buttonSize, float iconSize, float iconSpacing)
 {
+    auto& reg = CurrentRegistry();
     auto button = CreateButton("", buttonAlias);
-    auto& buttonSizeComp = Registry::Get<components::Size>(button);
+    auto& buttonSizeComp = reg.get<components::Size>(button);
     buttonSizeComp.size = {buttonSize, buttonSize};
     buttonSizeComp.sizePolicy = policies::Size::FIXED;
 
-    auto& buttonBackground = Registry::GetOrEmplace<components::Background>(button);
+    auto& buttonBackground = reg.get_or_emplace<components::Background>(button);
     buttonBackground.color = {0.0F, 0.0F, 0.0F, 0.0F};
     buttonBackground.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
     buttonBackground.enabled = policies::Feature::ENABLED;
 
-    auto& iconComp = Registry::Emplace<components::Icon>(button);
+    auto& iconComp = reg.emplace<components::Icon>(button);
     iconComp.codepoint = iconCodepoint;
     iconComp.size = {iconSize, iconSize};
     iconComp.spacing = iconSpacing;
@@ -239,25 +256,27 @@ entt::entity CreateWindowControlButton(
 
 void AppendChild(entt::entity parent, entt::entity child)
 {
-    auto& parentHierarchy = Registry::Get<components::Hierarchy>(parent);
-    auto& childHierarchy = Registry::Get<components::Hierarchy>(child);
+    auto& reg = CurrentRegistry();
+    auto& parentHierarchy = reg.get<components::Hierarchy>(parent);
+    auto& childHierarchy = reg.get<components::Hierarchy>(child);
     childHierarchy.parent = parent;
-    Registry::Remove<components::RootTag>(child);
+    reg.remove<components::RootTag>(child);
     parentHierarchy.children.push_back(child);
 }
 
 void AttachTitleBarToWindow(entt::entity titleBar, entt::entity windowEntity)
 {
-    auto& windowHierarchy = Registry::Get<components::Hierarchy>(windowEntity);
-    auto& titleBarHierarchy = Registry::Get<components::Hierarchy>(titleBar);
+    auto& reg = CurrentRegistry();
+    auto& windowHierarchy = reg.get<components::Hierarchy>(windowEntity);
+    auto& titleBarHierarchy = reg.get<components::Hierarchy>(titleBar);
     titleBarHierarchy.parent = windowEntity;
-    Registry::Remove<components::RootTag>(titleBar);
+    reg.remove<components::RootTag>(titleBar);
     windowHierarchy.children.insert(windowHierarchy.children.begin(), titleBar);
 }
 
 void MarkAsRoot(entt::entity entity)
 {
-    Registry::EmplaceOrReplace<components::RootTag>(entity);
+    CurrentRegistry().emplace_or_replace<components::RootTag>(entity);
 }
 } // namespace
 
@@ -281,16 +300,17 @@ ui::Result<std::unique_ptr<Application>> CreateApplication(std::span<char*> argv
 
 entt::entity CreateBaseWidget(std::string_view alias)
 {
-    auto entity = Registry::Create();
+    auto& reg = CurrentRegistry();
+    auto entity = reg.create();
 
-    auto& baseInfo = Registry::Emplace<components::BaseInfo>(entity);
+    auto& baseInfo = reg.emplace<components::BaseInfo>(entity);
     baseInfo.alias = std::string(alias);
 
-    Registry::Emplace<components::Position>(entity);
-    Registry::Emplace<components::Size>(entity);
-    Registry::Emplace<components::Alpha>(entity);
-    Registry::Emplace<components::VisibleTag>(entity);
-    Registry::Emplace<components::Hierarchy>(entity);
+    reg.emplace<components::Position>(entity);
+    reg.emplace<components::Size>(entity);
+    reg.emplace<components::Alpha>(entity);
+    reg.emplace<components::VisibleTag>(entity);
+    reg.emplace<components::Hierarchy>(entity);
 
     utils::MarkLayoutAndVisualChanged(entity);
 
@@ -299,8 +319,9 @@ entt::entity CreateBaseWidget(std::string_view alias)
 
 void CreateFadeInAnimation(entt::entity entity, float duration)
 {
-    if (!Registry::Valid(entity)) return;
-    auto& alpha = Registry::GetOrEmplace<components::Alpha>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    auto& alpha = reg.get_or_emplace<components::Alpha>(entity);
     alpha.value = 0.0F;
     animation::TweenOptions options;
     options.duration = duration;
@@ -312,32 +333,35 @@ void CreateFadeInAnimation(entt::entity entity, float duration)
 
 entt::entity CreateButton(const std::string& content, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::ButtonTag>(entity);
-    Registry::Emplace<components::Clickable>(entity);
-    auto& text = Registry::Emplace<components::Text>(entity);
+    reg.emplace<components::ButtonTag>(entity);
+    reg.emplace<components::Clickable>(entity);
+    auto& text = reg.emplace<components::Text>(entity);
     text.content = content;
     text.alignment = policies::Alignment::CENTER;
     text.fontSize = 0.0F;
-    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::AUTO;
+    reg.get<components::Size>(entity).sizePolicy = policies::Size::AUTO;
     return entity;
 }
 
 entt::entity CreateLabel(const std::string& content, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::LabelTag>(entity);
-    auto& text = Registry::Emplace<components::Text>(entity);
+    reg.emplace<components::LabelTag>(entity);
+    auto& text = reg.emplace<components::Text>(entity);
     text.content = content;
-    Registry::Get<components::Size>(entity).sizePolicy = policies::Size::AUTO;
+    reg.get<components::Size>(entity).sizePolicy = policies::Size::AUTO;
     return entity;
 }
 
 entt::entity CreateTextEdit(const std::string& placeholder, bool multiline, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
 
-    auto& textEdit = Registry::Emplace<components::TextEdit>(entity);
+    auto& textEdit = reg.emplace<components::TextEdit>(entity);
     textEdit.placeholder = placeholder;
     textEdit.inputMode =
         multiline ? (policies::TextFlag::DEFAULT | policies::TextFlag::MULTILINE) : policies::TextFlag::DEFAULT;
@@ -346,55 +370,58 @@ entt::entity CreateTextEdit(const std::string& placeholder, bool multiline, std:
     textEdit.selectionEnd = 0;
     textEdit.hasSelection = false;
 
-    auto& text = Registry::Emplace<components::Text>(entity);
+    auto& text = reg.emplace<components::Text>(entity);
     text.content = "";
-    Registry::Emplace<components::Clickable>(entity);
-    Registry::Get<components::Size>(entity).minSize = {100.0F, multiline ? 80.0F : 30.0F};
-    Registry::Emplace<components::TextEditTag>(entity);
+    reg.emplace<components::Clickable>(entity);
+    reg.get<components::Size>(entity).minSize = {100.0F, multiline ? 80.0F : 30.0F};
+    reg.emplace<components::TextEditTag>(entity);
 
     // Add Caret component for cursor rendering
-    Registry::Emplace<components::Caret>(entity);
+    reg.emplace<components::Caret>(entity);
 
     return entity;
 }
 
 entt::entity CreateImage(void* textureId, float defaultWidth, float defaultHeight, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::ImageTag>(entity);
-    auto& image = Registry::Emplace<components::Image>(entity);
+    reg.emplace<components::ImageTag>(entity);
+    auto& image = reg.emplace<components::Image>(entity);
     image.textureId = textureId;
-    auto& size = Registry::Get<components::Size>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.size = {defaultWidth, defaultHeight};
     return entity;
 }
 
 entt::entity CreateArrow(const Vec2& start, const Vec2& end, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::ArrowTag>(entity);
-    auto& arrow = Registry::Emplace<components::Arrow>(entity);
+    reg.emplace<components::ArrowTag>(entity);
+    auto& arrow = reg.emplace<components::Arrow>(entity);
     arrow.startPoint = start;
     arrow.endPoint = end;
-    auto& size = Registry::Get<components::Size>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.sizePolicy = policies::Size::AUTO;
     return entity;
 }
 
 entt::entity CreateSpacer(int stretchFactor, std::string_view alias)
 {
-    auto entity = Registry::Create();
-    auto& baseInfo = Registry::Emplace<components::BaseInfo>(entity);
+    auto& reg = CurrentRegistry();
+    auto entity = reg.create();
+    auto& baseInfo = reg.emplace<components::BaseInfo>(entity);
     baseInfo.alias = alias;
-    Registry::Emplace<components::SpacerTag>(entity);
-    Registry::Emplace<components::Hierarchy>(entity);
-    Registry::Emplace<components::Position>(entity);
+    reg.emplace<components::SpacerTag>(entity);
+    reg.emplace<components::Hierarchy>(entity);
+    reg.emplace<components::Position>(entity);
 
-    auto& size = Registry::Emplace<components::Size>(entity);
+    auto& size = reg.emplace<components::Size>(entity);
     size.size = {0.0F, 0.0F};
     size.sizePolicy = policies::Size::AUTO;
 
-    auto& spacer = Registry::Emplace<components::Spacer>(entity);
+    auto& spacer = reg.emplace<components::Spacer>(entity);
     spacer.stretchFactor = static_cast<uint8_t>(std::max(1, stretchFactor));
 
     utils::MarkLayoutAndVisualChanged(entity);
@@ -403,8 +430,9 @@ entt::entity CreateSpacer(int stretchFactor, std::string_view alias)
 
 entt::entity CreateSpacer(float width, float height, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    auto& size = Registry::Get<components::Size>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.size = {width, height};
     size.sizePolicy = policies::Size::FIXED;
     return entity;
@@ -412,12 +440,13 @@ entt::entity CreateSpacer(float width, float height, std::string_view alias)
 
 entt::entity CreateDialog(std::string_view title, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
     MarkAsRoot(entity);
-    Registry::Emplace<components::DialogTag>(entity);
-    auto& size = Registry::Get<components::Size>(entity);
+    reg.emplace<components::DialogTag>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.sizePolicy = policies::Size::FIXED;
-    auto& dialog = Registry::Emplace<components::Window>(entity);
+    auto& dialog = reg.emplace<components::Window>(entity);
     dialog.title = std::string(title);
     dialog.flags |= policies::WindowFlag::NO_TITLE_BAR;
     constexpr int DEFAULT_DIALOG_WIDTH = 400;
@@ -439,15 +468,15 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
     }
 
     platform::InitCustomWindow(sdlWindow);
-    Registry::Remove<components::VisibleTag>(entity);
-    auto& dialogLayout = Registry::Emplace<components::LayoutInfo>(entity);
+    reg.remove<components::VisibleTag>(entity);
+    auto& dialogLayout = reg.emplace<components::LayoutInfo>(entity);
     dialogLayout.direction = policies::LayoutDirection::VERTICAL;
     dialogLayout.alignment = policies::Alignment::CENTER;
-    Registry::Emplace<components::Padding>(entity);
+    reg.emplace<components::Padding>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
     Logger::info("[Factory] Triggering WindowGraphicsContextSetEvent for dialog entity {}",
                  static_cast<uint32_t>(entity));
-    Dispatcher::Trigger<events::WindowGraphicsContextSetEvent>({entity});
+    CurrentDispatcher().trigger<events::WindowGraphicsContextSetEvent>({entity});
 
     // 自定义 Dialog 默认无标题栏（NO_TITLE_BAR），如需自绘标题栏请显式调用 CreateTitleBar。
 
@@ -783,7 +812,7 @@ void OpenDropDownPopup(entt::entity ddEntity)
 
     const entt::entity windowRoot = FindWindowRoot(ddEntity);
     if (windowRoot == entt::null) return;
-
+    // 计算下拉菜单弹出位置和大小
     const Rect ddRect = ui::utils::GetEntityRect(ddEntity);
 
     constexpr float ITEM_H = 26.0F;
@@ -864,20 +893,21 @@ void OpenDropDownPopup(entt::entity ddEntity)
 
 entt::entity CreateDropDown(const std::vector<std::string>& options, int selectedIndex, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::DropDownTag>(entity);
-    auto& dropDown = Registry::Emplace<components::DropDown>(entity);
+    reg.emplace<components::DropDownTag>(entity);
+    auto& dropDown = reg.emplace<components::DropDown>(entity);
     dropDown.options = options;
     dropDown.selectedIndex = selectedIndex;
-    auto& text = Registry::Emplace<components::Text>(entity);
+    auto& text = reg.emplace<components::Text>(entity);
     text.content = dropDown.selectedText();
     text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
-    auto& padding = Registry::GetOrEmplace<components::Padding>(entity);
+    auto& padding = reg.get_or_emplace<components::Padding>(entity);
     padding.values = {0.0F, 20.0F, 0.0F, 6.0F};
-    auto& clickable = Registry::Emplace<components::Clickable>(entity);
+    auto& clickable = reg.emplace<components::Clickable>(entity);
     clickable.onClick = [entity]()
     {
-        auto* ddComp = Registry::TryGet<components::DropDown>(entity);
+        auto* ddComp = CurrentRegistry().try_get<components::DropDown>(entity);
         if (ddComp == nullptr) return;
         if (ddComp->open)
         {
@@ -888,7 +918,7 @@ entt::entity CreateDropDown(const std::vector<std::string>& options, int selecte
             OpenDropDownPopup(entity);
         }
     };
-    auto& size = Registry::Get<components::Size>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.sizePolicy = policies::Size::AUTO;
     size.size = {140.0F, 26.0F};
     return entity;
@@ -896,77 +926,82 @@ entt::entity CreateDropDown(const std::vector<std::string>& options, int selecte
 
 entt::entity CreateSlider(std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::SliderInfo>(entity);
-    auto& size = Registry::Get<components::Size>(entity);
+    reg.emplace<components::SliderInfo>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.size = {200.0F, 28.0F};
     size.sizePolicy = policies::Size::FIXED;
-    Registry::Emplace<components::LayoutInfo>(entity);
+    reg.emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
-    Registry::Emplace<components::SliderTag>(entity);
+    reg.emplace<components::SliderTag>(entity);
     return entity;
 }
 
 entt::entity CreateProgressBar(std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::ProgressBar>(entity);
-    auto& size = Registry::Get<components::Size>(entity);
+    reg.emplace<components::ProgressBar>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.size = {200.0F, 14.0F};
     size.sizePolicy = policies::Size::FIXED;
-    Registry::Emplace<components::LayoutInfo>(entity);
+    reg.emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
-    Registry::Emplace<components::ProgressBarTag>(entity);
+    reg.emplace<components::ProgressBarTag>(entity);
     return entity;
 }
 
 entt::entity CreateImageFromPath(std::string_view path, float defaultWidth, float defaultHeight, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::ImageTag>(entity);
-    Registry::Emplace<components::Image>(entity);
-    Registry::Emplace<components::ImageSource>(entity, std::string(path));
-    auto& size = Registry::Get<components::Size>(entity);
+    reg.emplace<components::ImageTag>(entity);
+    reg.emplace<components::Image>(entity);
+    reg.emplace<components::ImageSource>(entity, std::string(path));
+    auto& size = reg.get<components::Size>(entity);
     if (defaultWidth > 0.0F || defaultHeight > 0.0F)
     {
         size.size = {defaultWidth, defaultHeight};
         size.sizePolicy = policies::Size::FIXED;
     }
-    Registry::Emplace<components::LayoutInfo>(entity);
+    reg.emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
     return entity;
 }
 
 entt::entity CreateCanvas(float width, float height, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::CanvasTag>(entity);
-    Registry::Emplace<components::CanvasDrawList>(entity);
-    auto& size = Registry::Get<components::Size>(entity);
+    reg.emplace<components::CanvasTag>(entity);
+    reg.emplace<components::CanvasDrawList>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.size = {width, height};
     size.sizePolicy = policies::Size::FIXED;
-    Registry::Emplace<components::LayoutInfo>(entity);
+    reg.emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
     return entity;
 }
 
 entt::entity CreateTable(int columns, std::string_view alias)
 {
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
-    Registry::Emplace<components::TableTag>(entity);
-    auto& info = Registry::Emplace<components::TableInfo>(entity);
+    reg.emplace<components::TableTag>(entity);
+    auto& info = reg.emplace<components::TableInfo>(entity);
     info.columnCount = columns;
-    auto& size = Registry::Get<components::Size>(entity);
+    auto& size = reg.get<components::Size>(entity);
     size.sizePolicy = policies::Size::FILL_PARENT;
 
-    auto& scrollArea = Registry::Emplace<components::ScrollArea>(entity);
+    auto& scrollArea = reg.emplace<components::ScrollArea>(entity);
     scrollArea.scroll = policies::Scroll::VERTICAL;
     scrollArea.scrollBar = policies::ScrollBar::DRAGGABLE | policies::ScrollBar::AUTO_HIDE;
 
-    auto& padding = Registry::Emplace<components::Padding>(entity);
+    auto& padding = reg.emplace<components::Padding>(entity);
     padding.values.x() = components::TableInfo{}.headerHeight; // top = 32.0F
 
-    Registry::Emplace<components::LayoutInfo>(entity);
+    reg.emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
     return entity;
 }

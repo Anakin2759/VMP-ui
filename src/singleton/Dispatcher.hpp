@@ -55,9 +55,35 @@ public:
         return *instance;
     }
 
-    [[nodiscard]] entt::dispatcher& raw() noexcept { return m_dispatcher; }
+    // -------------------------------------------------------------------------
+    // Instance methods — dependency-injected systems use these via Dispatcher&
+    // -------------------------------------------------------------------------
 
-    [[nodiscard]] const entt::dispatcher& raw() const noexcept { return m_dispatcher; }
+    template <traits::Events Event>
+    void trigger(Event&& event = {})
+    {
+        m_dispatcher.trigger(std::forward<Event>(event));
+    }
+
+    template <traits::Events Event>
+    void enqueue(Event&& event = {})
+    {
+        m_dispatcher.enqueue(std::forward<Event>(event));
+    }
+
+    void update() { m_dispatcher.update(); }
+
+    template <traits::Events Event>
+    void update()
+    {
+        m_dispatcher.update<Event>();
+    }
+
+    template <traits::Events Event>
+    [[nodiscard]] auto sink()
+    {
+        return m_dispatcher.sink<Event>();
+    }
 
     // Legacy PascalCase entrypoints stay for compatibility with existing UI call sites.
     // NOLINTBEGIN(readability-identifier-naming)
@@ -115,6 +141,10 @@ private:
     }
 
     Dispatcher() = default;
+
+    [[nodiscard]] entt::dispatcher& raw() noexcept { return m_dispatcher; }
+
+    [[nodiscard]] const entt::dispatcher& raw() const noexcept { return m_dispatcher; }
 
     entt::dispatcher m_dispatcher;
 };

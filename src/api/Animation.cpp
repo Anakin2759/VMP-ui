@@ -1,5 +1,5 @@
 #include "Animation.hpp"
-#include "singleton/Registry.hpp"
+#include "core/RuntimeFacade.hpp"
 #include "entt/entity/fwd.hpp"
 #include "common/components/Animation.hpp"
 #include "common/Policies.hpp"
@@ -13,9 +13,15 @@ namespace ui::animation
 namespace
 {
 
+[[nodiscard]] entt::registry& CurrentRegistry()
+{
+    return RuntimeFacade::current().enttRegistry();
+}
+
 void ConfigureTiming(::entt::entity entity, const TweenOptions& options)
 {
-    auto& time = Registry::GetOrEmplace<components::AnimationTime>(entity);
+    auto& reg = CurrentRegistry();
+    auto& time = reg.get_or_emplace<components::AnimationTime>(entity);
     time.duration = options.duration;
     time.elapsed = 0.0F;
     time.easing = options.easing;
@@ -23,7 +29,7 @@ void ConfigureTiming(::entt::entity entity, const TweenOptions& options)
     time.state = policies::AnimationState::PLAYING;
     time.autoCleanup = options.autoCleanup;
 
-    Registry::EmplaceOrReplace<components::AnimatingTag>(entity);
+    reg.emplace_or_replace<components::AnimatingTag>(entity);
 }
 
 } // namespace
@@ -33,9 +39,10 @@ void StartPositionAnimation(::entt::entity entity,
                             const Vec2& endPos,
                             const TweenOptions& options)
 {
-    if (!Registry::Valid(entity)) return;
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
 
-    auto& posAnim = Registry::GetOrEmplace<components::AnimationPosition>(entity);
+    auto& posAnim = reg.get_or_emplace<components::AnimationPosition>(entity);
     posAnim.from = startPos;
     posAnim.to = endPos;
 
@@ -44,9 +51,10 @@ void StartPositionAnimation(::entt::entity entity,
 
 void StartAlphaAnimation(::entt::entity entity, float startAlpha, float endAlpha, const TweenOptions& options)
 {
-    if (!Registry::Valid(entity)) return;
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
 
-    auto& alphaAnim = Registry::GetOrEmplace<components::AnimationAlpha>(entity);
+    auto& alphaAnim = reg.get_or_emplace<components::AnimationAlpha>(entity);
     alphaAnim.from = startAlpha;
     alphaAnim.to = endAlpha;
 
@@ -58,9 +66,10 @@ void StartScaleAnimation(::entt::entity entity,
                          const Vec2& endScale,
                          const TweenOptions& options)
 {
-    if (!Registry::Valid(entity)) return;
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
 
-    auto& scaleAnim = Registry::GetOrEmplace<components::AnimationScale>(entity);
+    auto& scaleAnim = reg.get_or_emplace<components::AnimationScale>(entity);
     scaleAnim.from = startScale;
     scaleAnim.to = endScale;
 
@@ -72,9 +81,10 @@ void StartRenderOffsetAnimation(::entt::entity entity,
                                 const Vec2& endOffset,
                                 const TweenOptions& options)
 {
-    if (!Registry::Valid(entity)) return;
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
 
-    auto& offsetAnim = Registry::GetOrEmplace<components::AnimationRenderOffset>(entity);
+    auto& offsetAnim = reg.get_or_emplace<components::AnimationRenderOffset>(entity);
     offsetAnim.from = startOffset;
     offsetAnim.to = endOffset;
 
@@ -86,9 +96,10 @@ void StartColorAnimation(::entt::entity entity,
                          const Color& endColor,
                          const TweenOptions& options)
 {
-    if (!Registry::Valid(entity)) return;
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
 
-    auto& colorAnim = Registry::GetOrEmplace<components::AnimationColor>(entity);
+    auto& colorAnim = reg.get_or_emplace<components::AnimationColor>(entity);
     colorAnim.from = startColor;
     colorAnim.to = endColor;
 
@@ -102,14 +113,15 @@ void StartTransformAnimation(::entt::entity entity,
                              const Vec2& defaultScale,
                              const Vec2& defaultOffset)
 {
-    if (!Registry::Valid(entity)) return;
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
 
     bool changed = false;
 
     if (targetScale.has_value())
     {
-        auto& scaleAnim = Registry::GetOrEmplace<components::AnimationScale>(entity);
-        const auto* currentScale = Registry::TryGet<components::Scale>(entity);
+        auto& scaleAnim = reg.get_or_emplace<components::AnimationScale>(entity);
+        const auto* currentScale = reg.try_get<components::Scale>(entity);
         scaleAnim.from = currentScale != nullptr ? currentScale->value : defaultScale;
         scaleAnim.to = *targetScale;
         changed = true;
@@ -117,8 +129,8 @@ void StartTransformAnimation(::entt::entity entity,
 
     if (targetOffset.has_value())
     {
-        auto& offsetAnim = Registry::GetOrEmplace<components::AnimationRenderOffset>(entity);
-        const auto* currentOffset = Registry::TryGet<components::RenderOffset>(entity);
+        auto& offsetAnim = reg.get_or_emplace<components::AnimationRenderOffset>(entity);
+        const auto* currentOffset = reg.try_get<components::RenderOffset>(entity);
         offsetAnim.from = currentOffset != nullptr ? currentOffset->value : defaultOffset;
         offsetAnim.to = *targetOffset;
         changed = true;
@@ -132,14 +144,15 @@ void StartTransformAnimation(::entt::entity entity,
 
 void StopAnimation(::entt::entity entity)
 {
-    if (!Registry::Valid(entity)) return;
-    Registry::Remove<components::AnimatingTag>(entity);
-    Registry::Remove<components::AnimationTime>(entity);
-    Registry::Remove<components::AnimationPosition>(entity);
-    Registry::Remove<components::AnimationAlpha>(entity);
-    Registry::Remove<components::AnimationScale>(entity);
-    Registry::Remove<components::AnimationRenderOffset>(entity);
-    Registry::Remove<components::AnimationColor>(entity);
+    auto& reg = CurrentRegistry();
+    if (!reg.valid(entity)) return;
+    reg.remove<components::AnimatingTag>(entity);
+    reg.remove<components::AnimationTime>(entity);
+    reg.remove<components::AnimationPosition>(entity);
+    reg.remove<components::AnimationAlpha>(entity);
+    reg.remove<components::AnimationScale>(entity);
+    reg.remove<components::AnimationRenderOffset>(entity);
+    reg.remove<components::AnimationColor>(entity);
 }
 
 } // namespace ui::animation

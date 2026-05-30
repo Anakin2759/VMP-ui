@@ -61,7 +61,6 @@ Vec2 HitTestSystem::getAbsolutePosition(entt::entity entity)
 
 entt::entity HitTestSystem::findRootWindow(entt::entity entity) const
 {
-    const auto& reg = *m_reg;
     entt::entity current = entity;
     entt::entity rootWindow = entt::null;
 
@@ -152,54 +151,25 @@ void HitTestSystem::invalidateAllCaches()
     }
 }
 
-void HitTestSystem::markGlobalHitCacheDirty()
-{
-    if (m_cacheInvalidationMarker == entt::null || !m_reg->valid(m_cacheInvalidationMarker))
-    {
-        m_cacheInvalidationMarker = m_reg->create();
-    }
-    m_reg->emplace_or_replace<components::HitCacheInvalidateTag>(m_cacheInvalidationMarker);
-}
-
 void HitTestSystem::markHitCacheDirty(entt::entity entity)
 {
-    if (m_reg->valid(entity))
-    {
-        m_reg->emplace_or_replace<components::HitCacheInvalidateTag>(entity);
-        return;
-    }
-
-    markGlobalHitCacheDirty();
+    (void)entity;
+    m_hitCacheDirty = true;
 }
 
 void HitTestSystem::processPendingCacheInvalidationTags()
 {
-    auto taggedView = m_reg->view<components::HitCacheInvalidateTag>();
-    if (taggedView.begin() == taggedView.end())
+    if (!m_hitCacheDirty)
     {
         return;
     }
 
     invalidateAllCaches();
-
-    std::vector<entt::entity> taggedEntities;
-    for (auto entity : taggedView)
-    {
-        taggedEntities.push_back(entity);
-    }
-
-    for (auto entity : taggedEntities)
-    {
-        if (m_reg->valid(entity) && m_reg->any_of<components::HitCacheInvalidateTag>(entity))
-        {
-            m_reg->remove<components::HitCacheInvalidateTag>(entity);
-        }
-    }
+    m_hitCacheDirty = false;
 }
 
 bool HitTestSystem::isEntityInteractable(entt::entity entity) const
 {
-    const auto& reg = *m_reg;
     bool isInteractive = m_reg->any_of<components::Clickable, components::ScrollArea, components::SliderInfo>(entity);
 
     if (!isInteractive && m_reg->any_of<components::TextEditTag>(entity))
@@ -220,7 +190,6 @@ bool HitTestSystem::isEntityInteractable(entt::entity entity) const
 
 int HitTestSystem::calculateZOrder(entt::entity entity) const
 {
-    const auto& reg = *m_reg;
     if (const auto* zOrderComp = m_reg->try_get<components::ZOrderIndex>(entity))
     {
         return zOrderComp->value;

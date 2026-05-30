@@ -14,7 +14,7 @@
  */
 #pragma once
 
-#include <entt/entt.hpp>
+#include "Entity.hpp"
 #include "common/Policies.hpp"
 #include "common/Types.hpp"
 #include "common/components/Interaction.hpp"
@@ -22,44 +22,44 @@
 
 namespace ui::controls
 {
-void SetSliderRange(::entt::entity entity, float minValue, float maxValue);
-void SetSliderValue(::entt::entity entity, float value);
-void SetSliderStep(::entt::entity entity, float step);
-void SetSliderOrientation(::entt::entity entity, policies::Orientation orientation);
-void SetSliderOnValueChanged(::entt::entity entity, components::on_event<float> callback);
-void SetSliderTrackColor(::entt::entity entity, const Color& color);
-void SetSliderFillColor(::entt::entity entity, const Color& color);
-void SetSliderThumbColor(::entt::entity entity, const Color& color);
-void SetSliderThumbSize(::entt::entity entity, float size);
-void SetSliderTrackThickness(::entt::entity entity, float thickness);
+void SetSliderRange(ui::entity entity, float minValue, float maxValue);
+void SetSliderValue(ui::entity entity, float value);
+void SetSliderStep(ui::entity entity, float step);
+void SetSliderOrientation(ui::entity entity, policies::Orientation orientation);
+void SetSliderOnValueChanged(ui::entity entity, components::on_event<float> callback);
+void SetSliderTrackColor(ui::entity entity, const Color& color);
+void SetSliderFillColor(ui::entity entity, const Color& color);
+void SetSliderThumbColor(ui::entity entity, const Color& color);
+void SetSliderThumbSize(ui::entity entity, float size);
+void SetSliderTrackThickness(ui::entity entity, float thickness);
 
-void SetProgressValue(::entt::entity entity, float progress);
-void SetProgressFillColor(::entt::entity entity, const Color& color);
-void SetProgressBackgroundColor(::entt::entity entity, const Color& color);
-void SetProgressLabelVisibility(::entt::entity entity, policies::LabelVisibility visibility);
-void SetProgressAnimated(::entt::entity entity, policies::AnimationState animated);
+void SetProgressValue(ui::entity entity, float progress);
+void SetProgressFillColor(ui::entity entity, const Color& color);
+void SetProgressBackgroundColor(ui::entity entity, const Color& color);
+void SetProgressLabelVisibility(ui::entity entity, policies::LabelVisibility visibility);
+void SetProgressAnimated(ui::entity entity, policies::AnimationState animated);
 
-void SetScrollMode(::entt::entity entity, policies::Scroll mode);
-void SetScrollBarPolicy(::entt::entity entity, policies::ScrollBar policy);
-void SetScrollAnchor(::entt::entity entity, policies::ScrollAnchor anchor);
-void SetScrollSpeed(::entt::entity entity, float speed);
+void SetScrollMode(ui::entity entity, policies::Scroll mode);
+void SetScrollBarPolicy(ui::entity entity, policies::ScrollBar policy);
+void SetScrollAnchor(ui::entity entity, policies::ScrollAnchor anchor);
+void SetScrollSpeed(ui::entity entity, float speed);
 
 // CheckBox
-void SetCheckBoxChecked(::entt::entity entity, bool checked);
-void SetCheckBoxOnChanged(::entt::entity entity, components::on_event<bool> callback);
+void SetCheckBoxChecked(ui::entity entity, bool checked);
+void SetCheckBoxOnChanged(ui::entity entity, components::on_event<bool> callback);
 
 // DropDown
-void SetDropDownOptions(::entt::entity entity, std::vector<std::string> options);
-void SetDropDownSelected(::entt::entity entity, int index);
-void SetDropDownOnChanged(::entt::entity entity, components::on_event<int> callback);
+void SetDropDownOptions(ui::entity entity, std::vector<std::string> options);
+void SetDropDownSelected(ui::entity entity, int index);
+void SetDropDownOnChanged(ui::entity entity, components::on_event<int> callback);
 
 // Drag / Drop
-void SetDraggable(::entt::entity entity, bool enabled);
-void SetDragLockAxis(::entt::entity entity, bool lockX, bool lockY);
-void SetOnDragStart(::entt::entity entity, components::on_event<> callback);
-void SetOnDragEnd(::entt::entity entity, components::on_event<> callback);
-void SetOnDragMove(::entt::entity entity, components::on_event<Vec2> callback);
-void SetDroppable(::entt::entity entity, bool enabled);
+void SetDraggable(ui::entity entity, bool enabled);
+void SetDragLockAxis(ui::entity entity, bool lockX, bool lockY);
+void SetOnDragStart(ui::entity entity, components::on_event<> callback);
+void SetOnDragEnd(ui::entity entity, components::on_event<> callback);
+void SetOnDragMove(ui::entity entity, components::on_event<Vec2> callback);
+void SetDroppable(ui::entity entity, bool enabled);
 } // namespace ui::controls
 
 namespace ui::actions

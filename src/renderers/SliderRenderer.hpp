@@ -25,9 +25,9 @@ namespace ui::renderers
 class SliderRenderer : public core::IRenderer
 {
 public:
-    SliderRenderer() = default;
+    explicit SliderRenderer(Registry& reg) : m_reg(&reg) {}
 
-    bool canHandle(entt::entity entity) const override { return Registry::AnyOf<components::SliderInfo>(entity); }
+    bool canHandle(entt::entity entity) const override { return m_reg->any_of<components::SliderInfo>(entity); }
 
     void collect(entt::entity entity, core::RenderContext& context) override
     {
@@ -36,7 +36,7 @@ public:
             return;
         }
 
-        const auto* sliderPtr = Registry::TryGet<components::SliderInfo>(entity);
+        const auto* sliderPtr = m_reg->try_get<components::SliderInfo>(entity);
         if (sliderPtr == nullptr)
         {
             return;
@@ -116,6 +116,9 @@ public:
     }
 
     int getPriority() const override { return 10; }
+
+private:
+    Registry* m_reg = nullptr;
 };
 
 } // namespace ui::renderers

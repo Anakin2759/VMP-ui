@@ -30,7 +30,7 @@
 
 #include <cstdint>
 #include <memory>
-#include <entt/entt.hpp>
+#include "Entity.hpp"
 #include "common/Types.hpp"
 #include "Chains.hpp"
 
@@ -108,7 +108,7 @@ namespace ui::chains
 inline auto OnKeyPress(ui::shortcut::KeyCode key, ui::shortcut::Callback callback)
 {
     auto sharedCb = std::make_shared<ui::shortcut::Callback>(std::move(callback));
-    return Chain{[key, sharedCb](entt::entity /*entity*/) mutable
+    return Chain{[key, sharedCb](ui::entity /*entity*/) mutable
                  { ui::shortcut::Register(key, [sharedCb] { (*sharedCb)(); }); }};
 }
 
@@ -120,7 +120,7 @@ inline auto OnKeyPress(ui::shortcut::KeyCode key, ui::shortcut::Callback callbac
 inline auto OnKeyPress(ui::shortcut::KeyCode key, ui::shortcut::Mod mod, ui::shortcut::Callback callback)
 {
     auto sharedCb = std::make_shared<ui::shortcut::Callback>(std::move(callback));
-    return Chain{[key, mod, sharedCb](entt::entity /*entity*/) mutable
+    return Chain{[key, mod, sharedCb](ui::entity /*entity*/) mutable
                  { ui::shortcut::Register(key, mod, [sharedCb] { (*sharedCb)(); }); }};
 }
 

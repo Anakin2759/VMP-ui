@@ -804,7 +804,7 @@ struct LayoutTraversalFrame
 
 } // namespace
 
-LayoutSystem::LayoutSystem(entt::registry& reg, entt::dispatcher& disp)
+LayoutSystem::LayoutSystem(Registry& reg, Dispatcher& disp)
     : m_yogaConfig(YGConfigNew()), m_entityToNode(std::make_unique<std::unordered_map<entt::entity, YGNodeRef>>()),
       m_reg(&reg), m_disp(&disp)
 {

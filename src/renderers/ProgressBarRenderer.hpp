@@ -15,9 +15,9 @@ namespace ui::renderers
 class ProgressBarRenderer : public core::IRenderer
 {
 public:
-    ProgressBarRenderer() = default;
+    explicit ProgressBarRenderer(Registry& reg) : m_reg(&reg) {}
 
-    bool canHandle(entt::entity entity) const override { return Registry::AnyOf<components::ProgressBar>(entity); }
+    bool canHandle(entt::entity entity) const override { return m_reg->any_of<components::ProgressBar>(entity); }
 
     void collect(entt::entity entity, core::RenderContext& context) override
     {
@@ -26,7 +26,7 @@ public:
             return;
         }
 
-        const auto* progressBar = Registry::TryGet<components::ProgressBar>(entity);
+        const auto* progressBar = m_reg->try_get<components::ProgressBar>(entity);
         if (progressBar == nullptr) return;
 
         // background
@@ -66,6 +66,9 @@ public:
     }
 
     int getPriority() const override { return 5; }
+
+private:
+    Registry* m_reg = nullptr;
 };
 
 } // namespace ui::renderers

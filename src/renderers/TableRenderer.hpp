@@ -37,11 +37,11 @@ namespace ui::renderers
 class TableRenderer : public core::IRenderer
 {
 public:
-    TableRenderer() = default;
+    explicit TableRenderer(Registry& reg) : m_reg(&reg) {}
 
     [[nodiscard]] bool canHandle(entt::entity entity) const override
     {
-        return Registry::AnyOf<components::TableTag>(entity);
+        return m_reg->any_of<components::TableTag>(entity);
     }
 
     void collect(entt::entity entity, core::RenderContext& context) override;
@@ -75,7 +75,7 @@ private:
     static TableRenderState makeRenderState(const components::TableInfo& info, const core::RenderContext& context);
     static std::vector<float> computeColWidths(const components::TableInfo& info, float totalWidth);
     static const Color& rowBackgroundColor(const components::TableInfo& info, int row);
-    static void updateScrollArea(entt::entity entity, TableRenderState& state);
+    void updateScrollArea(entt::entity entity, TableRenderState& state) const;
     void renderHeaderBackground(const components::TableInfo& info,
                                 core::RenderContext& context,
                                 const TableRenderState& state) const;
@@ -100,6 +100,8 @@ private:
     void renderHeaderSeparators(const components::TableInfo& info,
                                 core::RenderContext& context,
                                 const TableRenderState& state) const;
+
+    Registry* m_reg = nullptr;
 };
 
 } // namespace ui::renderers

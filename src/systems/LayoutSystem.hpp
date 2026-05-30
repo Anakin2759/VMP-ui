@@ -31,6 +31,8 @@
 #include <yoga/Yoga.h>
 
 #include "interface/ISystem.hpp"
+#include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui::systems
 {
@@ -43,7 +45,7 @@ namespace ui::systems
 class LayoutSystem : public ui::interface::EnableRegister<LayoutSystem>
 {
 public:
-    explicit LayoutSystem(entt::registry& reg, entt::dispatcher& disp);
+    explicit LayoutSystem(Registry& reg, Dispatcher& disp);
     ~LayoutSystem();
 
     LayoutSystem(const LayoutSystem&) = delete;
@@ -71,8 +73,8 @@ private:
 
     YGConfigRef m_yogaConfig = nullptr;
     std::unique_ptr<std::unordered_map<entt::entity, YGNodeRef>> m_entityToNode;
-    entt::registry* m_reg = nullptr;
-    entt::dispatcher* m_disp = nullptr;
+    Registry* m_reg = nullptr;
+    Dispatcher* m_disp = nullptr;
 };
 
 } // namespace ui::systems

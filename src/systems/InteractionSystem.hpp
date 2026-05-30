@@ -70,7 +70,7 @@ class InteractionSystem : public ui::interface::EnableRegister<InteractionSystem
 {
 public:
     InteractionSystem() = default;
-    explicit InteractionSystem(entt::registry& /*reg*/, entt::dispatcher& /*disp*/) {}
+    explicit InteractionSystem(Registry& reg, Dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
 
     void registerHandlersImpl() {}
 
@@ -109,7 +109,7 @@ private:
         switch (event.type)
         {
             case SDL_EVENT_QUIT:
-                Dispatcher::Enqueue<ui::events::QuitRequested>();
+                m_disp->enqueue<ui::events::QuitRequested>();
                 break;
 
             case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
@@ -152,9 +152,9 @@ private:
     void enqueueCloseWindowRequest(uint32_t windowId)
     {
         const auto targetWindow = RuntimeFacade::current().windowLookup().findById(windowId);
-        if (!Registry::Valid(targetWindow)) return;
+        if (!m_reg->valid(targetWindow)) return;
 
-        Dispatcher::Enqueue<ui::events::CloseWindow>(ui::events::CloseWindow{targetWindow});
+        m_disp->enqueue<ui::events::CloseWindow>(ui::events::CloseWindow{targetWindow});
     }
 
     void dispatchRawTextInput(const char* text)
@@ -162,7 +162,7 @@ private:
         std::string input = text != nullptr ? std::string(text) : std::string();
         if (input.empty()) return;
 
-        Dispatcher::Trigger<ui::events::RawTextInput>(ui::events::RawTextInput{std::move(input)});
+        m_disp->trigger<ui::events::RawTextInput>(ui::events::RawTextInput{std::move(input)});
     }
 
     void enqueueRawPointerMove(const SDL_MouseMotionEvent& motionEvent)
@@ -171,7 +171,7 @@ private:
         const auto pointerY = motionEvent.y;
         const auto deltaX = motionEvent.xrel;
         const auto deltaY = motionEvent.yrel;
-        Dispatcher::Enqueue<ui::events::RawPointerMove>(
+        m_disp->enqueue<ui::events::RawPointerMove>(
             ui::events::RawPointerMove{Vec2(pointerX, pointerY), Vec2(deltaX, deltaY), motionEvent.windowID});
     }
 
@@ -179,7 +179,7 @@ private:
     {
         const auto pointerX = buttonEvent.x;
         const auto pointerY = buttonEvent.y;
-        Dispatcher::Enqueue<ui::events::RawPointerButton>(
+        m_disp->enqueue<ui::events::RawPointerButton>(
             ui::events::RawPointerButton{Vec2(pointerX, pointerY), buttonEvent.windowID, pressed, buttonEvent.button});
     }
 
@@ -189,15 +189,18 @@ private:
         float pointerY = 0.0F;
         SDL_GetMouseState(&pointerX, &pointerY);
 
-        Dispatcher::Enqueue<ui::events::RawPointerWheel>(ui::events::RawPointerWheel{
+        m_disp->enqueue<ui::events::RawPointerWheel>(ui::events::RawPointerWheel{
             Vec2(pointerX, pointerY), Vec2(wheelEvent.x, wheelEvent.y), wheelEvent.windowID});
     }
 
     void dispatchRawKeyInput(const SDL_KeyboardEvent& keyEvent, bool pressed)
     {
-        Dispatcher::Trigger<ui::events::RawKeyInput>(ui::events::RawKeyInput{
+        m_disp->trigger<ui::events::RawKeyInput>(ui::events::RawKeyInput{
             static_cast<int32_t>(keyEvent.key), pressed, keyEvent.repeat, static_cast<uint16_t>(keyEvent.mod)});
     }
+
+    Registry* m_reg = nullptr;
+    Dispatcher* m_disp = nullptr;
 };
 
 } // namespace ui::systems

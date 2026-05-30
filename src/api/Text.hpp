@@ -19,7 +19,7 @@
  */
 #pragma once
 
-#include <entt/entt.hpp>
+#include "Entity.hpp"
 #include <string>
 #include "common/Policies.hpp"
 #include "common/components/Interaction.hpp"
@@ -32,97 +32,97 @@ namespace ui::text
  * @param entity 实体ID
  * @param content 文本内容
  */
-void SetText(::entt::entity entity, const std::string& content);
+void SetText(ui::entity entity, const std::string& content);
 /**
  * @brief 设置按钮是否可用
  * @param entity 实体ID
  * @param enabled 是否可用
  */
-void SetButtonEnabled(::entt::entity entity, bool enabled);
+void SetButtonEnabled(ui::entity entity, bool enabled);
 /**
  * @brief 设置文本内容
  * @param entity 实体ID
  * @param content 文本内容
  */
-void SetTextContent(::entt::entity entity, const std::string& content);
+void SetTextContent(ui::entity entity, const std::string& content);
 /**
  * @brief 设置文本换行模式
  * @param entity 实体ID
  * @param mode 换行模式
  */
-void SetTextWordWrap(::entt::entity entity, policies::TextWrap mode);
+void SetTextWordWrap(ui::entity entity, policies::TextWrap mode);
 /**
  * @brief 设置文本对齐方式
  * @param entity 实体ID
  * @param alignment 对齐方式
  */
-void SetTextAlignment(::entt::entity entity, policies::Alignment alignment);
+void SetTextAlignment(ui::entity entity, policies::Alignment alignment);
 /**
  * @brief 设置文本颜色
  * @param entity 实体ID
  * @param color 颜色值
  */
-void SetTextColor(::entt::entity entity, const Color& color);
+void SetTextColor(ui::entity entity, const Color& color);
 /**
  * @brief 获取可编辑文本内容
  * @param entity 实体ID
  * @return 文本内容
  */
-std::string GetTextEditContent(::entt::entity entity);
+std::string GetTextEditContent(ui::entity entity);
 /**
  * @brief 设置可编辑文本内容
  * @param entity 实体ID
  * @param content 文本内容
  */
-void SetTextEditContent(::entt::entity entity, const std::string& content);
+void SetTextEditContent(ui::entity entity, const std::string& content);
 /**
  * @brief 设置密码模式
  * @param entity 实体ID
  * @param enabled 是否启用密码模式
  */
-void SetPasswordMode(::entt::entity entity, policies::TextFlag enabled);
+void SetPasswordMode(ui::entity entity, policies::TextFlag enabled);
 /**
  * @brief 设置点击回调函数
  * @param entity 实体ID
  * @param callback 回调函数
  */
-void SetClickCallback(::entt::entity entity, components::on_event<> callback);
+void SetClickCallback(ui::entity entity, components::on_event<> callback);
 /**
  * @brief 设置文本提交回调（单行模式按 Enter 触发）
  * @param entity 实体ID
  * @param callback 回调函数
  */
-void SetOnSubmit(::entt::entity entity, components::on_event<> callback);
+void SetOnSubmit(ui::entity entity, components::on_event<> callback);
 /**
  * @brief 设置文本改变回调
  * @param entity 实体ID
  * @param callback 回调函数（参数为新文本内容）
  */
-void SetOnTextChanged(::entt::entity entity, components::on_event<const std::string&> callback);
+void SetOnTextChanged(ui::entity entity, components::on_event<const std::string&> callback);
 /**
  * @brief 设置行高倍数
  * @param entity 实体ID
  * @param height 行高倍数 (例如 1.2)
  */
-void SetLineHeight(::entt::entity entity, float height);
+void SetLineHeight(ui::entity entity, float height);
 /**
  * @brief 设置字符间距
  * @param entity 实体ID
  * @param spacing 字符间距
  */
-void SetCharacterSpacing(::entt::entity entity, float spacing);
+void SetCharacterSpacing(ui::entity entity, float spacing);
 /**
  * @brief 设置文本换行宽度 (用于多列或限制宽度)
  * @param entity 实体ID
  * @param width 宽度
  */
-void SetTextWrapWidth(::entt::entity entity, float width);
+void SetTextWrapWidth(ui::entity entity, float width);
 /**
  * @brief 设置字体大小
  * @param entity 实体ID
  * @param size 字体大小
  */
-void SetFontSize(::entt::entity entity, float size);
+void SetFontSize(ui::entity entity, float size);
 
 } // namespace ui::text
 

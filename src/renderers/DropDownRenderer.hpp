@@ -28,18 +28,18 @@ namespace ui::renderers
 class DropDownRenderer : public core::IRenderer
 {
 public:
-    DropDownRenderer() = default;
+    explicit DropDownRenderer(Registry& reg) : m_reg(&reg) {}
 
     [[nodiscard]] bool canHandle(entt::entity entity) const override
     {
-        return Registry::AnyOf<components::DropDownTag>(entity);
+        return m_reg->any_of<components::DropDownTag>(entity);
     }
 
     void collect(entt::entity entity, core::RenderContext& context) override
     {
         if (context.batchManager == nullptr || context.whiteTexture == nullptr) return;
 
-        const auto* dropDown = Registry::TryGet<components::DropDown>(entity);
+        const auto* dropDown = m_reg->try_get<components::DropDown>(entity);
         if (dropDown == nullptr) return;
 
         constexpr float ARROW_W = 16.0F;
@@ -124,6 +124,9 @@ public:
     }
 
     int getPriority() const override { return 8; }
+
+private:
+    Registry* m_reg = nullptr;
 };
 
 } // namespace ui::renderers

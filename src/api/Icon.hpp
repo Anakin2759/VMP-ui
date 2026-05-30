@@ -17,7 +17,7 @@
  * ************************************************************************
  */
 #pragma once
-#include <entt/entt.hpp>
+#include "Entity.hpp"
 #include <string>
 #include "common/Policies.hpp"
 #include "Chains.hpp"
@@ -31,7 +31,7 @@ namespace ui::icon
  * @param iconSize 图标大小
  * @param spacing 图标与文本间距
  */
-void SetIcon(entt::entity entity,
+void SetIcon(ui::entity entity,
              const std::string& textureId,
              policies::IconFlag iconflag = policies::IconFlag::DEFAULT,
              float iconSize = 16.0F,
@@ -45,22 +45,22 @@ void SetIcon(entt::entity entity,
  * @param iconSize 图标大小
  * @param spacing 图标与文本间距
  */
-void SetIcon(entt::entity entity,
+void SetIcon(ui::entity entity,
              const std::string& fontName,
              uint32_t codepoint,
              policies::IconFlag iconflag = policies::IconFlag::DEFAULT,
              float iconSize = 16.0F,
              float spacing = 4.0F);
 
-void RemoveIcon(entt::entity entity);
+void RemoveIcon(ui::entity entity);
 } // namespace ui::icon
 
 namespace ui::actions::icon
 {
 inline constexpr EntityAction<static_cast<void (*)(
-    entt::entity, const std::string&, uint32_t, policies::IconFlag, float, float)>(&ui::icon::SetIcon)>
+    ui::entity, const std::string&, uint32_t, policies::IconFlag, float, float)>(&ui::icon::SetIcon)>
     SET_FONT_ICON_ACTION{};
-inline constexpr EntityAction<static_cast<void (*)(entt::entity, const std::string&, policies::IconFlag, float, float)>(
+inline constexpr EntityAction<static_cast<void (*)(ui::entity, const std::string&, policies::IconFlag, float, float)>(
     &ui::icon::SetIcon)>
     SET_TEXTURE_ICON_ACTION{};
 inline constexpr EntityAction<&ui::icon::RemoveIcon> REMOVE_ICON_ACTION{};

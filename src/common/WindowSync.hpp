@@ -1,3 +1,17 @@
+/**
+ * ************************************************************************
+ *
+ * @file WindowSync.hpp
+ * @author AnakinLiu (azrael2759@qq.com)
+ * @date 2026-05-30
+ * @version 0.1
+ * @brief 处理窗口相关组件与 SDL_Window 之间的同步逻辑
+ *
+ * ************************************************************************
+ * @copyright Copyright (c) 2026 AnakinLiu
+ * For study and research only, no reprinting.
+ * ************************************************************************
+ */
 #pragma once
 
 #include <SDL3/SDL.h>

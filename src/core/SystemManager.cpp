@@ -27,7 +27,7 @@
 #include "systems/ThemeSystem.hpp"
 namespace ui
 {
-SystemManager::SystemManager(entt::registry& reg, entt::dispatcher& disp) : m_reg(reg), m_disp(disp)
+SystemManager::SystemManager(Registry& reg, Dispatcher& disp) : m_reg(reg), m_disp(disp)
 {
     Logger::info("[SystemManager] 正在注册 PlatformWindowSystem...");
     m_systems.emplace_back(systems::PlatformWindowSystem{reg, disp});
@@ -121,7 +121,7 @@ void SystemManager::removeSystem(uint8_t index)
 
 void SystemManager::clear()
 {
-    Registry::Clear();
+    m_reg.clear();
 }
 
 } // namespace ui

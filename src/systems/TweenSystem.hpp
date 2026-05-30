@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ************************************************************************
  *
  * @file TweenSystem.h
@@ -45,35 +45,21 @@ class TweenSystem : public ui::interface::EnableRegister<TweenSystem>
 {
 public:
     TweenSystem() = default;
-    explicit TweenSystem(entt::registry& reg, entt::dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
+    explicit TweenSystem(Registry& reg, Dispatcher& disp) : m_reg(&reg), m_disp(&disp) {}
 
-    void registerHandlersImpl()
-    {
-        auto& dispatcher = m_disp != nullptr ? *m_disp : RuntimeFacade::current().enttDispatcher();
-        dispatcher.sink<events::UpdateEvent>().connect<&TweenSystem::update>(*this);
-    }
-    void unregisterHandlersImpl()
-    {
-        auto& dispatcher = m_disp != nullptr ? *m_disp : RuntimeFacade::current().enttDispatcher();
-        dispatcher.sink<events::UpdateEvent>().disconnect<&TweenSystem::update>(*this);
-    }
+    void registerHandlersImpl() { m_disp->sink<events::UpdateEvent>().connect<&TweenSystem::update>(*this); }
+    void unregisterHandlersImpl() { m_disp->sink<events::UpdateEvent>().disconnect<&TweenSystem::update>(*this); }
     ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::ANIMATION; }
 
 private:
-    entt::registry* m_reg = nullptr;
-    entt::dispatcher* m_disp = nullptr;
-    [[nodiscard]] entt::registry& effectiveReg() noexcept
-    {
-        return m_reg != nullptr ? *m_reg : RuntimeFacade::current().enttRegistry();
-    }
+    Registry* m_reg = nullptr;
+    Dispatcher* m_disp = nullptr;
 
     /**
      * @brief 更新所有活动的动画
      */
     void update()
     {
-        auto& reg = effectiveReg();
-
         float deltaTime = 16.0F; // 默认 16ms
         if (const auto* ctx = RuntimeFacade::current().tryFrame())
         {
@@ -83,7 +69,7 @@ private:
             }
         }
 
-        auto view = reg.view<components::AnimationTime, components::AnimatingTag>();
+        auto view = m_reg->view<components::AnimationTime, components::AnimatingTag>();
         std::vector<entt::entity> completedEntities;
 
         view.each(
@@ -179,10 +165,9 @@ private:
      */
     bool updatePosition(entt::entity entity, float val)
     {
-        auto& reg = effectiveReg();
-        if (auto* animPos = reg.try_get<components::AnimationPosition>(entity))
+        if (auto* animPos = m_reg->try_get<components::AnimationPosition>(entity))
         {
-            if (auto* pos = reg.try_get<components::Position>(entity))
+            if (auto* pos = m_reg->try_get<components::Position>(entity))
             {
                 pos->value = animPos->from + ((animPos->to - animPos->from) * val);
                 ui::utils::MarkLayoutDirty(entity);
@@ -195,8 +180,7 @@ private:
 
     bool updateAlpha(entt::entity entity, float val)
     {
-        auto& reg = effectiveReg();
-        if (auto* animAlpha = reg.try_get<components::AnimationAlpha>(entity))
+        if (auto* animAlpha = m_reg->try_get<components::AnimationAlpha>(entity))
         {
             float currentAlpha = animAlpha->from + ((animAlpha->to - animAlpha->from) * val);
 
@@ -207,20 +191,20 @@ private:
             };
 
             // 应用到常见组件
-            applyAlpha(reg.try_get<components::Background>(entity));
-            applyAlpha(reg.try_get<components::Text>(entity));
-            applyAlpha(reg.try_get<components::Border>(entity));
-            applyAlpha(reg.try_get<components::Shadow>(entity));
-            applyAlpha(reg.try_get<components::Arrow>(entity));
+            applyAlpha(m_reg->try_get<components::Background>(entity));
+            applyAlpha(m_reg->try_get<components::Text>(entity));
+            applyAlpha(m_reg->try_get<components::Border>(entity));
+            applyAlpha(m_reg->try_get<components::Shadow>(entity));
+            applyAlpha(m_reg->try_get<components::Arrow>(entity));
 
             // Image 组件使用 tintColor
-            if (auto* img = reg.try_get<components::Image>(entity))
+            if (auto* img = m_reg->try_get<components::Image>(entity))
             {
                 img->tintColor.alpha = currentAlpha;
             }
 
             // Alpha 组件
-            if (auto* alpha = reg.try_get<components::Alpha>(entity))
+            if (auto* alpha = m_reg->try_get<components::Alpha>(entity))
             {
                 alpha->value = currentAlpha;
             }
@@ -235,10 +219,9 @@ private:
      */
     bool updateScale(entt::entity entity, float val)
     {
-        auto& reg = effectiveReg();
-        if (auto* animScale = reg.try_get<components::AnimationScale>(entity))
+        if (auto* animScale = m_reg->try_get<components::AnimationScale>(entity))
         {
-            auto& scale = reg.get_or_emplace<components::Scale>(entity);
+            auto& scale = m_reg->get_or_emplace<components::Scale>(entity);
             scale.value = animScale->from + ((animScale->to - animScale->from) * val);
             return true;
         }
@@ -248,10 +231,9 @@ private:
 
     bool updateRenderOffset(entt::entity entity, float val)
     {
-        auto& reg = effectiveReg();
-        if (auto* animOffset = reg.try_get<components::AnimationRenderOffset>(entity))
+        if (auto* animOffset = m_reg->try_get<components::AnimationRenderOffset>(entity))
         {
-            auto& offset = reg.get_or_emplace<components::RenderOffset>(entity);
+            auto& offset = m_reg->get_or_emplace<components::RenderOffset>(entity);
             offset.value = animOffset->from + ((animOffset->to - animOffset->from) * val);
             return true;
         }
@@ -261,8 +243,7 @@ private:
 
     bool updateColor(entt::entity entity, float val)
     {
-        auto& reg = effectiveReg();
-        if (auto* animColor = reg.try_get<components::AnimationColor>(entity))
+        if (auto* animColor = m_reg->try_get<components::AnimationColor>(entity))
         {
             ui::Color currentColor;
             currentColor.red = animColor->from.red + ((animColor->to.red - animColor->from.red) * val);
@@ -272,49 +253,49 @@ private:
 
             bool updated = false;
 
-            if (auto* background = reg.try_get<components::Background>(entity))
+            if (auto* background = m_reg->try_get<components::Background>(entity))
             {
                 background->color = currentColor;
                 updated = true;
             }
 
-            if (auto* text = reg.try_get<components::Text>(entity))
+            if (auto* text = m_reg->try_get<components::Text>(entity))
             {
                 text->color = currentColor;
                 updated = true;
             }
 
-            if (auto* textEdit = reg.try_get<components::TextEdit>(entity))
+            if (auto* textEdit = m_reg->try_get<components::TextEdit>(entity))
             {
                 textEdit->textColor = currentColor;
                 updated = true;
             }
 
-            if (auto* border = reg.try_get<components::Border>(entity))
+            if (auto* border = m_reg->try_get<components::Border>(entity))
             {
                 border->color = currentColor;
                 updated = true;
             }
 
-            if (auto* shadow = reg.try_get<components::Shadow>(entity))
+            if (auto* shadow = m_reg->try_get<components::Shadow>(entity))
             {
                 shadow->color = currentColor;
                 updated = true;
             }
 
-            if (auto* arrow = reg.try_get<components::Arrow>(entity))
+            if (auto* arrow = m_reg->try_get<components::Arrow>(entity))
             {
                 arrow->color = currentColor;
                 updated = true;
             }
 
-            if (auto* image = reg.try_get<components::Image>(entity))
+            if (auto* image = m_reg->try_get<components::Image>(entity))
             {
                 image->tintColor = currentColor;
                 updated = true;
             }
 
-            if (auto* icon = reg.try_get<components::Icon>(entity))
+            if (auto* icon = m_reg->try_get<components::Icon>(entity))
             {
                 icon->tintColor = currentColor;
                 updated = true;
@@ -328,25 +309,24 @@ private:
 
     void finishAnimation(entt::entity entity)
     {
-        auto& reg = effectiveReg();
-        if (!reg.valid(entity)) return;
+        if (!m_reg->valid(entity)) return;
 
-        auto* animTime = reg.try_get<components::AnimationTime>(entity);
+        auto* animTime = m_reg->try_get<components::AnimationTime>(entity);
         if (animTime == nullptr) return;
 
-        reg.remove<components::AnimatingTag>(entity);
+        m_reg->remove<components::AnimatingTag>(entity);
 
         if (!animTime->autoCleanup)
         {
             return;
         }
 
-        reg.remove<components::AnimationPosition>(entity);
-        reg.remove<components::AnimationAlpha>(entity);
-        reg.remove<components::AnimationScale>(entity);
-        reg.remove<components::AnimationRenderOffset>(entity);
-        reg.remove<components::AnimationColor>(entity);
-        reg.remove<components::AnimationTime>(entity);
+        m_reg->remove<components::AnimationPosition>(entity);
+        m_reg->remove<components::AnimationAlpha>(entity);
+        m_reg->remove<components::AnimationScale>(entity);
+        m_reg->remove<components::AnimationRenderOffset>(entity);
+        m_reg->remove<components::AnimationColor>(entity);
+        m_reg->remove<components::AnimationTime>(entity);
     }
 
     /**

@@ -47,7 +47,7 @@ void TableRenderer::collect(entt::entity entity, core::RenderContext& context)
         return;
     }
 
-    const auto* info = Registry::TryGet<components::TableInfo>(entity);
+    const auto* info = m_reg->try_get<components::TableInfo>(entity);
     if (info == nullptr || info->columnCount <= 0)
     {
         return;
@@ -114,9 +114,9 @@ std::vector<float> TableRenderer::computeColWidths(const components::TableInfo& 
     return ui::table::ComputeColumnWidths(info, totalWidth);
 }
 
-void TableRenderer::updateScrollArea(entt::entity entity, TableRenderState& state)
+void TableRenderer::updateScrollArea(entt::entity entity, TableRenderState& state) const
 {
-    auto* scrollArea = Registry::TryGet<components::ScrollArea>(entity);
+    auto* scrollArea = m_reg->try_get<components::ScrollArea>(entity);
     if (scrollArea == nullptr)
     {
         return;

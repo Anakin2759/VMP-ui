@@ -66,6 +66,7 @@ struct StateContext
     entt::entity focusedEntity{entt::null}; // 当前获得焦点的实体
     entt::entity activeEntity{entt::null};  // 当前处于活动状态的实体（鼠标按下）
     entt::entity hoveredEntity{entt::null}; // 当前悬停的实体
+    Vec2 activePressPosition{0.0F, 0.0F};   // 当前按压手势起点
     bool activeDragMoved{false};            // 当前按压实体在本次手势中是否已经发生拖拽
 
     // 拖拽状态
@@ -125,6 +126,7 @@ struct StateContext
         focusedEntity = entt::null;
         activeEntity = entt::null;
         hoveredEntity = entt::null;
+        activePressPosition = Vec2{0.0F, 0.0F};
         activeDragMoved = false;
 
         stopScrollbarDrag();

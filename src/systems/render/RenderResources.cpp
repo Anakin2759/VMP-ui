@@ -81,20 +81,20 @@ void RenderSystem::createWhiteTexture()
 
 void RenderSystem::initializeRenderers()
 {
-    m_impl->m_renderers.push_back(std::make_unique<renderers::ShapeRenderer>());
-    m_impl->m_renderers.push_back(std::make_unique<renderers::ProgressBarRenderer>());
-    m_impl->m_renderers.push_back(std::make_unique<renderers::SliderRenderer>());
-    m_impl->m_renderers.push_back(std::make_unique<renderers::TextRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::ShapeRenderer>(*m_reg));
+    m_impl->m_renderers.push_back(std::make_unique<renderers::ProgressBarRenderer>(*m_reg));
+    m_impl->m_renderers.push_back(std::make_unique<renderers::SliderRenderer>(*m_reg));
+    m_impl->m_renderers.push_back(std::make_unique<renderers::TextRenderer>(*m_reg));
     if (m_impl->m_iconManager)
     {
-        m_impl->m_renderers.push_back(std::make_unique<renderers::IconRenderer>(m_impl->m_iconManager.get()));
+        m_impl->m_renderers.push_back(std::make_unique<renderers::IconRenderer>(*m_reg, m_impl->m_iconManager.get()));
     }
-    m_impl->m_renderers.push_back(std::make_unique<renderers::ScrollBarRenderer>());
-    m_impl->m_renderers.push_back(std::make_unique<renderers::ImageRenderer>());
-    m_impl->m_renderers.push_back(std::make_unique<renderers::CanvasRenderer>());
-    m_impl->m_renderers.push_back(std::make_unique<renderers::TableRenderer>());
-    m_impl->m_renderers.push_back(std::make_unique<renderers::CheckBoxRenderer>());
-    m_impl->m_renderers.push_back(std::make_unique<renderers::DropDownRenderer>());
+    m_impl->m_renderers.push_back(std::make_unique<renderers::ScrollBarRenderer>(*m_reg));
+    m_impl->m_renderers.push_back(std::make_unique<renderers::ImageRenderer>(*m_reg));
+    m_impl->m_renderers.push_back(std::make_unique<renderers::CanvasRenderer>(*m_reg));
+    m_impl->m_renderers.push_back(std::make_unique<renderers::TableRenderer>(*m_reg));
+    m_impl->m_renderers.push_back(std::make_unique<renderers::CheckBoxRenderer>(*m_reg));
+    m_impl->m_renderers.push_back(std::make_unique<renderers::DropDownRenderer>(*m_reg));
 
     std::ranges::sort(
         m_impl->m_renderers,
