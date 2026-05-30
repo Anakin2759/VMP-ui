@@ -1,4 +1,5 @@
 #include "Text.hpp"
+#include "Scale.hpp"
 #include "core/RuntimeFacade.hpp"
 #include "common/Tags.hpp"
 #include "api/Utils.hpp"
@@ -150,7 +151,7 @@ void SetLineHeight(::entt::entity entity, float height)
     auto& reg = CurrentRegistry();
     if (!reg.valid(entity)) return;
     auto& text = reg.get_or_emplace<components::Text>(entity);
-    text.lineHeight = height;
+    text.lineHeight = scale::Metric(height);
     utils::MarkLayoutDirty(entity);
 }
 
@@ -159,7 +160,7 @@ void SetCharacterSpacing(::entt::entity entity, float spacing)
     auto& reg = CurrentRegistry();
     if (!reg.valid(entity)) return;
     auto& text = reg.get_or_emplace<components::Text>(entity);
-    text.letterSpacing = spacing;
+    text.letterSpacing = scale::Metric(spacing);
     utils::MarkLayoutDirty(entity);
 }
 
@@ -168,7 +169,7 @@ void SetTextWrapWidth(::entt::entity entity, float width)
     auto& reg = CurrentRegistry();
     if (!reg.valid(entity)) return;
     auto& text = reg.get_or_emplace<components::Text>(entity);
-    text.wrapWidth = width;
+    text.wrapWidth = scale::Metric(width);
     utils::MarkLayoutDirty(entity);
 }
 
@@ -177,7 +178,7 @@ void SetFontSize(::entt::entity entity, float size)
     auto& reg = CurrentRegistry();
     if (!reg.valid(entity)) return;
     auto& text = reg.get_or_emplace<components::Text>(entity);
-    text.fontSize = size;
+    text.fontSize = scale::Metric(size);
     utils::MarkLayoutDirty(entity);
 }
 

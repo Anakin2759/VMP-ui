@@ -10,6 +10,7 @@
 #include <ranges>
 #include <stack>
 #include "common/components/Window.hpp"
+#include "common/WindowSync.hpp"
 #include "singleton/Logger.hpp"
 #include "SDL3/SDL_gpu.h"
 #include "SDL3/SDL_video.h"
@@ -96,24 +97,28 @@ void RenderSystem::update()
             continue;
         }
 
-        int width = 0;
-        int height = 0;
-        SDL_GetWindowSizeInPixels(sdlWindow, &width, &height);
+        window_sync::SyncWindowDisplayMetrics(windowComp, sdlWindow);
+
+        int width = static_cast<int>(windowComp.pixelSize.x());
+        int height = static_cast<int>(windowComp.pixelSize.y());
         if (width <= 0 || height <= 0)
         {
             continue;
         }
 
-        int logicalWidth = 0;
-        int logicalHeight = 0;
-        SDL_GetWindowSize(sdlWindow, &logicalWidth, &logicalHeight);
+        int logicalWidth = static_cast<int>(windowComp.logicalSize.x());
+        int logicalHeight = static_cast<int>(windowComp.logicalSize.y());
         if (logicalWidth <= 0 || logicalHeight <= 0)
         {
             logicalWidth = width;
             logicalHeight = height;
         }
 
-        float const dpiScale = static_cast<float>(width) / static_cast<float>(logicalWidth);
+        float dpiScale = windowComp.displayScale;
+        if (dpiScale <= 0.0F)
+        {
+            dpiScale = static_cast<float>(width) / static_cast<float>(logicalWidth);
+        }
 
         if (!m_impl->m_useFallback && m_impl->m_pipelineCache->getPipeline() == nullptr)
         {

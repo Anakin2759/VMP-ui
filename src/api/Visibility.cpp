@@ -1,4 +1,5 @@
 #include "Visibility.hpp"
+#include "Scale.hpp"
 #include "core/RuntimeFacade.hpp"
 #include "common/Tags.hpp"
 #include "common/Policies.hpp"
@@ -108,7 +109,7 @@ void SetBorderRadius(::entt::entity entity, float radius)
     auto& reg = CurrentRegistry();
     if (!reg.valid(entity)) return;
     auto& background = reg.get_or_emplace<components::Background>(entity);
-    const auto radiusClamped = std::max(0.0F, radius);
+    const auto radiusClamped = std::max(0.0F, scale::Metric(radius));
     background.borderRadius = {radiusClamped, radiusClamped, radiusClamped, radiusClamped};
     background.enabled = policies::Feature::ENABLED;
     if (auto* border = reg.try_get<components::Border>(entity))
@@ -133,7 +134,7 @@ void SetBorderThickness(::entt::entity entity, float thickness)
     auto& reg = CurrentRegistry();
     if (!reg.valid(entity)) return;
     auto& border = reg.get_or_emplace<components::Border>(entity);
-    border.thickness = thickness;
+    border.thickness = scale::Metric(thickness);
     border.enabled = policies::Feature::ENABLED;
     ui::utils::MarkVisualChanged(entity);
 }

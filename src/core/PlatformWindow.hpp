@@ -50,6 +50,22 @@ void SetupCustomTitleBar(SDL_Window* sdlWindow, int borderWidth = 6);
 void EnableTransparency(SDL_Window* sdlWindow, int cornerRadius = 8);
 
 /**
+ * @brief 查询窗口当前的 framebuffer 缩放比例
+ *
+ * 返回窗口坐标到物理 backbuffer 像素的比例，用于 viewport/scissor/纹理清晰度。
+ *
+ * @param sdlWindow SDL窗口指针
+ * @return 显示缩放比例；无效窗口返回 1.0F
+ */
+[[nodiscard]] float GetWindowDisplayScale(SDL_Window* sdlWindow) noexcept;
+
+[[nodiscard]] float GetWindowFramebufferScale(SDL_Window* sdlWindow) noexcept;
+
+[[nodiscard]] float GetWindowUiScale(SDL_Window* sdlWindow) noexcept;
+
+[[nodiscard]] float GetPrimaryDisplayUiScale() noexcept;
+
+/**
  * @brief 一次性完成自绘窗口所需的全部平台设置
  *
  * 等价于依次调用 SetupCustomTitleBar() + EnableTransparency()

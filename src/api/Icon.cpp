@@ -1,4 +1,5 @@
 #include "Icon.hpp"
+#include "Scale.hpp"
 #include <string>
 #include <cstdint>
 #include <unordered_set>
@@ -30,8 +31,8 @@ void SetIcon(
     icon.fontHandle = nullptr;
     icon.codepoint = 0;
 
-    icon.size = {iconSize, iconSize};
-    icon.spacing = spacing;
+    icon.size = {scale::Metric(iconSize), scale::Metric(iconSize)};
+    icon.spacing = scale::Metric(spacing);
 
     ui::utils::MarkLayoutAndVisualChanged(entity);
 }
@@ -58,8 +59,8 @@ void SetIcon(entt::entity entity,
 
     icon.codepoint = codepoint;
     icon.textureId = "";
-    icon.size = {iconSize, iconSize};
-    icon.spacing = spacing;
+    icon.size = {scale::Metric(iconSize), scale::Metric(iconSize)};
+    icon.spacing = scale::Metric(spacing);
 
     ui::utils::MarkLayoutAndVisualChanged(entity);
 }

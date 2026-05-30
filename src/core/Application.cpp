@@ -23,6 +23,7 @@
 #include "api/Factory.hpp"
 #include "common/AppConfig.hpp"
 #include "common/GlobalContext.hpp"
+#include "core/PlatformWindow.hpp"
 #include "singleton/Logger.hpp"
 #include "common/Events.hpp"
 #include "singleton/Dispatcher.hpp"
@@ -71,16 +72,27 @@ Application::Application(std::span<char*> arg) // NOLINT
     }
     auto& runtime = RuntimeFacade::current();
 
+    if (config::AppConfig::instance().platformScalingEnabled())
+    {
 #ifdef _WIN32
-    (void)SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
-    (void)SDL_SetHint("SDL_WINDOWS_DPI_SCALING", "0");
+        (void)SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
+        (void)SDL_SetHint("SDL_WINDOWS_DPI_SCALING", "1");
 #endif
+    }
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
     {
         throw std::runtime_error(std::string("SDL_Init failed: ") + SDL_GetError());
     }
 
+    if (config::AppConfig::instance().platformScalingEnabled()
+        && config::AppConfig::instance().forcedPlatformScale() <= 0.0F)
+    {
+        config::AppConfig::instance().setPlatformUiScale(platform::GetPrimaryDisplayUiScale());
+    }
+
+    Logger::info("平台 UI 缩放: {:.2f}, framebuffer 初始缩放由窗口实时测量",
+                 config::AppConfig::instance().platformUiScale());
     Logger::info("SDL 初始化成功");
     (void)runtime.ensureContext<globalcontext::FrameContext>();
     (void)runtime.ensureContext<globalcontext::StateContext>();

@@ -1,6 +1,7 @@
 
 
 #include "Factory.hpp"
+#include "Scale.hpp"
 #include "common/Tags.hpp"
 #include "common/Policies.hpp"
 #include "common/Types.hpp"
@@ -116,6 +117,16 @@ SDL_Window* CreateSdlWindowOrRollback(
     return sdlWindow;
 }
 
+SDL_WindowFlags DefaultWindowFlags()
+{
+    SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN;
+    if (ui::config::AppConfig::instance().platformScalingEnabled())
+    {
+        flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    }
+    return flags;
+}
+
 bool AssignWindowIdOrRollback(entt::entity entity,
                               components::Window& window,
                               SDL_Window* sdlWindow,
@@ -151,7 +162,7 @@ entt::entity CreateTitleBarContainer(std::string_view alias, float titleBarHeigh
     layout.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
 
     auto& titleBarSize = reg.get<components::Size>(titleBar);
-    titleBarSize.size = {0.0F, titleBarHeight};
+    titleBarSize.size = {0.0F, scale::Metric(titleBarHeight)};
     titleBarSize.sizePolicy = policies::Size::H_FILL | policies::Size::V_FIXED;
 
     auto& background = reg.emplace<components::Background>(titleBar);
@@ -247,18 +258,19 @@ entt::entity CreateWindowControlButton(
     auto& reg = CurrentRegistry();
     auto button = CreateButton("", buttonAlias);
     auto& buttonSizeComp = reg.get<components::Size>(button);
-    buttonSizeComp.size = {buttonSize, buttonSize};
+    buttonSizeComp.size = {scale::Metric(buttonSize), scale::Metric(buttonSize)};
     buttonSizeComp.sizePolicy = policies::Size::FIXED;
 
     auto& buttonBackground = reg.get_or_emplace<components::Background>(button);
     buttonBackground.color = {0.0F, 0.0F, 0.0F, 0.0F};
-    buttonBackground.borderRadius = {4.0F, 4.0F, 4.0F, 4.0F};
+    const float buttonRadius = scale::Metric(4.0F);
+    buttonBackground.borderRadius = {buttonRadius, buttonRadius, buttonRadius, buttonRadius};
     buttonBackground.enabled = policies::Feature::ENABLED;
 
     auto& iconComp = reg.emplace<components::Icon>(button);
     iconComp.codepoint = iconCodepoint;
-    iconComp.size = {iconSize, iconSize};
-    iconComp.spacing = iconSpacing;
+    iconComp.size = {scale::Metric(iconSize), scale::Metric(iconSize)};
+    iconComp.spacing = scale::Metric(iconSpacing);
     iconComp.tintColor = {0.85F, 0.85F, 0.85F, 1.0F};
 
     return button;
@@ -383,7 +395,7 @@ entt::entity CreateTextEdit(const std::string& placeholder, bool multiline, std:
     auto& text = reg.emplace<components::Text>(entity);
     text.content = "";
     reg.emplace<components::Clickable>(entity);
-    reg.get<components::Size>(entity).minSize = {100.0F, multiline ? 80.0F : 30.0F};
+    reg.get<components::Size>(entity).minSize = {scale::Metric(100.0F), scale::Metric(multiline ? 80.0F : 30.0F)};
     reg.emplace<components::TextEditTag>(entity);
 
     // Add Caret component for cursor rendering
@@ -400,7 +412,7 @@ entt::entity CreateImage(void* textureId, float defaultWidth, float defaultHeigh
     auto& image = reg.emplace<components::Image>(entity);
     image.textureId = textureId;
     auto& size = reg.get<components::Size>(entity);
-    size.size = {defaultWidth, defaultHeight};
+    size.size = {scale::Metric(defaultWidth), scale::Metric(defaultHeight)};
     return entity;
 }
 
@@ -410,8 +422,8 @@ entt::entity CreateArrow(const Vec2& start, const Vec2& end, std::string_view al
     auto entity = CreateBaseWidget(alias);
     reg.emplace<components::ArrowTag>(entity);
     auto& arrow = reg.emplace<components::Arrow>(entity);
-    arrow.startPoint = start;
-    arrow.endPoint = end;
+    arrow.startPoint = scale::Metric(start);
+    arrow.endPoint = scale::Metric(end);
     auto& size = reg.get<components::Size>(entity);
     size.sizePolicy = policies::Size::AUTO;
     return entity;
@@ -443,7 +455,7 @@ entt::entity CreateSpacer(float width, float height, std::string_view alias)
     auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
     auto& size = reg.get<components::Size>(entity);
-    size.size = {width, height};
+    size.size = {scale::Metric(width), scale::Metric(height)};
     size.sizePolicy = policies::Size::FIXED;
     return entity;
 }
@@ -464,13 +476,8 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
     dialog.flags |= policies::WindowFlag::NO_TITLE_BAR;
     constexpr int DEFAULT_DIALOG_WIDTH = 400;
     constexpr int DEFAULT_DIALOG_HEIGHT = 300;
-    SDL_Window* sdlWindow =
-        CreateSdlWindowOrRollback(entity,
-                                  dialog.title.c_str(),
-                                  DEFAULT_DIALOG_WIDTH,
-                                  DEFAULT_DIALOG_HEIGHT,
-                                  SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY,
-                                  "dialog");
+    SDL_Window* sdlWindow = CreateSdlWindowOrRollback(
+        entity, dialog.title.c_str(), DEFAULT_DIALOG_WIDTH, DEFAULT_DIALOG_HEIGHT, DefaultWindowFlags(), "dialog");
     if (sdlWindow == nullptr)
     {
         return entt::null;
@@ -531,13 +538,8 @@ entt::entity CreateWindow(std::string_view title, std::string_view alias)
     ui::utils::MarkLayoutAndVisualChanged(entity);
     constexpr int DEFAULT_WINDOW_WIDTH = 800;
     constexpr int DEFAULT_WINDOW_HEIGHT = 600;
-    SDL_Window* sdlWindow =
-        CreateSdlWindowOrRollback(entity,
-                                  window.title.c_str(),
-                                  DEFAULT_WINDOW_WIDTH,
-                                  DEFAULT_WINDOW_HEIGHT,
-                                  SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY,
-                                  "window");
+    SDL_Window* sdlWindow = CreateSdlWindowOrRollback(
+        entity, window.title.c_str(), DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, DefaultWindowFlags(), "window");
     if (sdlWindow == nullptr)
     {
         return entt::null;
@@ -582,7 +584,7 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
 
     auto titleLabel = CreateLabel(windowComp->title, std::string(alias) + "_title");
     auto& titleText = reg.get<components::Text>(titleLabel);
-    titleText.fontSize = 13.0F;
+    titleText.fontSize = scale::Metric(13.0F);
     titleText.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
 
     auto spacer = CreateSpacer(1, std::string(alias) + "_spacer");
@@ -640,10 +642,10 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
     utils::MarkLayoutAndVisualChanged(windowEntity);
 
     auto& padding = reg.emplace<components::Padding>(titleBar);
-    padding.values = {0.0F, BTN_SPACING, 0.0F, 8.0F};
+    padding.values = {0.0F, scale::Metric(BTN_SPACING), 0.0F, scale::Metric(8.0F)};
 
     auto& layoutInfo = reg.get<components::LayoutInfo>(titleBar);
-    layoutInfo.spacing = BTN_SPACING;
+    layoutInfo.spacing = scale::Metric(BTN_SPACING);
 
     return titleBar;
 }
@@ -723,10 +725,10 @@ entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_
     text.content = label;
     text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
     auto& padding = reg.get_or_emplace<components::Padding>(entity);
-    padding.values = {0.0F, 0.0F, 0.0F, 24.0F}; // Top, Right, Bottom, Left
+    padding.values = {0.0F, 0.0F, 0.0F, scale::Metric(24.0F)}; // Top, Right, Bottom, Left
     auto& size = reg.get<components::Size>(entity);
     size.sizePolicy = policies::Size::AUTO;
-    size.size = {120.0F, 22.0F};
+    size.size = {scale::Metric(120.0F), scale::Metric(22.0F)};
     auto& clickable = reg.emplace<components::Clickable>(entity);
     Registry* const regPtr = &reg;
     clickable.onClick = [regPtr, entity]()
@@ -843,7 +845,7 @@ void OpenDropDownPopup(entt::entity ddEntity)
 
     auto& popupSize = reg.get<components::Size>(popup);
     popupSize.sizePolicy = policies::Size::FIXED;
-    popupSize.size = {popupW, popupH};
+    popupSize.size = {scale::Metric(popupW), scale::Metric(popupH)};
 
     reg.emplace<components::DropDownPopupPanel>(popup).owner = ddEntity;
 
@@ -870,7 +872,7 @@ void OpenDropDownPopup(entt::entity ddEntity)
 
         auto& btnSize = reg.get<components::Size>(optBtn);
         btnSize.sizePolicy = policies::Size::FIXED;
-        btnSize.size = {popupW, ITEM_H};
+        btnSize.size = {scale::Metric(popupW), scale::Metric(ITEM_H)};
 
         auto& btnPad = reg.get_or_emplace<components::Padding>(optBtn);
         btnPad.values = {0.0F, 0.0F, 0.0F, ITEM_PAD};
@@ -919,7 +921,7 @@ entt::entity CreateDropDown(const std::vector<std::string>& options, int selecte
     text.content = dropDown.selectedText();
     text.alignment = policies::Alignment::LEFT | policies::Alignment::VCENTER;
     auto& padding = reg.get_or_emplace<components::Padding>(entity);
-    padding.values = {0.0F, 20.0F, 0.0F, 6.0F};
+    padding.values = {0.0F, scale::Metric(20.0F), 0.0F, scale::Metric(6.0F)};
     auto& clickable = reg.emplace<components::Clickable>(entity);
     clickable.onClick = [entity]()
     {
@@ -936,7 +938,7 @@ entt::entity CreateDropDown(const std::vector<std::string>& options, int selecte
     };
     auto& size = reg.get<components::Size>(entity);
     size.sizePolicy = policies::Size::AUTO;
-    size.size = {140.0F, 26.0F};
+    size.size = {scale::Metric(140.0F), scale::Metric(26.0F)};
     return entity;
 }
 
@@ -946,7 +948,7 @@ entt::entity CreateSlider(std::string_view alias)
     auto entity = CreateBaseWidget(alias);
     reg.emplace<components::SliderInfo>(entity);
     auto& size = reg.get<components::Size>(entity);
-    size.size = {200.0F, 28.0F};
+    size.size = {scale::Metric(200.0F), scale::Metric(28.0F)};
     size.sizePolicy = policies::Size::FIXED;
     reg.emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
@@ -960,7 +962,7 @@ entt::entity CreateProgressBar(std::string_view alias)
     auto entity = CreateBaseWidget(alias);
     reg.emplace<components::ProgressBar>(entity);
     auto& size = reg.get<components::Size>(entity);
-    size.size = {200.0F, 14.0F};
+    size.size = {scale::Metric(200.0F), scale::Metric(14.0F)};
     size.sizePolicy = policies::Size::FIXED;
     reg.emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
@@ -978,7 +980,7 @@ entt::entity CreateImageFromPath(std::string_view path, float defaultWidth, floa
     auto& size = reg.get<components::Size>(entity);
     if (defaultWidth > 0.0F || defaultHeight > 0.0F)
     {
-        size.size = {defaultWidth, defaultHeight};
+        size.size = {scale::Metric(defaultWidth), scale::Metric(defaultHeight)};
         size.sizePolicy = policies::Size::FIXED;
     }
     reg.emplace<components::LayoutInfo>(entity);
@@ -993,7 +995,7 @@ entt::entity CreateCanvas(float width, float height, std::string_view alias)
     reg.emplace<components::CanvasTag>(entity);
     reg.emplace<components::CanvasDrawList>(entity);
     auto& size = reg.get<components::Size>(entity);
-    size.size = {width, height};
+    size.size = {scale::Metric(width), scale::Metric(height)};
     size.sizePolicy = policies::Size::FIXED;
     reg.emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);
@@ -1007,6 +1009,8 @@ entt::entity CreateTable(int columns, std::string_view alias)
     reg.emplace<components::TableTag>(entity);
     auto& info = reg.emplace<components::TableInfo>(entity);
     info.columnCount = columns;
+    info.rowHeight = scale::Metric(info.rowHeight);
+    info.headerHeight = scale::Metric(info.headerHeight);
     auto& size = reg.get<components::Size>(entity);
     size.sizePolicy = policies::Size::FILL_PARENT;
 
@@ -1015,7 +1019,7 @@ entt::entity CreateTable(int columns, std::string_view alias)
     scrollArea.scrollBar = policies::ScrollBar::DRAGGABLE | policies::ScrollBar::AUTO_HIDE;
 
     auto& padding = reg.emplace<components::Padding>(entity);
-    padding.values.x() = components::TableInfo{}.headerHeight; // top = 32.0F
+    padding.values.x() = info.headerHeight;
 
     reg.emplace<components::LayoutInfo>(entity);
     utils::MarkLayoutAndVisualChanged(entity);

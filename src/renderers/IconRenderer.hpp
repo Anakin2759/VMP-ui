@@ -18,13 +18,15 @@
  */
 
 #pragma once
+#include <algorithm>
+#include <cmath>
+
 #include "interface/IRenderer.hpp"
 #include "singleton/Registry.hpp"
 #include "common/components/Data.hpp"
 #include "common/components/Layout.hpp"
 #include "common/CustomizationPoints.hpp"
 #include "managers/IconManager.hpp"
-#include "managers/FontManager.hpp"
 #include "core/RenderContext.hpp"
 #include "managers/BatchManager.hpp"
 namespace ui::renderers
@@ -49,6 +51,7 @@ public:
      */
     [[nodiscard]] bool canHandle(entt::entity entity) const override { return m_reg->any_of<components::Icon>(entity); }
 
+    // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size)
     void collect(entt::entity entity, core::RenderContext& context) override
     {
         if (context.batchManager == nullptr)
@@ -96,13 +99,15 @@ public:
                 fontName = static_cast<const char*>(iconComp->fontHandle);
             }
 
+            const float iconScale = context.dpiScale > 0.0F ? context.dpiScale : 1.0F;
+            const float physicalIconSize = std::max(1.0F, iconComp->size.y() * iconScale);
             if (const auto* textureInfo =
-                    m_iconManager->getTextureInfo(fontName, iconComp->codepoint, iconComp->size.y()))
+                    m_iconManager->getTextureInfo(fontName, iconComp->codepoint, physicalIconSize))
             {
                 iconTexture = textureInfo->texture.get();
                 uvMin = textureInfo->uvMin;
                 uvMax = textureInfo->uvMax;
-                actualIconSize = {textureInfo->width, textureInfo->height};
+                actualIconSize = {textureInfo->width / iconScale, textureInfo->height / iconScale};
             }
             else
             {

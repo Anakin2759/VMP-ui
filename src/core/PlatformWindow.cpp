@@ -22,6 +22,77 @@
 #include "SDL3/SDL_video.h"
 #include "SDL3/SDL_properties.h"
 
+#include <cmath>
+
+namespace
+{
+
+[[nodiscard]] bool IsValidScale(float scale) noexcept
+{
+    return std::isfinite(scale) && scale > 0.0F;
+}
+
+float GetSdlFramebufferScale(SDL_Window* sdlWindow) noexcept
+{
+    if (sdlWindow == nullptr)
+    {
+        return 1.0F;
+    }
+
+    int logicalWidth = 0;
+    int logicalHeight = 0;
+    int pixelWidth = 0;
+    int pixelHeight = 0;
+    SDL_GetWindowSize(sdlWindow, &logicalWidth, &logicalHeight);
+    SDL_GetWindowSizeInPixels(sdlWindow, &pixelWidth, &pixelHeight);
+
+    if (logicalWidth > 0 && logicalHeight > 0 && pixelWidth > 0 && pixelHeight > 0)
+    {
+        const float xScale = static_cast<float>(pixelWidth) / static_cast<float>(logicalWidth);
+        const float yScale = static_cast<float>(pixelHeight) / static_cast<float>(logicalHeight);
+        const float framebufferScale = (xScale + yScale) * 0.5F;
+        if (IsValidScale(framebufferScale))
+        {
+            return framebufferScale;
+        }
+    }
+
+    const float sdlScale = SDL_GetWindowDisplayScale(sdlWindow);
+    if (IsValidScale(sdlScale))
+    {
+        return sdlScale;
+    }
+
+    return 1.0F;
+}
+
+float GetSdlWindowUiScale(SDL_Window* sdlWindow) noexcept
+{
+    if (sdlWindow == nullptr)
+    {
+        return 1.0F;
+    }
+
+    const SDL_DisplayID display = SDL_GetDisplayForWindow(sdlWindow);
+    const float contentScale = display != 0 ? SDL_GetDisplayContentScale(display) : 0.0F;
+    if (IsValidScale(contentScale))
+    {
+        return contentScale;
+    }
+
+    const float windowDisplayScale = SDL_GetWindowDisplayScale(sdlWindow);
+    return IsValidScale(windowDisplayScale) ? windowDisplayScale : 1.0F;
+}
+
+float GetSdlPrimaryDisplayUiScale() noexcept
+{
+    const SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    const float contentScale = display != 0 ? SDL_GetDisplayContentScale(display) : 0.0F;
+    return IsValidScale(contentScale) ? contentScale : 1.0F;
+}
+
+} // anonymous namespace
+
 // ============================================================================
 // Windows 实现
 // ============================================================================
@@ -211,6 +282,40 @@ HWND GetHwndFromSDL(SDL_Window* sdlWindow)
 namespace ui::platform
 {
 
+float GetWindowDisplayScale(SDL_Window* sdlWindow) noexcept
+{
+    return GetWindowFramebufferScale(sdlWindow);
+}
+
+float GetWindowFramebufferScale(SDL_Window* sdlWindow) noexcept
+{
+    return GetSdlFramebufferScale(sdlWindow);
+}
+
+float GetWindowUiScale(SDL_Window* sdlWindow) noexcept
+{
+    const float sdlScale = GetSdlWindowUiScale(sdlWindow);
+    if (IsValidScale(sdlScale) && std::abs(sdlScale - 1.0F) > 0.001F)
+    {
+        return sdlScale;
+    }
+
+    HWND hwnd = GetHwndFromSDL(sdlWindow);
+    if (hwnd == nullptr)
+    {
+        return sdlScale;
+    }
+
+    const UINT dpi = GetDpiForWindow(hwnd);
+    const float dpiScale = dpi > 0 ? static_cast<float>(dpi) / 96.0F : 1.0F;
+    return IsValidScale(dpiScale) ? dpiScale : sdlScale;
+}
+
+float GetPrimaryDisplayUiScale() noexcept
+{
+    return GetSdlPrimaryDisplayUiScale();
+}
+
 void SetupCustomTitleBar(SDL_Window* sdlWindow, int borderWidth)
 {
     HWND hwnd = GetHwndFromSDL(sdlWindow);
@@ -309,6 +414,26 @@ constexpr unsigned long MWM_HINTS_DECORATIONS = (1L << 1);
 namespace ui::platform
 {
 
+float GetWindowDisplayScale(SDL_Window* sdlWindow) noexcept
+{
+    return GetWindowFramebufferScale(sdlWindow);
+}
+
+float GetWindowFramebufferScale(SDL_Window* sdlWindow) noexcept
+{
+    return GetSdlFramebufferScale(sdlWindow);
+}
+
+float GetWindowUiScale(SDL_Window* sdlWindow) noexcept
+{
+    return GetSdlWindowUiScale(sdlWindow);
+}
+
+float GetPrimaryDisplayUiScale() noexcept
+{
+    return GetSdlPrimaryDisplayUiScale();
+}
+
 void SetupCustomTitleBar(SDL_Window* sdlWindow, [[maybe_unused]] int borderWidth)
 {
 #ifdef UI_LINUX_X11
@@ -359,6 +484,26 @@ void EnableTransparency([[maybe_unused]] SDL_Window* sdlWindow, [[maybe_unused]]
 
 namespace ui::platform
 {
+
+float GetWindowDisplayScale(SDL_Window* sdlWindow) noexcept
+{
+    return GetWindowFramebufferScale(sdlWindow);
+}
+
+float GetWindowFramebufferScale(SDL_Window* sdlWindow) noexcept
+{
+    return GetSdlFramebufferScale(sdlWindow);
+}
+
+float GetWindowUiScale(SDL_Window* sdlWindow) noexcept
+{
+    return GetSdlWindowUiScale(sdlWindow);
+}
+
+float GetPrimaryDisplayUiScale() noexcept
+{
+    return GetSdlPrimaryDisplayUiScale();
+}
 
 void SetupCustomTitleBar([[maybe_unused]] SDL_Window* sdlWindow, [[maybe_unused]] int borderWidth)
 {

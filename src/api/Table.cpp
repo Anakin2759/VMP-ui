@@ -1,5 +1,7 @@
 #include "Table.hpp"
 
+#include "Scale.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <string>
@@ -151,6 +153,14 @@ void SetColumns(entt::entity entity, int count, std::vector<std::string> headers
 void SetColumnWidths(entt::entity entity, std::vector<float> widths)
 {
     auto& info = CurrentRegistry().get_or_emplace<components::TableInfo>(entity);
+    if (info.columnSizing == policies::TableColumnSizing::FIXED
+        || info.columnSizing == policies::TableColumnSizing::ADAPTIVE)
+    {
+        for (auto& width : widths)
+        {
+            width = scale::Metric(width);
+        }
+    }
     info.columnWidths = std::move(widths);
 }
 
@@ -215,17 +225,22 @@ void SetColumnSizing(entt::entity entity, policies::TableColumnSizing sizing)
 
 void SetMinColumnWidths(entt::entity entity, std::vector<float> minWidths)
 {
+    for (auto& width : minWidths)
+    {
+        width = scale::Metric(width);
+    }
     CurrentRegistry().get_or_emplace<components::TableInfo>(entity).minColumnWidths = std::move(minWidths);
 }
 
 void SetMinRowHeight(entt::entity entity, float height)
 {
-    CurrentRegistry().get_or_emplace<components::TableInfo>(entity).minRowHeight = std::max(0.0F, height);
+    CurrentRegistry().get_or_emplace<components::TableInfo>(entity).minRowHeight =
+        std::max(0.0F, scale::Metric(height));
 }
 
 void SetRowHeight(entt::entity entity, float height)
 {
-    CurrentRegistry().get_or_emplace<components::TableInfo>(entity).rowHeight = std::max(0.0F, height);
+    CurrentRegistry().get_or_emplace<components::TableInfo>(entity).rowHeight = std::max(0.0F, scale::Metric(height));
 }
 
 std::vector<float> ComputeColumnWidths(const components::TableInfo& info, float tableWidth)

@@ -27,6 +27,10 @@ struct Window
     Vec2 maxSize{FLT_MAX, FLT_MAX};
     policies::WindowFlag flags = policies::WindowFlag::DEFAULT;
     uint32_t windowID = 0;
+    float displayScale = 1.0F;
+    float uiScale = 1.0F;
+    Vec2 logicalSize{0.0F, 0.0F};
+    Vec2 pixelSize{0.0F, 0.0F};
 };
 
 } // namespace ui::components

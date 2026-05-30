@@ -14,6 +14,8 @@
  */
 #include "TableRenderer.hpp"
 
+#include "api/Scale.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -161,7 +163,7 @@ void TableRenderer::renderHeaderText(const components::TableInfo& info,
         return;
     }
 
-    static constexpr float HEADER_FONT_SIZE = 13.0F;
+    const float headerFontSize = scale::Metric(13.0F);
     const Eigen::Vector4f headerTextColor = toVec4(info.headerTextColor, 1.0F);
     float headerX = state.tableX - state.scrollOffsetX;
     for (int column = 0; column < info.columnCount && std::cmp_less(column, info.headers.size()); ++column)
@@ -173,12 +175,12 @@ void TableRenderer::renderHeaderText(const components::TableInfo& info,
             uint32_t textWidth = 0;
             uint32_t textHeight = 0;
             SDL_GPUTexture* textTexture =
-                context.textTextureCache->getOrUpload(header, headerTextColor, textWidth, textHeight, HEADER_FONT_SIZE);
+                context.textTextureCache->getOrUpload(header, headerTextColor, textWidth, textHeight, headerFontSize);
             if (textTexture != nullptr)
             {
-                const float scale = context.fontManager->getOversampleScale();
-                const Eigen::Vector2f textSize{static_cast<float>(textWidth) / scale,
-                                               static_cast<float>(textHeight) / scale};
+                const float oversampleScale = context.fontManager->getOversampleScale();
+                const Eigen::Vector2f textSize{static_cast<float>(textWidth) / oversampleScale,
+                                               static_cast<float>(textHeight) / oversampleScale};
                 const float drawX = std::round(headerX + ((columnWidth - textSize.x()) * 0.5F));
                 const float drawY = std::round(state.tableY + ((info.headerHeight - textSize.y()) * 0.5F));
                 render::UiPushConstants textConstants{};
@@ -187,7 +189,7 @@ void TableRenderer::renderHeaderText(const components::TableInfo& info,
                 textConstants.rect_size[0] = textSize.x();
                 textConstants.rect_size[1] = textSize.y();
                 textConstants.opacity = context.alpha;
-                textConstants.padding = 2.0F;
+                textConstants.padding = scale::Metric(2.0F);
                 context.batchManager->beginBatch(textTexture, context.currentScissor, textConstants);
                 context.batchManager->addRect({drawX, drawY}, textSize, headerTextColor);
             }
@@ -243,7 +245,10 @@ void TableRenderer::renderBodyGrid(const components::TableInfo& info,
             if (columnX > state.tableX && columnX < state.tableX + state.totalWidth)
             {
                 context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
-                context.batchManager->addRect({columnX - 0.5F, state.bodyY}, {1.0F, state.bodyHeight}, state.gridColor);
+                const float gridThickness = scale::Metric(1.0F);
+                context.batchManager->addRect({columnX - (gridThickness * 0.5F), state.bodyY},
+                                              {gridThickness, state.bodyHeight},
+                                              state.gridColor);
             }
         }
     }
@@ -256,7 +261,9 @@ void TableRenderer::renderBodyGrid(const components::TableInfo& info,
         if (rowY > state.bodyY && rowY < state.bodyY + state.bodyHeight)
         {
             context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
-            context.batchManager->addRect({state.tableX, rowY - 0.5F}, {state.totalWidth, 1.0F}, state.gridColor);
+            const float gridThickness = scale::Metric(1.0F);
+            context.batchManager->addRect(
+                {state.tableX, rowY - (gridThickness * 0.5F)}, {state.totalWidth, gridThickness}, state.gridColor);
         }
     }
 }
@@ -270,8 +277,6 @@ void TableRenderer::renderCellText(const components::TableInfo& info,
         return;
     }
 
-    static constexpr float CELL_FONT_SIZE = 12.0F;
-    static constexpr float CELL_TEXT_PADDING = 4.0F;
     const Eigen::Vector4f cellColor = toVec4(info.cellTextColor, 1.0F);
     float rowY = state.bodyY - state.scrollOffsetY;
     for (int row = 0; row < state.rowCount; ++row)
@@ -301,21 +306,22 @@ void TableRenderer::renderCellTexture(const std::string& text,
                                       const Eigen::Vector4f& cellColor,
                                       core::RenderContext& context) const
 {
-    static constexpr float CELL_FONT_SIZE = 12.0F;
-    static constexpr float CELL_TEXT_PADDING = 4.0F;
+    const float cellFontSize = scale::Metric(12.0F);
+    const float cellTextPadding = scale::Metric(4.0F);
 
     uint32_t textWidth = 0;
     uint32_t textHeight = 0;
     SDL_GPUTexture* textTexture =
-        context.textTextureCache->getOrUpload(text, cellColor, textWidth, textHeight, CELL_FONT_SIZE);
+        context.textTextureCache->getOrUpload(text, cellColor, textWidth, textHeight, cellFontSize);
     if (textTexture == nullptr)
     {
         return;
     }
 
-    const float scale = context.fontManager->getOversampleScale();
-    const Eigen::Vector2f textSize{static_cast<float>(textWidth) / scale, static_cast<float>(textHeight) / scale};
-    const float drawX = std::round(cellX + CELL_TEXT_PADDING);
+    const float oversampleScale = context.fontManager->getOversampleScale();
+    const Eigen::Vector2f textSize{static_cast<float>(textWidth) / oversampleScale,
+                                   static_cast<float>(textHeight) / oversampleScale};
+    const float drawX = std::round(cellX + cellTextPadding);
     const float drawY = std::round(rowY + ((rowHeight - textSize.y()) * 0.5F));
     render::UiPushConstants textConstants{};
     textConstants.screen_size[0] = context.screenWidth;
@@ -323,7 +329,7 @@ void TableRenderer::renderCellTexture(const std::string& text,
     textConstants.rect_size[0] = textSize.x();
     textConstants.rect_size[1] = textSize.y();
     textConstants.opacity = context.alpha;
-    textConstants.padding = 2.0F;
+    textConstants.padding = scale::Metric(2.0F);
     context.batchManager->beginBatch(textTexture, context.currentScissor, textConstants);
     context.batchManager->addRect({drawX, drawY}, textSize, cellColor);
 }
@@ -334,7 +340,9 @@ void TableRenderer::renderHeaderSeparators(const components::TableInfo& info,
 {
     // 表头与表体分隔线：始终覆盖可见宽度
     context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
-    context.batchManager->addRect({state.tableX, state.bodyY - 0.5F}, {state.totalWidth, 1.0F}, state.gridColor);
+    const float gridThickness = scale::Metric(1.0F);
+    context.batchManager->addRect(
+        {state.tableX, state.bodyY - (gridThickness * 0.5F)}, {state.totalWidth, gridThickness}, state.gridColor);
 
     // 表头列分隔线：随内容横向滚动
     float columnX = state.tableX - state.scrollOffsetX;
@@ -346,8 +354,9 @@ void TableRenderer::renderHeaderSeparators(const components::TableInfo& info,
             if (columnX > state.tableX && columnX < state.tableX + state.totalWidth)
             {
                 context.batchManager->beginBatch(context.whiteTexture, context.currentScissor, state.pushConstants);
-                context.batchManager->addRect(
-                    {columnX - 0.5F, state.tableY}, {1.0F, info.headerHeight}, state.gridColor);
+                context.batchManager->addRect({columnX - (gridThickness * 0.5F), state.tableY},
+                                              {gridThickness, info.headerHeight},
+                                              state.gridColor);
             }
         }
     }

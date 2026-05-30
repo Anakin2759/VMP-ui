@@ -1,4 +1,5 @@
 #include "Controls.hpp"
+#include "Scale.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -76,11 +77,11 @@ void SetSliderOrientation(::entt::entity entity, policies::Orientation orientati
     auto& size = reg.get_or_emplace<components::Size>(entity);
     if (orientation == policies::Orientation::VERTICAL)
     {
-        size.size = {28.0F, 200.0F};
+        size.size = {scale::Metric(28.0F), scale::Metric(200.0F)};
     }
     else
     {
-        size.size = {200.0F, 28.0F};
+        size.size = {scale::Metric(200.0F), scale::Metric(28.0F)};
     }
     size.sizePolicy = ui::policies::Size::FIXED;
 
@@ -125,7 +126,7 @@ void SetSliderThumbSize(::entt::entity entity, float size)
     auto& reg = CurrentRegistry();
     if (!reg.valid(entity)) return;
     auto& slider = reg.get_or_emplace<components::SliderInfo>(entity);
-    slider.thumbSize = std::max(4.0F, size);
+    slider.thumbSize = std::max(scale::Metric(4.0F), scale::Metric(size));
     slider.thumbRadius = slider.thumbSize * 0.5F; // 保持圆形比例
     ui::utils::MarkVisualChanged(entity);
 }
@@ -134,7 +135,8 @@ void SetSliderTrackThickness(::entt::entity entity, float thickness)
 {
     auto& reg = CurrentRegistry();
     if (!reg.valid(entity)) return;
-    reg.get_or_emplace<components::SliderInfo>(entity).trackThickness = std::max(2.0F, thickness);
+    reg.get_or_emplace<components::SliderInfo>(entity).trackThickness =
+        std::max(scale::Metric(2.0F), scale::Metric(thickness));
     ui::utils::MarkVisualChanged(entity);
 }
 

@@ -12,6 +12,8 @@ option(UI_ENABLE_STD_EMBED_EXPERIMENTAL "Enable the experimental std::embed reso
 option(UI_ENABLE_ASAN "Enable AddressSanitizer for UI module" OFF)
 # CPU 渲染选项：跳过所有 GPU 后端，直接使用 SDL_Renderer software 后端（用于无 GPU 环境或调试）
 option(UI_FORCE_CPU_RENDER "Force CPU-only software rendering (skip all GPU backends)" OFF)
+# 平台显示缩放：默认跟随系统 DPI / Wayland scale / X11 scale
+option(UI_ENABLE_PLATFORM_SCALING "Enable platform display scaling by default" ON)
 # 线程池：默认单线程，开启后启用 worker 线程做异步任务（图片解码等 CPU 热点）
 option(UI_ENABLE_MULTITHREAD "Enable worker threads in ui::utils::ThreadPool (default OFF, runs all tasks inline)" OFF)
 # Linux 窗口系统后端：AUTO 自动探测、X11、WAYLAND（仅 Linux 生效）
@@ -483,6 +485,8 @@ if(UI_FORCE_CPU_RENDER)
     target_compile_definitions(ui PRIVATE UI_FORCE_CPU_RENDER=1)
     message(STATUS "[UI] UI_FORCE_CPU_RENDER=ON: GPU backends disabled, using SDL_Renderer software fallback.")
 endif()
+
+target_compile_definitions(ui PUBLIC UI_ENABLE_PLATFORM_SCALING=$<BOOL:${UI_ENABLE_PLATFORM_SCALING}>)
 
 if(UI_ENABLE_MULTITHREAD)
     target_compile_definitions(ui PUBLIC UI_ENABLE_MULTITHREAD=1)

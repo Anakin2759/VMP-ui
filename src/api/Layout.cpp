@@ -1,4 +1,5 @@
 #include "Layout.hpp"
+#include "Scale.hpp"
 #include "core/RuntimeFacade.hpp"
 #include "common/Policies.hpp"
 #include "Utils.hpp"
@@ -30,7 +31,7 @@ void SetLayoutSpacing(::entt::entity entity, float spacing)
     if (!reg.valid(entity)) return;
     if (auto* layout = reg.try_get<components::LayoutInfo>(entity))
     {
-        layout->spacing = std::max(0.0F, spacing);
+        layout->spacing = std::max(0.0F, scale::Metric(spacing));
         utils::MarkLayoutDirty(entity);
     }
 }
@@ -40,7 +41,7 @@ void SetPadding(::entt::entity entity, float left, float top, float right, float
     auto& reg = CurrentRegistry();
     if (!reg.valid(entity)) return;
     auto& padding = reg.get_or_emplace<components::Padding>(entity);
-    padding.values = Vec4(top, right, bottom, left);
+    padding.values = Vec4(scale::Metric(top), scale::Metric(right), scale::Metric(bottom), scale::Metric(left));
     utils::MarkLayoutDirty(entity);
 }
 

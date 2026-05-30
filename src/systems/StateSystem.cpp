@@ -9,6 +9,7 @@
 #include "singleton/Dispatcher.hpp"
 #include "core/RuntimeFacade.hpp"
 #include "HitTestSystem.hpp"
+#include <SDL3/SDL_video.h>
 namespace ui::systems
 {
 
@@ -878,9 +879,31 @@ void StateSystem::WindowStateHelpers::handlePixelSizeChanged(StateSystem& system
         return;
     }
 
+    float logicalWidth = 0.0F;
+    float logicalHeight = 0.0F;
+    if (const auto* window = reg.try_get<components::Window>(entity);
+        window != nullptr && window->logicalSize.x() > 0.0F && window->logicalSize.y() > 0.0F)
+    {
+        logicalWidth = window->logicalSize.x();
+        logicalHeight = window->logicalSize.y();
+    }
+    else if (SDL_Window* sdlWindow = SDL_GetWindowFromID(event.windowID))
+    {
+        int width = 0;
+        int height = 0;
+        SDL_GetWindowSize(sdlWindow, &width, &height);
+        logicalWidth = static_cast<float>(width);
+        logicalHeight = static_cast<float>(height);
+    }
+
+    if (logicalWidth <= 0.0F || logicalHeight <= 0.0F)
+    {
+        return;
+    }
+
     auto& size = reg.get<components::Size>(entity);
-    size.size.x() = static_cast<float>(event.width);
-    size.size.y() = static_cast<float>(event.height);
+    size.size.x() = logicalWidth;
+    size.size.y() = logicalHeight;
     ui::utils::MarkLayoutAndVisualChanged(entity);
 }
 

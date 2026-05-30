@@ -129,6 +129,18 @@ struct WindowMoved
 };
 
 /**
+ * @brief 窗口显示缩放变化事件
+ * [IMMEDIATE] 使用 trigger
+ */
+struct WindowDisplayScaleChanged
+{
+    using is_event_tag = void;
+    uint32_t windowID = 0;
+    float oldScale = 1.0F;
+    float newScale = 1.0F;
+};
+
+/**
  * @brief 点击事件 - 鼠标按下并在同一实体上释放
  * [IMMEDIATE] 使用 trigger
  */

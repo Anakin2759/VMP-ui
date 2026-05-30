@@ -12,9 +12,16 @@
  */
 #pragma once
 
+#include <cstdlib>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
+
+#ifndef UI_ENABLE_PLATFORM_SCALING
+#define UI_ENABLE_PLATFORM_SCALING 1
+#endif
 
 namespace ui::config
 {
@@ -28,11 +35,57 @@ namespace ui::config
  */
 class AppConfig
 {
+private:
+    static std::optional<std::string_view> readLongOptionValue(std::string_view token,
+                                                               std::string_view option,
+                                                               std::span<char* const> argv,
+                                                               std::size_t& index)
+    {
+        if (!token.starts_with(option))
+        {
+            return std::nullopt;
+        }
+
+        if (token.size() > option.size() && token[option.size()] == '=')
+        {
+            return token.substr(option.size() + 1);
+        }
+
+        if (token == option && index + 1 < argv.size() && argv[index + 1] != nullptr)
+        {
+            ++index;
+            return std::string_view(argv[index]);
+        }
+
+        return std::nullopt;
+    }
+
+    static float parsePositiveFloat(std::string_view value)
+    {
+        std::string buffer(value);
+        char* end = nullptr;
+        const float parsed = std::strtof(buffer.c_str(), &end);
+        return end != buffer.c_str() && parsed > 0.0F ? parsed : 0.0F;
+    }
+
+    void applyPlatformScalingMode(std::string_view value) noexcept
+    {
+        if (value == "off" || value == "false" || value == "0")
+        {
+            setPlatformScalingEnabled(false);
+        }
+        else if (value == "auto" || value == "on" || value == "true" || value == "1")
+        {
+            setPlatformScalingEnabled(true);
+            setForcedPlatformScale(0.0F);
+        }
+    }
+
 public:
     [[nodiscard]] static AppConfig& instance() noexcept
     {
-        static AppConfig s_instance;
-        return s_instance;
+        static AppConfig instance;
+        return instance;
     }
 
     /// 设置优先后端（小写名称，例如 "direct3d12" / "vulkan" / "cpu"）
@@ -50,6 +103,36 @@ public:
 
     [[nodiscard]] std::string_view logFilePath() const noexcept { return m_logFilePath; }
 
+    void setPlatformScalingEnabled(bool enabled) noexcept
+    {
+        m_platformScalingEnabled = enabled;
+        if (!enabled)
+        {
+            m_forcedPlatformScale = 0.0F;
+        }
+    }
+
+    [[nodiscard]] bool platformScalingEnabled() const noexcept { return m_platformScalingEnabled; }
+
+    void setForcedPlatformScale(float scale) noexcept
+    {
+        m_forcedPlatformScale = scale > 0.0F ? scale : 0.0F;
+        if (m_forcedPlatformScale > 0.0F)
+        {
+            m_platformScalingEnabled = true;
+        }
+    }
+
+    [[nodiscard]] float forcedPlatformScale() const noexcept { return m_forcedPlatformScale; }
+
+    void setPlatformUiScale(float scale) noexcept { m_platformUiScale = scale > 0.0F ? scale : 1.0F; }
+
+    [[nodiscard]] float platformUiScale() const noexcept
+    {
+        if (!m_platformScalingEnabled) return 1.0F;
+        return m_forcedPlatformScale > 0.0F ? m_forcedPlatformScale : m_platformUiScale;
+    }
+
     [[nodiscard]] bool forceFallbackRenderer() const noexcept
     {
         return m_preferredBackend == "cpu" || m_preferredBackend == "software" || m_preferredBackend == "fallback";
@@ -62,36 +145,41 @@ public:
      *   --backend=<name>
      *   --backend <name>
      *   -b <name>
+     *   --ui-platform-scaling=auto|on|off
+     *   --ui-platform-scale=<scale>
      *
      * 未识别的参数会被忽略，避免影响调用方自身的解析逻辑。
      * 后端名称按小写约定传入。
      */
     void parseCommandLine(std::span<char* const> argv)
     {
-        constexpr std::string_view kLong = "--backend";
-        constexpr std::string_view kShort = "-b";
-        for (std::size_t i = 0; i < argv.size(); ++i)
+        constexpr std::string_view BACKEND_LONG = "--backend";
+        constexpr std::string_view BACKEND_SHORT = "-b";
+        constexpr std::string_view PLATFORM_SCALING = "--ui-platform-scaling";
+        constexpr std::string_view PLATFORM_SCALE = "--ui-platform-scale";
+
+        for (std::size_t index = 0; index < argv.size(); ++index)
         {
-            const char* raw = argv[i];
+            const char* raw = argv[index];
             if (raw == nullptr) continue;
             std::string_view token(raw);
 
-            if (token.starts_with(kLong))
+            if (auto value = readLongOptionValue(token, BACKEND_LONG, argv, index))
             {
-                if (token.size() > kLong.size() && token[kLong.size()] == '=')
-                {
-                    setPreferredBackend(std::string(token.substr(kLong.size() + 1)));
-                }
-                else if (token == kLong && i + 1 < argv.size() && argv[i + 1] != nullptr)
-                {
-                    setPreferredBackend(std::string(argv[i + 1]));
-                    ++i;
-                }
+                setPreferredBackend(std::string(*value));
             }
-            else if (token == kShort && i + 1 < argv.size() && argv[i + 1] != nullptr)
+            else if (token == BACKEND_SHORT && index + 1 < argv.size() && argv[index + 1] != nullptr)
             {
-                setPreferredBackend(std::string(argv[i + 1]));
-                ++i;
+                ++index;
+                setPreferredBackend(std::string(argv[index]));
+            }
+            else if (auto value = readLongOptionValue(token, PLATFORM_SCALING, argv, index))
+            {
+                applyPlatformScalingMode(*value);
+            }
+            else if (auto value = readLongOptionValue(token, PLATFORM_SCALE, argv, index))
+            {
+                setForcedPlatformScale(parsePositiveFloat(*value));
             }
         }
     }
@@ -101,6 +189,9 @@ private:
     std::string m_preferredBackend;
     std::string m_appIconPath;
     std::string m_logFilePath;
+    bool m_platformScalingEnabled = UI_ENABLE_PLATFORM_SCALING != 0;
+    float m_forcedPlatformScale = 0.0F;
+    float m_platformUiScale = 1.0F;
 };
 
 } // namespace ui::config
