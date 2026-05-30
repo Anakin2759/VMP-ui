@@ -15,9 +15,10 @@
 #include <SDL3/SDL.h>
 
 #include "common/Events.hpp"
-#include "core/TextEditingService.hpp"
 #include "interface/ISystem.hpp"
+#include "services/TextEditingService.hpp"
 #include "singleton/Dispatcher.hpp"
+#include "singleton/Registry.hpp"
 
 namespace ui::systems
 {
@@ -45,7 +46,10 @@ public:
     ui::interface::SystemPhase getPhase() { return ui::interface::SystemPhase::INPUT; }
 
 private:
-    void onRawTextInput(const events::RawTextInput& event) { core::TextEditingService::handleTextInput(event.text); }
+    void onRawTextInput(const events::RawTextInput& event)
+    {
+        services::TextEditingService::handleTextInput(event.text);
+    }
 
     void onRawKeyInput(const events::RawKeyInput& event)
     {
@@ -54,7 +58,7 @@ private:
         {
             if (event.repeat) return;
             beginKeyRepeat(key);
-            core::TextEditingService::handleKeyDown(key, static_cast<SDL_Keymod>(event.modifiers));
+            services::TextEditingService::handleKeyDown(key, static_cast<SDL_Keymod>(event.modifiers));
             return;
         }
 
@@ -70,7 +74,7 @@ private:
         if (now < m_lastRepeatTime + KEY_REPEAT_INTERVAL) return;
 
         m_lastRepeatTime = now;
-        core::TextEditingService::handleKeyDown(m_heldKey, SDL_GetModState());
+        services::TextEditingService::handleKeyDown(m_heldKey, SDL_GetModState());
         m_disp->trigger<ui::events::UpdateRendering>(ui::events::UpdateRendering{});
     }
 

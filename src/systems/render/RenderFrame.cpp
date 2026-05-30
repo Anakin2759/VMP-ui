@@ -104,6 +104,17 @@ void RenderSystem::update()
             continue;
         }
 
+        int logicalWidth = 0;
+        int logicalHeight = 0;
+        SDL_GetWindowSize(sdlWindow, &logicalWidth, &logicalHeight);
+        if (logicalWidth <= 0 || logicalHeight <= 0)
+        {
+            logicalWidth = width;
+            logicalHeight = height;
+        }
+
+        float const dpiScale = static_cast<float>(width) / static_cast<float>(logicalWidth);
+
         if (!m_impl->m_useFallback && m_impl->m_pipelineCache->getPipeline() == nullptr)
         {
             if (auto claimResult = m_impl->m_deviceManager->claimWindow(sdlWindow); !claimResult.has_value())
@@ -128,8 +139,15 @@ void RenderSystem::update()
             }
         }
 
-        m_impl->m_screenWidth = static_cast<float>(width);
-        m_impl->m_screenHeight = static_cast<float>(height);
+        m_impl->m_screenWidth = static_cast<float>(logicalWidth);
+        m_impl->m_screenHeight = static_cast<float>(logicalHeight);
+
+        const bool fontOversampleChanged =
+            m_impl->m_fontManager != nullptr && m_impl->m_fontManager->setDpiScale(dpiScale);
+        if (fontOversampleChanged && m_impl->m_textTextureCache != nullptr)
+        {
+            m_impl->m_textTextureCache->clear();
+        }
 
         m_impl->m_batchManager->clear();
         m_impl->m_renderQueue.clear();
@@ -140,6 +158,7 @@ void RenderSystem::update()
             core::RenderContext rootContext;
             rootContext.screenWidth = m_impl->m_screenWidth;
             rootContext.screenHeight = m_impl->m_screenHeight;
+            rootContext.dpiScale = dpiScale;
             rootContext.deviceManager = m_impl->m_deviceManager.get();
             rootContext.fontManager = m_impl->m_fontManager.get();
             rootContext.imageManager = m_impl->m_imageManager.get();
@@ -218,7 +237,7 @@ void RenderSystem::update()
             }
             else
             {
-                m_impl->m_commandBuffer->execute(sdlWindow, width, height, batches);
+                m_impl->m_commandBuffer->execute(sdlWindow, width, height, dpiScale, batches);
             }
             m_impl->m_stats.batchCount += static_cast<uint32_t>(batches.size());
             m_impl->m_stats.vertexCount += static_cast<uint32_t>(m_impl->m_batchManager->getTotalVertexCount());

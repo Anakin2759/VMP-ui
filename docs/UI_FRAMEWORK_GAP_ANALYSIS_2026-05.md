@@ -28,7 +28,7 @@
 | Theme / Style System | `src/systems/ThemeSystem.hpp` 只有说明性头部；架构文档标记为“存根，待实现”。 | 缺少主题 token、状态样式、选择器、继承/覆盖、动态切换、默认控件样式表。当前样式主要靠逐实体组件设置。 | P0 |
 | Rich Text | `docs/RICH_TEXT_PLAN.md` 已有详细规划。 | 尚未看到对应 `RichText` 组件、解析器、布局引擎和 renderer 接入。 | P1 |
 | SVG 支持 | `docs/SVG_SUPPORT_PLAN.md` 已有规划。 | 尚未形成 `CreateSvg`/SVG source 组件/解码缓存/render 接入的稳定 API。 | P1 |
-| HiDPI 完整支持 | `docs/HIDPI_SUPPORT_PLAN.md` 已有规划。 | 仍需确认逻辑像素到 framebuffer 像素的全链路一致性、DPI 变化事件、裁剪/字体/命中测试缩放。 | P1 |
+| HiDPI 完整支持 | `docs/HIDPI_SUPPORT_PLAN.md` 已从纯规划进入实现态，P0-P3 已落地。 | 核心链路已修复；剩余缺口集中在字体过采样 DPI 感知、图标按物理尺寸选型，以及跨显示器 DPI 变化后的清晰度回归测试。 | P2 |
 | JS/外部 DSL 解析 | 旧的 `src/core/DslPaser.hpp` TODO 存根已删除。 | 当前仍缺少 DSL schema、解析器、错误报告、实体创建映射和安全边界；后续应以正式模块重新引入，而不是保留无实现假入口。 | P3 |
 | 动画系统完整化 | `需求文档.md` 提到“实现完整可用的动画系统”；`TweenSystem` 已有核心插值。 | 缺少 timeline/sequence/parallel、暂停恢复、完成回调、取消策略、动画事件、布局动画边界、统一测试矩阵。 | P1 |
 | 拖放体验完整化 | 需求文档仍提到拖曳和可放置 tag；代码已有基础实现。 | 缺少拖拽预览/ghost、放置高亮、可放置规则策略、跨容器排序、拖放取消、吸附/约束、可访问键盘拖放。 | P1 |

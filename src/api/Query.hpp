@@ -27,10 +27,10 @@ namespace ui::query
 
 /**
  * @brief 检查实体句柄是否有效（存在于注册表中）。
- * @param e 要检查的实体
+ * @param ent 要检查的实体
  * @return true 表示实体存在且未被销毁
  */
-[[nodiscard]] bool IsValid(entity e) noexcept;
+[[nodiscard]] bool IsValid(entity ent) noexcept;
 
 /**
  * @brief 通过别名查找实体。
@@ -46,9 +46,9 @@ namespace ui::query
 
 /**
  * @brief 获取实体的别名字符串。
- * @param e 目标实体
+ * @param ent 目标实体
  * @return 别名字符串；实体无效或无 BaseInfo 时返回空字符串。
  */
-[[nodiscard]] std::string GetAlias(entity e);
+[[nodiscard]] std::string GetAlias(entity ent);
 
 } // namespace ui::query

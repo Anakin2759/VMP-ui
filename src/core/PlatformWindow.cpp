@@ -100,11 +100,13 @@ LRESULT HandleNcHitTest(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, cons
     int const cursorX = GET_X_LPARAM(lParam);
     int const cursorY = GET_Y_LPARAM(lParam);
     int const border = (data != nullptr) ? data->borderWidth : 6;
+    UINT const dpi = GetDpiForWindow(hWnd);
+    int const scaledBorder = ((border * static_cast<int>(dpi)) / 96) > 0 ? (border * static_cast<int>(dpi)) / 96 : 1;
 
-    bool const onLeft = (cursorX >= windowRect.left && cursorX < windowRect.left + border);
-    bool const onRight = (cursorX < windowRect.right && cursorX >= windowRect.right - border);
-    bool const onTop = (cursorY >= windowRect.top && cursorY < windowRect.top + border);
-    bool const onBottom = (cursorY < windowRect.bottom && cursorY >= windowRect.bottom - border);
+    bool const onLeft = (cursorX >= windowRect.left && cursorX < windowRect.left + scaledBorder);
+    bool const onRight = (cursorX < windowRect.right && cursorX >= windowRect.right - scaledBorder);
+    bool const onTop = (cursorY >= windowRect.top && cursorY < windowRect.top + scaledBorder);
+    bool const onBottom = (cursorY < windowRect.bottom && cursorY >= windowRect.bottom - scaledBorder);
 
     if (onTop && onLeft) return HTTOPLEFT;
     if (onTop && onRight) return HTTOPRIGHT;
@@ -162,6 +164,22 @@ LRESULT CALLBACK CustomFrameProc(
         {
             SyncRoundedRegion(hWnd, lParam, data);
             break; // 继续默认处理
+        }
+
+        case WM_DPICHANGED:
+        {
+            auto const* suggestedRect = reinterpret_cast<RECT const*>(lParam); // NOLINT
+            if (suggestedRect != nullptr)
+            {
+                SetWindowPos(hWnd,
+                             nullptr,
+                             suggestedRect->left,
+                             suggestedRect->top,
+                             suggestedRect->right - suggestedRect->left,
+                             suggestedRect->bottom - suggestedRect->top,
+                             SWP_NOZORDER | SWP_NOACTIVATE);
+            }
+            break;
         }
 
         case WM_DESTROY:

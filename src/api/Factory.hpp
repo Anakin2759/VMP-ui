@@ -74,11 +74,10 @@ ui::entity CreateScrollArea(std::string_view alias = "");
 ui::entity CreateWindow(std::string_view title, std::string_view alias = "");
 
 /**
- * @brief \u521b\u5efa\u81ea\u7ed8\u6807\u9898\u680f\u5b9e\u4f53\uff08\u7528\u4e8e\u65e0\u8fb9\u6846\u7a97\u53e3\uff09
- * @param windowEntity \u6240\u5c5e\u7a97\u53e3\u5b9e\u4f53\uff08\u5fc5\u987b\u5df2\u6709 Window \u7ec4\u4ef6\uff09
- * @param alias \u7ec4\u4ef6\u522b\u540d
- * @return ui::entity \u6807\u9898\u680f\u5b9e\u4f53\uff08\u5df2\u4f5c\u4e3a windowEntity
- * \u7684\u9996\u4e2a\u5b50\u8282\u70b9\uff09
+ * @brief 创建一个标题栏实体并关联到指定窗口
+ * @param windowEntity 所属窗口实体（必须已有 Window 组件）
+ * @param alias 组件别名
+ * @return ui::entity 创建的标题栏实体
  */
 ui::entity CreateTitleBar(ui::entity windowEntity, std::string_view alias = "");
 ui::entity CreateVBoxLayout(std::string_view alias = "");
@@ -86,8 +85,8 @@ ui::entity CreateHBoxLayout(std::string_view alias = "");
 ui::entity
     CreateLineEdit(std::string_view initialText = "", std::string_view placeholder = "", std::string_view alias = "");
 ui::entity CreateTextBrowser(std::string_view initialText = "",
-                               std::string_view placeholder = "",
-                               std::string_view alias = "");
+                             std::string_view placeholder = "",
+                             std::string_view alias = "");
 
 /**
  * @brief 创建一个复选框实体
@@ -97,8 +96,7 @@ ui::entity CreateTextBrowser(std::string_view initialText = "",
  * @return ui::entity 创建的实体
  */
 ui::entity CreateCheckBox(const std::string& label, bool checked = false, std::string_view alias = "");
-ui::entity
-    CreateDropDown(const std::vector<std::string>& options, int selectedIndex = 0, std::string_view alias = "");
+ui::entity CreateDropDown(const std::vector<std::string>& options, int selectedIndex = 0, std::string_view alias = "");
 
 /// @brief 关闭 DropDown 弹出层（若已打开），下一帧销毁弹出实体
 /// @note StateSystem 在「点击外部」时调用此函数实现失焦自动关闭
@@ -116,9 +114,9 @@ ui::entity CreateProgressBar(std::string_view alias = "");
  * @param defaultHeight 默认高度（0 表示自适应）
  */
 ui::entity CreateImageFromPath(std::string_view path,
-                                 float defaultWidth = 0.0F,
-                                 float defaultHeight = 0.0F,
-                                 std::string_view alias = "");
+                               float defaultWidth = 0.0F,
+                               float defaultHeight = 0.0F,
+                               std::string_view alias = "");
 
 /**
  * @brief 创建 Canvas 实体（可通过 ui::canvas::Draw* 绘制内容）

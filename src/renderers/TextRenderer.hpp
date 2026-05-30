@@ -156,11 +156,13 @@ private:
             && context.backendRenderer->getType() == interface::BackendType::FALLBACK;
     }
 
-    static std::string buildFallbackTextCacheKey(const std::string& text, const Eigen::Vector4f& color, float fontSize)
+    static std::string
+        buildFallbackTextCacheKey(const std::string& text, const Eigen::Vector4f& color, float fontSize, float scale)
     {
         return text + "_" + std::to_string(static_cast<int>(fontSize * 10.0F)) + "_"
-             + std::to_string(quantizeColor(color.x())) + "_" + std::to_string(quantizeColor(color.y())) + "_"
-             + std::to_string(quantizeColor(color.z())) + "_" + std::to_string(quantizeColor(color.w()));
+             + std::to_string(static_cast<int>(scale * 100.0F)) + "_" + std::to_string(quantizeColor(color.x())) + "_"
+             + std::to_string(quantizeColor(color.y())) + "_" + std::to_string(quantizeColor(color.z())) + "_"
+             + std::to_string(quantizeColor(color.w()));
     }
 
     const FallbackTextBitmap* getOrCreateFallbackTextBitmap(const std::string& text,
@@ -168,7 +170,8 @@ private:
                                                             float fontSize,
                                                             managers::FontManager& fontManager)
     {
-        const std::string cacheKey = buildFallbackTextCacheKey(text, color, fontSize);
+        const float oversampleScale = fontManager.getOversampleScale();
+        const std::string cacheKey = buildFallbackTextCacheKey(text, color, fontSize, oversampleScale);
         if (auto cacheIterator = m_fallbackTextCache.find(cacheKey); cacheIterator != m_fallbackTextCache.end())
         {
             return &cacheIterator->second;
@@ -200,8 +203,6 @@ private:
             bitmap[rgbaOffset + 2] = blue;
             bitmap[rgbaOffset + 3] = finalAlpha;
         }
-
-        const float oversampleScale = fontManager.getOversampleScale();
 
         FallbackTextBitmap newBitmap{};
         newBitmap.pixels = std::move(bitmap);
@@ -695,7 +696,8 @@ private:
 
         if (useFallbackText)
         {
-            fallbackCacheKey = buildFallbackTextCacheKey(text, color, fontSize);
+            fallbackCacheKey =
+                buildFallbackTextCacheKey(text, color, fontSize, context.fontManager->getOversampleScale());
             fallbackBitmap = getOrCreateFallbackTextBitmap(text, color, fontSize, *context.fontManager);
             if (fallbackBitmap == nullptr)
             {

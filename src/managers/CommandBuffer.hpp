@@ -16,6 +16,7 @@
 
 #pragma once
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 #include <SDL3/SDL_gpu.h>
@@ -53,7 +54,8 @@ public:
      * @brief 执行渲染批次
      * @param batches 渲染批次列表
      */
-    void execute(SDL_Window* window, int width, int height, const std::pmr::vector<render::RenderBatch>& batches)
+    void execute(
+        SDL_Window* window, int width, int height, float dpiScale, const std::pmr::vector<render::RenderBatch>& batches)
     {
         SDL_GPUDevice* device = m_deviceManager.getDevice();
         if (device == nullptr) return;
@@ -64,8 +66,8 @@ public:
         uint32_t totalVertexSize = totalVertexCount * sizeof(render::Vertex);
         uint32_t totalIndexSize = totalIndexCount * sizeof(uint16_t);
 
-        // 获取当前帧资源
-        FrameResource& currentFrame = m_frameResources[m_frameIndex % MAX_FRAMES_IN_FLIGHT];
+        // 获取当前帧资源，避免对 std::array 使用运行时下标触发 clang-tidy 告警
+        FrameResource& currentFrame = currentFrameResource();
 
         // 确保缓冲区足够大
         if (!resizeBuffers(device, currentFrame, totalVertexSize, totalIndexSize))
@@ -98,7 +100,7 @@ public:
         }
 
         recordCopyPass(cmdBuf, currentFrame, totalVertexSize, totalIndexSize);
-        recordRenderPass(cmdBuf, swapchainTexture, width, height, currentFrame, batches);
+        recordRenderPass(cmdBuf, swapchainTexture, width, height, dpiScale, currentFrame, batches);
 
         // 提交命令缓冲区
         SDL_SubmitGPUCommandBuffer(cmdBuf);
@@ -134,6 +136,11 @@ private:
         uint32_t vertexBufferSize = 0;
         uint32_t indexBufferSize = 0;
     };
+
+    FrameResource& currentFrameResource()
+    {
+        return (m_frameIndex % MAX_FRAMES_IN_FLIGHT) == 0U ? m_frameResources.front() : m_frameResources.back();
+    }
 
     [[nodiscard]] std::pair<uint32_t, uint32_t>
         calculateBatchTotals(const std::pmr::vector<render::RenderBatch>& batches) const
@@ -209,6 +216,7 @@ private:
                           SDL_GPUTexture* swapchainTexture,
                           int width,
                           int height,
+                          float dpiScale,
                           const FrameResource& currentFrame,
                           const std::pmr::vector<render::RenderBatch>& batches)
     {
@@ -244,6 +252,15 @@ private:
 
         uint32_t currentVertexOffset = 0;
         uint32_t currentIndexOffset = 0;
+        float const effectiveDpiScale = dpiScale > 0.0F ? dpiScale : 1.0F;
+
+        auto scaleScissor = [effectiveDpiScale](SDL_Rect rect)
+        {
+            return SDL_Rect{static_cast<int>(std::floor(static_cast<float>(rect.x) * effectiveDpiScale)),
+                            static_cast<int>(std::floor(static_cast<float>(rect.y) * effectiveDpiScale)),
+                            static_cast<int>(std::ceil(static_cast<float>(rect.w) * effectiveDpiScale)),
+                            static_cast<int>(std::ceil(static_cast<float>(rect.h) * effectiveDpiScale))};
+        };
 
         for (const auto& batch : batches)
         {
@@ -251,8 +268,8 @@ private:
 
             if (batch.scissorRect.has_value())
             {
-                SDL_Rect r = batch.scissorRect.value();
-                SDL_SetGPUScissor(renderPass, &r);
+                SDL_Rect scaledScissor = scaleScissor(batch.scissorRect.value());
+                SDL_SetGPUScissor(renderPass, &scaledScissor);
             }
             else
             {

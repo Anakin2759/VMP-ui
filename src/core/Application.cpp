@@ -16,6 +16,7 @@
 #include "RuntimeFacade.hpp"
 #include "SDL3/SDL_init.h"
 #include "SDL3/SDL_error.h"
+#include "SDL3/SDL_hints.h"
 #include "SDL3/SDL_timer.h"
 #include "TaskChain.hpp"
 
@@ -69,6 +70,11 @@ Application::Application(std::span<char*> arg) // NOLINT
         Logger::info("命令行指定 GPU 后端: {}", backend);
     }
     auto& runtime = RuntimeFacade::current();
+
+#ifdef _WIN32
+    (void)SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
+    (void)SDL_SetHint("SDL_WINDOWS_DPI_SCALING", "0");
+#endif
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
     {

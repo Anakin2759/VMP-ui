@@ -1,8 +1,8 @@
 # VMP-ui 高分屏（HiDPI）支持方案
 
-> 文档版本：2.0  
-> 日期：2026-05-25  
-> 状态：待实现
+> 文档版本：2.1  
+> 日期：2026-05-30  
+> 状态：P0-P4 已落地，P5 待补充
 
 ---
 
@@ -51,11 +51,11 @@ float2 ndc = float2(
 `IconManager::quantizeSize()` 以逻辑尺寸查找图标，高分屏下实际渲染尺寸是逻辑尺寸的 N 倍，
 应以物理尺寸请求更大的图标素材以获得清晰度。
 
-### 1.5 Linux X11 链接缺失（现存构建 Bug）
+### 1.5 Linux X11 链接缺失（已修复）
 
-`PlatformWindow.cpp` 在 `__linux__` 分支中直接调用 `XChangeProperty`、`XInternAtom` 等 X11
-ABI，但 `src/CMakeLists.txt` 缺少对 `X11` 库的 `find_package` + `target_link_libraries`，
-Linux 下链接阶段必然报 undefined reference。Windows 当前不受影响。
+该问题已在 `src/CMakeLists.txt` 中补齐：Linux X11 模式下会尝试 `find_package(X11 QUIET)`，
+成功时链接 `X11::X11` 并定义 `UI_LINUX_X11`。因此它不再是 HiDPI 落地阻塞项，
+文档保留此节仅作为历史问题说明。
 
 ### 1.6 `WM_DPICHANGED` 未处理（Windows）
 
@@ -85,7 +85,7 @@ Wayland 原生协议（`xdg-toplevel`）不支持 Motif Hints，
 
 ## 三、修复方案
 
-### P0 — 激活高分屏模式（前置条件）
+### P0 — 激活高分屏模式（已完成）
 
 **涉及文件**
 - `src/core/Application.cpp`
@@ -115,7 +115,7 @@ SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN
 
 ---
 
-### P1 — 修复 shader screen_size 坐标空间（核心修复）
+### P1 — 修复 shader screen_size 坐标空间（已完成）
 
 **涉及文件**
 - `src/core/RenderContext.hpp`
@@ -168,7 +168,7 @@ m_commandBuffer->execute(sdlWindow, width, height, dpiScale, batches);
 
 ---
 
-### P2 — 修复裁剪矩形坐标空间
+### P2 — 修复裁剪矩形坐标空间（已完成）
 
 **涉及文件**
 - `src/managers/CommandBuffer.hpp`
@@ -207,7 +207,7 @@ if (batch.scissorRect.has_value()) {
 
 ---
 
-### P3 — 修复 Win32 无边框窗口缩放感应区
+### P3 — 修复 Win32 无边框窗口缩放感应区（已完成）
 
 **涉及文件**
 - `src/core/PlatformWindow.cpp`
@@ -232,11 +232,13 @@ bool const onBottom = (cursorY < windowRect.bottom  && cursorY >= windowRect.bot
 
 ---
 
-### P4 — 字体过采样 DPI 感知（推荐优化）
+### P4 — 字体过采样 DPI 感知（已完成）
 
 **涉及文件**
 - `src/managers/FontManager.hpp`
-- `src/systems/PlatformWindowSystem.hpp`（或事件处理侧）
+- `src/systems/render/RenderFrame.cpp`
+- `src/managers/TextTextureCache.cpp`
+- `src/renderers/TextRenderer.hpp`
 
 #### FontManager — 新增 setDpiScale() / 动态过采样
 
@@ -261,25 +263,14 @@ private:
 };
 ```
 
-#### PlatformWindowSystem — 响应 DPI 变化事件
+#### RenderFrame / 文本缓存 — 在渲染路径同步 DPI 变化
 
 ```cpp
-// 现有代码已处理 SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED → events::WindowPixelSizeChanged
-// 在该事件的处理器中，额外更新 FontManager 的 DPI scale：
-void onWindowPixelSizeChanged(const events::WindowPixelSizeChanged& ev)
-{
-    // ... 现有逻辑 ...
-    if (SDL_Window* win = SDL_GetWindowFromID(ev.windowID))
-    {
-        int logW = 0, logH = 0;
-        SDL_GetWindowSize(win, &logW, &logH);
-        if (logW > 0 && ev.width > 0)
-        {
-            float newScale = static_cast<float>(ev.width) / static_cast<float>(logW);
-            m_fontManager->setDpiScale(newScale);
-        }
-    }
-}
+// RenderFrame 已在每个窗口渲染前计算 dpiScale。
+// 当 FontManager 的 oversample 比例发生变化时：
+// 1. 清空字形缓存
+// 2. 清空 TextTextureCache
+// 3. fallback 文本缓存键包含 oversampleScale，避免复用旧位图
 ```
 
 ---
@@ -305,18 +296,20 @@ auto* icon = context.imageManager->getIcon(quantizeSize(physicalIconSize));
 
 | 文件 | 优先级 | 改动性质 | 风险评估 |
 |------|--------|---------|---------|
-| `src/core/Application.cpp` | P0 | 新增 SDL Hints（2 行） | 低 |
-| `src/api/Factory.cpp` | P0 | flags 加 HIGH\_PIXEL\_DENSITY | 低 |
-| `src/core/RenderContext.hpp` | P1 | 新增 `dpiScale` 字段（1 行） | 低 |
-| `src/systems/render/RenderFrame.cpp` | **P1** | 改用逻辑像素 + 计算 dpiScale | **中** |
-| `src/managers/CommandBuffer.hpp` | **P2** | execute() 签名 + scissor 缩放 | **中** |
-| `src/core/PlatformWindow.cpp` | P3 | Win32 border 按 DPI 缩放 + WM\_DPICHANGED | 低 |
-| `src/CMakeLists.txt` | **P3** | **X11 链接修复**（现存 Bug） | 低 |
-| `src/managers/FontManager.hpp` | P4 | DPI 感知过采样 + 缓存失效 | 中 |
-| `src/systems/PlatformWindowSystem.hpp` | P4 | 响应 DPI 变化通知 FontManager | 低 |
-| `src/managers/IconManager.hpp` / Renderer | P5 | 物理尺寸请求图标 | 低 |
+| `src/core/Application.cpp` | P0 | 新增 SDL Hints | 已完成 |
+| `src/api/Factory.cpp` | P0 | flags 加 HIGH\_PIXEL\_DENSITY | 已完成 |
+| `src/core/RenderContext.hpp` | P1 | 新增 `dpiScale` 字段 | 已完成 |
+| `src/systems/render/RenderFrame.cpp` | **P1** | 改用逻辑像素 + 计算 dpiScale | **已完成** |
+| `src/managers/CommandBuffer.hpp` | **P2** | execute() 签名 + scissor 缩放 | **已完成** |
+| `src/core/PlatformWindow.cpp` | P3 | Win32 border 按 DPI 缩放 + WM\_DPICHANGED | 已完成 |
+| `src/CMakeLists.txt` | 历史项 | X11 链接修复 | 已完成 |
+| `src/managers/FontManager.hpp` | P4 | DPI 感知过采样 + 字形缓存失效 | 已完成 |
+| `src/systems/render/RenderFrame.cpp` | P4 | 渲染前同步 dpiScale 并清空文本缓存 | 已完成 |
+| `src/managers/TextTextureCache.cpp` | P4 | 文本缓存键纳入 oversampleScale | 已完成 |
+| `src/renderers/TextRenderer.hpp` | P4 | fallback 文本缓存键纳入 oversampleScale | 已完成 |
+| `src/managers/IconManager.hpp` / Renderer | P5 | 物理尺寸请求图标 | 待补充 |
 
-**最小可用改动（P0+P1+P2+X11链接修复）**：涉及 6 个文件，可在高分屏上得到正确渲染结果并修复 Linux 构建错误。
+**当前状态**：P0-P4 已实现，HiDPI 的布局、渲染、裁剪、Windows 缩放热区和文本清晰度链路已经闭合；剩余 P5 为图标按物理尺寸选型优化。
 
 ---
 

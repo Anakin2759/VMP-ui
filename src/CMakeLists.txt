@@ -143,6 +143,7 @@ set(UI_SOURCES
     core/RuntimeFacade.cpp
     core/WorkerMailbox.cpp
     core/SystemManager.cpp
+    services/TextEditingService.cpp
     systems/LayoutSystem.cpp
     systems/HitTestSystem.cpp
     systems/StateSystem.cpp
@@ -222,6 +223,7 @@ set(UI_HEADERS
     core/RuntimeFacade.hpp
     core/TaskChain.hpp
     core/TextUtils.hpp
+    services/TextEditingService.hpp
     interface/IRenderer.hpp
     interface/IBackendRenderer.hpp
     core/RenderContext.hpp

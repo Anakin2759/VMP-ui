@@ -1,30 +1,27 @@
 /**
  * ************************************************************************
  *
- * @file TextEditingService.hpp
+ * @file TextEditingService.cpp
  * @brief TextEdit 编辑命令服务
- *
  *
  * ************************************************************************
  */
 
-#pragma once
-
-#include <SDL3/SDL.h>
+#include "services/TextEditingService.hpp"
 
 #include <algorithm>
 #include <string>
 
 #include "api/Utils.hpp"
-#include "common/components/Data.hpp"
 #include "common/Tags.hpp"
+#include "common/components/Data.hpp"
 #include "core/RuntimeFacade.hpp"
 #include "core/TextUtils.hpp"
 
-namespace ui::core
+namespace ui::services
 {
 
-namespace detail
+namespace
 {
 
 struct TextEditSelectionOps
@@ -449,99 +446,94 @@ struct TextEditNavigationOps
     }
 };
 
-} // namespace detail
-
-class TextEditingService
+bool HandleReadOnlyShortcut(entt::entity entity, components::TextEdit& edit, SDL_Keycode key, bool ctrl)
 {
-public:
-    static void handleTextInput(const std::string& rawText)
+    if (ctrl && key == SDLK_C)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
-        auto view = reg.view<components::FocusedTag, components::TextEdit, components::Text>();
-        for (auto entity : view)
+        if (edit.hasSelection)
         {
-            if (!reg.any_of<components::TextEditTag>(entity)) continue;
-
-            auto& edit = view.get<components::TextEdit>(entity);
-            if (policies::HasFlag(edit.inputMode, policies::TextFlag::READ_ONLY)) continue;
-
-            auto& textComp = view.get<components::Text>(entity);
-            detail::TextEditContentOps::insertText(entity, edit, textComp, rawText);
+            TextEditClipboardOps::copySelection(edit);
         }
+        return true;
     }
 
-    static void handleKeyDown(SDL_Keycode key, SDL_Keymod modState)
+    if (ctrl && key == SDLK_A)
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
-        auto view = reg.view<components::FocusedTag, components::TextEdit, components::Text>();
-        for (auto entity : view)
-        {
-            if (!reg.any_of<components::TextEditTag>(entity)) continue;
-
-            auto& edit = view.get<components::TextEdit>(entity);
-            bool ctrl = (modState & SDL_KMOD_CTRL) != 0;
-            bool shift = (modState & SDL_KMOD_SHIFT) != 0;
-
-            if (handleReadOnlyShortcut(entity, edit, key, ctrl)) continue;
-            if (policies::HasFlag(edit.inputMode, policies::TextFlag::READ_ONLY)) continue;
-
-            auto& textComp = view.get<components::Text>(entity);
-            if (handleClipboardShortcut(entity, edit, textComp, key, ctrl)) continue;
-            if (detail::TextEditContentOps::handleDeletionKey(entity, edit, textComp, key)) continue;
-            if (detail::TextEditNavigationOps::handleHorizontal(entity, edit, key, shift)) continue;
-            if (detail::TextEditNavigationOps::handleBoundary(entity, edit, key, shift)) continue;
-            if (detail::TextEditNavigationOps::handleVertical(entity, edit, key, shift)) continue;
-            if (key == SDLK_RETURN)
-            {
-                detail::TextEditContentOps::handleReturnKey(entity, edit, textComp);
-            }
-        }
+        TextEditSelectionOps::selectAll(edit);
+        ui::utils::MarkVisualChanged(entity);
+        return true;
     }
 
-private:
-    static bool handleReadOnlyShortcut(entt::entity entity, components::TextEdit& edit, SDL_Keycode key, bool ctrl)
+    return false;
+}
+
+bool HandleClipboardShortcut(
+    entt::entity entity, components::TextEdit& edit, components::Text& textComp, SDL_Keycode key, bool ctrl)
+{
+    if (ctrl && key == SDLK_X)
     {
-        if (ctrl && key == SDLK_C)
-        {
-            if (edit.hasSelection)
-            {
-                detail::TextEditClipboardOps::copySelection(edit);
-            }
-            return true;
-        }
+        if (!edit.hasSelection) return true;
 
-        if (ctrl && key == SDLK_A)
-        {
-            detail::TextEditSelectionOps::selectAll(edit);
-            ui::utils::MarkVisualChanged(entity);
-            return true;
-        }
-
-        return false;
+        TextEditClipboardOps::copySelection(edit);
+        TextEditSelectionOps::eraseSelection(edit);
+        TextEditContentOps::applyContentChange(entity, edit, textComp);
+        return true;
     }
 
-    static bool handleClipboardShortcut(
-        entt::entity entity, components::TextEdit& edit, components::Text& textComp, SDL_Keycode key, bool ctrl)
+    if (ctrl && key == SDLK_V)
     {
-        if (ctrl && key == SDLK_X)
-        {
-            if (!edit.hasSelection) return true;
-
-            detail::TextEditClipboardOps::copySelection(edit);
-            detail::TextEditSelectionOps::eraseSelection(edit);
-            detail::TextEditContentOps::applyContentChange(entity, edit, textComp);
-            return true;
-        }
-
-        if (ctrl && key == SDLK_V)
-        {
-            if (!detail::TextEditClipboardOps::pasteText(edit)) return true;
-            detail::TextEditContentOps::applyContentChange(entity, edit, textComp);
-            return true;
-        }
-
-        return false;
+        if (!TextEditClipboardOps::pasteText(edit)) return true;
+        TextEditContentOps::applyContentChange(entity, edit, textComp);
+        return true;
     }
-};
 
-} // namespace ui::core
+    return false;
+}
+
+} // namespace
+
+void TextEditingService::handleTextInput(const std::string& rawText)
+{
+    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto view = reg.view<components::FocusedTag, components::TextEdit, components::Text>();
+    for (auto entity : view)
+    {
+        if (!reg.any_of<components::TextEditTag>(entity)) continue;
+
+        auto& edit = view.get<components::TextEdit>(entity);
+        if (policies::HasFlag(edit.inputMode, policies::TextFlag::READ_ONLY)) continue;
+
+        auto& textComp = view.get<components::Text>(entity);
+        TextEditContentOps::insertText(entity, edit, textComp, rawText);
+    }
+}
+
+void TextEditingService::handleKeyDown(SDL_Keycode key, SDL_Keymod modState)
+{
+    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto view = reg.view<components::FocusedTag, components::TextEdit, components::Text>();
+    for (auto entity : view)
+    {
+        if (!reg.any_of<components::TextEditTag>(entity)) continue;
+
+        auto& edit = view.get<components::TextEdit>(entity);
+        const bool ctrl = (modState & SDL_KMOD_CTRL) != 0;
+        const bool shift = (modState & SDL_KMOD_SHIFT) != 0;
+
+        if (HandleReadOnlyShortcut(entity, edit, key, ctrl)) continue;
+        if (policies::HasFlag(edit.inputMode, policies::TextFlag::READ_ONLY)) continue;
+
+        auto& textComp = view.get<components::Text>(entity);
+        if (HandleClipboardShortcut(entity, edit, textComp, key, ctrl)) continue;
+        if (TextEditContentOps::handleDeletionKey(entity, edit, textComp, key)) continue;
+        if (TextEditNavigationOps::handleHorizontal(entity, edit, key, shift)) continue;
+        if (TextEditNavigationOps::handleBoundary(entity, edit, key, shift)) continue;
+        if (TextEditNavigationOps::handleVertical(entity, edit, key, shift)) continue;
+        if (key == SDLK_RETURN)
+        {
+            TextEditContentOps::handleReturnKey(entity, edit, textComp);
+        }
+    }
+}
+
+} // namespace ui::services

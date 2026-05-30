@@ -10,6 +10,8 @@
 > 执行进展（同日）：`src/systems/render/` 中 `Registry::` 已清零；`InteractionSystem` 与 `PlatformWindowSystem` 也已切离静态 `Registry::/Dispatcher::` 门面。`RenderFrame.cpp` 的文件级语义检查通过，但整库构建在该 TU 上遭遇 `clang-cl` OOM，故当前对该文件采用“语义检查 + 邻域 grep”作为验证基线。
 > 执行进展（同日）：`src/api/Factory.cpp` 中 `Registry::/Dispatcher::` 已清零，工厂热点已切到 `RuntimeFacade::current().registry()/dispatcher()/enttRegistry()` 路径。
 > 执行进展（同日）：`TweenSystem` 已切离 `Registry::current()/Dispatcher::current()` fallback，改为仅走注入的 `Registry&/Dispatcher&` 订阅路径；文件级语义检查通过。`ActionSystem` 也已移除源码中的 `Registry::current()/Dispatcher::current()/Dispatcher::Trigger` 文本残留，但当前文件级诊断仍报告一组疑似陈旧的 deprecated warning，需以后续 TU/整库验证再最终确认。
+> 执行进展（同日）：**OP-K2 已落地**。`TextEditingService` 已从 `src/core/` 迁出到 `src/services/`，头文件改为纯声明，具体编辑逻辑下沉到 `.cpp`，`TextInputSystem` 已切到新入口。
+> 执行进展（同日）：**OP-D / OP-E 在 Factory 内继续收口**。`Factory.cpp` 的同步 helper / callback 路径已改为显式传递或显式捕获 `Registry&/Dispatcher&/WindowLookupService`；DropDown 弹层延迟销毁也已切离全局读取。当前文件内仅剩 **1 处** `RuntimeFacade::current()`，集中在文件级 `CurrentServices()` 入口。
 
 ---
 
@@ -37,7 +39,7 @@
 | 3 | OP-B：`RenderSystem.hpp` 已 PIMPL，9 个 manager 移到 `RenderSystemImpl.hpp` | ✅ **属实** | [src/systems/RenderSystem.hpp](../src/systems/RenderSystem.hpp#L131-L137) 只剩 `Dispatcher* m_disp` + `std::unique_ptr<RenderSystemImpl> m_impl`；9 个 manager unique_ptr 全在 [src/systems/render/RenderSystemImpl.hpp](../src/systems/render/RenderSystemImpl.hpp#L57-L65)。 |
 | 4 | OP-F：include 路径已根化，无 `"../xxx/Yyy.hpp"` 残留 | ✅ **属实** | `#include "../` 在 `src/` 内 **0 命中**（仅 third_party/entt 自身使用相对 include）。 |
 | 5 | OP-C：接口瘦身（文件名 `ISystem.hpp`、删 CRTP、`getPhase` 编译期常量） | ⚠️ **部分** | 文件名已是 [src/interface/ISystem.hpp](../src/interface/ISystem.hpp#L1) ✅；但 `EnableRegister<Derived>` CRTP **仍在**且 12 个系统全继承（见 [ISystem.hpp#L57](../src/interface/ISystem.hpp#L57)）；`getPhase()` **仍是 vtable** `poly_call<3>`（[ISystem.hpp#L46](../src/interface/ISystem.hpp#L46)），未改编译期常量；`pollInput()` 仍是全员 vtable。**仅完成改名一项。** |
-| 6 | OP-D/OP-E：`RuntimeFacade::current()` 计数、legacy 门面残留、`[[deprecated]]` | ⚠️ **部分** | `RuntimeFacade::current()` 在 `src/` 真实 **82 处**（旧文档记 49，已过时）；legacy `Registry::*` 调用仍 **200+ 处**（封顶，遍布 [Factory.cpp](../src/api/Factory.cpp)、[LayoutSystem.cpp](../src/systems/LayoutSystem.cpp)、全部 `renderers/*.hpp`、[TextEditingService.hpp](../src/core/TextEditingService.hpp)）；`[[deprecated]]` 已加在 [Registry.hpp#L192-L334](../src/singleton/Registry.hpp#L192) 与 [Dispatcher.hpp#L91-L121](../src/singleton/Dispatcher.hpp#L91) ✅。**结论：deprecated 标记到位，但迁移远未收口。** |
+| 6 | OP-D/OP-E：`RuntimeFacade::current()` 计数、legacy 门面残留、`[[deprecated]]` | ⚠️ **部分** | `RuntimeFacade::current()` 在 `src/` 当前真实 **99 处**；legacy `Registry::* / Dispatcher::*` 调用也为 **99 处**。其中 [src/renderers](../src/renderers) 与 [src/api/Factory.cpp](../src/api/Factory.cpp) 的 legacy 入口均已清零；[src/api/Factory.cpp](../src/api/Factory.cpp) 中 `RuntimeFacade::current()` 已进一步压缩到 **1 处**集中入口。`[[deprecated]]` 已加在 [src/singleton/Registry.hpp](../src/singleton/Registry.hpp) 与 [src/singleton/Dispatcher.hpp](../src/singleton/Dispatcher.hpp) ✅。**结论：deprecated 标记到位，renderers/Factory 已基本脱离 legacy，剩余迁移压力主要集中在 common/systems 路径。** |
 | 7 | `ARCHITECTURE.md` 称 `ThemeSystem` 为「存根，待实现」 | ❌ **不符** | ThemeSystem 已重度实现：[ThemeSystem.cpp](../src/systems/ThemeSystem.cpp#L1) ~1157 行 + [src/api/Theme.cpp](../src/api/Theme.cpp#L1) + `tests/unittest/test_ThemeSystem.cpp`。已支持默认样式注入、交互态主题、调色板切换、`ThemedTag` 增量重应用。 |
 
 ---
@@ -46,19 +48,19 @@
 
 > 已剔除旧文档中「已完成」的 OP-A/A2/B/F；按真实「伤害值 × 残留规模」重排。
 
-### 痛点 1 —— 双轨 API 名义收口、实际仍以 legacy 为主（最高优先）
-- `[[deprecated]]` 已挂满 legacy 入口，但 **200+ 处 `Registry::*` 调用仍在产线路径**：`Factory.cpp`(~974 行) 几乎全程用 `Registry::Emplace/Get`，全部 `renderers/*.hpp` 的 `canHandle`/`collect` 用 `Registry::AnyOf/TryGet`，`TextEditingService.hpp`、`LayoutSystem.cpp`、`render/RenderFrame.cpp` 同样。
+### 痛点 1 —— 双轨 API 已完成第一轮收口，但 legacy 仍未出清（最高优先）
+- `[[deprecated]]` 已挂满 legacy 入口，当前仍有 **99 处 `Registry::* / Dispatcher::*` 调用** 留在产线路径；但 [src/renderers](../src/renderers) 与 [src/api/Factory.cpp](../src/api/Factory.cpp) 已清零，压力已从原先的“渲染器 + 工厂 + 系统并发”收缩到以 `common/`、`systems/`、少量 `core/` 为主。
 - 现状等于「一边贴 deprecated 警告、一边自己持续踩警告」。若开了 `-Werror` 将无法编译；若没开，则警告噪声淹没真实问题。
 - **本质**：OP-E 的「标记」与「迁移」严重脱节，是当前最大的认知与维护负担。
 
 ### 痛点 2 —— 隐式全局依赖仍是 System 的事实数据源
-- `RuntimeFacade::current()` 真实 82 处，承载 registry/dispatcher/state/frame/windowLookup/context 多种访问。
-- `renderers/*.hpp` 完全绕过注入、直接 `Registry::` 静态门面，渲染器无法脱离线程本地单例做单测。
-- OP-D 的注入骨架（`m_reg/m_disp`）只在部分 System 内部生效，**渲染器层和 Factory 层是注入盲区**。
+- `RuntimeFacade::current()` 当前真实 102 处，承载 registry/dispatcher/state/frame/windowLookup/context 多种访问。
+- 渲染器层已经完成 `Registry&` 注入，Factory 的同步 helper / callback 路径也已改为显式传递或显式捕获依赖；但 **Factory 仍保留 free function 顶层入口 helper + 延迟任务边界**，`common/` 与若干 system 也仍依赖全局门面。
+- OP-D 的注入骨架（`m_reg/m_disp`）已覆盖到 renderers，Factory 也进入收口阶段；剩余盲区主要是跨帧/异步边界与通用基础设施。
 
 ### 痛点 3 —— core/ 层混入业务服务
 - **OP-K1 已完成**：零引用死代码 `core/Batcher.hpp` 已删除，`core/` 与 `managers/` 的批处理双轨入口已消除。
-- [core/TextEditingService.hpp](../src/core/TextEditingService.hpp)(~600 行) 是业务级文本编辑服务（含剪贴板/选区/导航），放在「只放骨架」的 core/ 违反分层；且全内联 + 全 legacy `Registry::`。
+- **OP-K2 已完成**：文本编辑服务已迁到 [src/services/TextEditingService.cpp](../src/services/TextEditingService.cpp)，`core/` 业务混入问题已显著收敛；当前该服务约 454 行，已从全内联头文件改为实现文件承载逻辑。
 - **OP-K3 已完成**：零引用 TODO 存根 `core/DslPaser.hpp` 已删除，避免继续暴露一个拼写错误且无实现的假入口。后续若重启 DSL 方案，应以明确的设计文档和正式模块重新落地。
 
 ### 痛点 4 —— ISystem 双层抽象冗余（OP-C 未动实质）
@@ -78,12 +80,12 @@
 | ~1316 | [systems/StateSystem.cpp](../src/systems/StateSystem.cpp) | .cpp | 1078 | 状态机持续膨胀，建议按 Pointer/Scrollbar/Slider/Window helper 拆 .cpp |
 | ~1216 | [systems/LayoutSystem.cpp](../src/systems/LayoutSystem.cpp) | .cpp | 1050 | Yoga 桥接 + 居中回退逻辑混杂 |
 | ~1157 | [systems/ThemeSystem.cpp](../src/systems/ThemeSystem.cpp) | .cpp | 29(头) | 实现已落地（非存根），体量偏大 |
-| ~974 | [api/Factory.cpp](../src/api/Factory.cpp) | .cpp | 828 | 全程 legacy `Registry::`，迁移与拆分主战场 |
+| ~889 | [api/Factory.cpp](../src/api/Factory.cpp) | .cpp | 828 | legacy 已清零；当前主问题转为 free function 入口过重、依赖传递和按域拆分 |
 | ~948 | [managers/FontManager.hpp](../src/managers/FontManager.hpp) | .hpp | 809 | 全内联，光栅化/混合逻辑应下沉 .cpp |
 | ~887 | [renderers/TextRenderer.hpp](../src/renderers/TextRenderer.hpp) | .hpp | 754 | 全内联渲染器，编译扇出大 |
 | ~723 | [traits/MyPFR.hpp](../src/traits/MyPFR.hpp) | .hpp | 671 | 编译期反射库，应隔离为 third_party |
 | ~602 | [managers/IconManager.cpp](../src/managers/IconManager.cpp) | .cpp | 602 | 持平 |
-| ~600 | [core/TextEditingService.hpp](../src/core/TextEditingService.hpp) | .hpp | 459 | core 层业务服务 + 全内联，已增长 |
+| ~454 | [services/TextEditingService.cpp](../src/services/TextEditingService.cpp) | .cpp | 新增 | 已迁出 core/，但编辑命令仍可继续按 clipboard/navigation/content 拆分 |
 
 ---
 
@@ -96,11 +98,12 @@
 - **OP-F** include 根化 ✅
 - **OP-C 子项**：`Isystem.hpp` → `ISystem.hpp` 改名 ✅
 - **OP-K1** 删除死代码 `core/Batcher.hpp` ✅（已确认全工程零引用后落地）
+- **OP-K2** `TextEditingService` 迁出 `core/` 并下沉 `.cpp` ✅
 - **OP-K3** 删除零引用 TODO 存根 `core/DslPaser.hpp` ✅
 
 ### 4.2 进行中（标记到位但未收口）
-- **OP-E** 双轨 API 收口：`[[deprecated]]` 已挂，但 200+ legacy 调用未迁，**完成度低**。
-- **OP-D** System 显式依赖注入：`m_reg/m_disp` 注入通路存在，部分 System 已切；**渲染器层 / Factory 层未覆盖**。
+- **OP-E** 双轨 API 收口：`[[deprecated]]` 已挂，legacy 调用已降到 99 处；**renderers / Factory 已清零，common / systems 仍是主战场**。
+- **OP-D** System 显式依赖注入：`m_reg/m_disp` 注入通路已覆盖 renderers，Factory 同步 helper / callback 也已进入显式传递阶段；**剩余缺口在 Factory 根入口 helper、延迟任务边界和 common 基础设施**。
 - **OP-I**（错误码统一 `FontErrc/IconErrc`→`ui_errc`）：未在本轮核对范围，按历史状态视为进行中。
 
 ### 4.3 未开始 / 实质未动
@@ -108,16 +111,15 @@
 - **OP-G** 渲染流水线类型化（FrameGraph）。
 - **OP-H** Chain DSL 节点类型擦除。
 - **OP-J** View 层可测试化。
-- **新增 OP-K**：迁移 `TextEditingService.hpp` 出 core/。
 
 ### 4.4 ROI × 风险 优先级表
 
 | ID | 动作 | ROI | 风险 | 工时档 | 建议次序 |
 |----|------|-----|------|--------|---------|
-| **OP-E** | legacy `Registry::*` 批量迁移到注入/Facade（先 renderers，再 Factory） | 高 | 中（量大但机械） | L | **立即起步** |
+| **OP-E** | legacy `Registry::*` 批量迁移到注入/Facade（renderers / Factory 已完成，继续 common / systems） | 高 | 中（量大但机械） | L | **立即起步** |
 | **OP-C** | ISystem 去 CRTP + `getPhase` 编译期常量 | 中高 | 中（需验证 `entt::poly` + `if constexpr requires`） | M | 高 |
-| **OP-K2** | `TextEditingService.hpp` 移出 core/ 并下沉 .cpp | 中 | 低 | S | 高 |
-| **OP-D** | System/渲染器依赖注入收口 | 中 | 中 | L | 中（与 OP-E 并行） |
+| **OP-K2** | `TextEditingService.hpp` 移出 core/ 并下沉 .cpp | 中 | 低 | S | 已完成 |
+| **OP-D** | System/Factory 依赖注入继续收口（处理根入口 helper / 异步边界） | 中 | 中 | L | 中（与 OP-E 并行） |
 | **大文件拆分** | StateSystem/LayoutSystem/Factory 按域拆 .cpp | 中 | 中 | L | 中 |
 | OP-H | Chain DSL 类型擦除 | 中（编译时间） | 低 | S | 中 |
 | OP-I | 错误码统一 | 中 | 低 | M | 中 |
@@ -129,7 +131,7 @@
 ## 5. 风险提示与验证基线
 
 **风险**
-- **OP-E 是最大体量项**：200+ legacy 调用分布在产线渲染/工厂路径，迁移需分批 + 每批回归，切忌一次性大改。建议按目录切片：`renderers/` → `api/` → `core/` → `systems/`。
+- **OP-E 仍是最大体量项**：虽然 renderers 与 Factory 已清零，但剩余 99 处 legacy 调用仍分布在 `common/`、`systems/` 等产线路径，迁移需分批 + 每批回归，切忌一次性大改。建议后续目录切片调整为：`common/` → `systems/` → `core/` 收尾。
 - **OP-C 编译期 phase 化**：需先验证 `entt::poly` 类型擦除后能否经 `if constexpr (requires{ T::PHASE; })` 读静态成员；不行则退化为注册期手工表。
 - **大文件拆分**：StateSystem/LayoutSystem 内部 helper 命名空间耦合紧，拆分需保持事件订阅签名不变。
 

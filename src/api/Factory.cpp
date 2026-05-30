@@ -44,14 +44,23 @@ namespace ui::factory
 
 namespace
 {
-Registry& CurrentRegistry()
+struct RuntimeServices
 {
-    return RuntimeFacade::current().registry();
+    Registry* registry;
+    Dispatcher* dispatcher;
+    RuntimeFacade::WindowLookupService windowLookup;
+};
+
+RuntimeServices CurrentServices()
+{
+    auto& runtime = RuntimeFacade::current();
+    return {
+        .registry = &runtime.registry(), .dispatcher = &runtime.dispatcher(), .windowLookup = runtime.windowLookup()};
 }
 
-Dispatcher& CurrentDispatcher()
+Registry& CurrentRegistry()
 {
-    return RuntimeFacade::current().dispatcher();
+    return *CurrentServices().registry;
 }
 
 struct TitleBarDragState
@@ -110,6 +119,7 @@ SDL_Window* CreateSdlWindowOrRollback(
 bool AssignWindowIdOrRollback(entt::entity entity,
                               components::Window& window,
                               SDL_Window* sdlWindow,
+                              RuntimeFacade::WindowLookupService windowLookup,
                               std::string_view entityType)
 {
     auto& reg = CurrentRegistry();
@@ -125,7 +135,7 @@ bool AssignWindowIdOrRollback(entt::entity entity,
         return false;
     }
 
-    RuntimeFacade::current().windowLookup().remember(entity);
+    windowLookup.remember(entity);
 
     return true;
 }
@@ -440,7 +450,10 @@ entt::entity CreateSpacer(float width, float height, std::string_view alias)
 
 entt::entity CreateDialog(std::string_view title, std::string_view alias)
 {
-    auto& reg = CurrentRegistry();
+    const auto services = CurrentServices();
+    auto& reg = *services.registry;
+    auto& disp = *services.dispatcher;
+    const auto windowLookup = services.windowLookup;
     auto entity = CreateBaseWidget(alias);
     MarkAsRoot(entity);
     reg.emplace<components::DialogTag>(entity);
@@ -451,18 +464,19 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
     dialog.flags |= policies::WindowFlag::NO_TITLE_BAR;
     constexpr int DEFAULT_DIALOG_WIDTH = 400;
     constexpr int DEFAULT_DIALOG_HEIGHT = 300;
-    SDL_Window* sdlWindow = CreateSdlWindowOrRollback(entity,
-                                                      dialog.title.c_str(),
-                                                      DEFAULT_DIALOG_WIDTH,
-                                                      DEFAULT_DIALOG_HEIGHT,
-                                                      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN,
-                                                      "dialog");
+    SDL_Window* sdlWindow =
+        CreateSdlWindowOrRollback(entity,
+                                  dialog.title.c_str(),
+                                  DEFAULT_DIALOG_WIDTH,
+                                  DEFAULT_DIALOG_HEIGHT,
+                                  SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY,
+                                  "dialog");
     if (sdlWindow == nullptr)
     {
         return entt::null;
     }
 
-    if (!AssignWindowIdOrRollback(entity, dialog, sdlWindow, "dialog"))
+    if (!AssignWindowIdOrRollback(entity, dialog, sdlWindow, windowLookup, "dialog"))
     {
         return entt::null;
     }
@@ -476,7 +490,7 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
     utils::MarkLayoutAndVisualChanged(entity);
     Logger::info("[Factory] Triggering WindowGraphicsContextSetEvent for dialog entity {}",
                  static_cast<uint32_t>(entity));
-    CurrentDispatcher().trigger<events::WindowGraphicsContextSetEvent>({entity});
+    disp.trigger<events::WindowGraphicsContextSetEvent>({entity});
 
     // 自定义 Dialog 默认无标题栏（NO_TITLE_BAR），如需自绘标题栏请显式调用 CreateTitleBar。
 
@@ -485,7 +499,7 @@ entt::entity CreateDialog(std::string_view title, std::string_view alias)
 
 entt::entity CreateScrollArea(std::string_view alias)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
     reg.emplace<components::ScrollArea>(entity);
     auto& layout = reg.emplace<components::LayoutInfo>(entity);
@@ -498,9 +512,10 @@ entt::entity CreateScrollArea(std::string_view alias)
 
 entt::entity CreateWindow(std::string_view title, std::string_view alias)
 {
-    auto& runtime = RuntimeFacade::current();
-    auto& reg = runtime.enttRegistry();
-    auto& disp = runtime.enttDispatcher();
+    const auto services = CurrentServices();
+    auto& reg = *services.registry;
+    auto& disp = *services.dispatcher;
+    const auto windowLookup = services.windowLookup;
     auto entity = CreateBaseWidget(alias);
     MarkAsRoot(entity);
     reg.emplace<components::WindowTag>(entity);
@@ -516,18 +531,19 @@ entt::entity CreateWindow(std::string_view title, std::string_view alias)
     ui::utils::MarkLayoutAndVisualChanged(entity);
     constexpr int DEFAULT_WINDOW_WIDTH = 800;
     constexpr int DEFAULT_WINDOW_HEIGHT = 600;
-    SDL_Window* sdlWindow = CreateSdlWindowOrRollback(entity,
-                                                      window.title.c_str(),
-                                                      DEFAULT_WINDOW_WIDTH,
-                                                      DEFAULT_WINDOW_HEIGHT,
-                                                      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN,
-                                                      "window");
+    SDL_Window* sdlWindow =
+        CreateSdlWindowOrRollback(entity,
+                                  window.title.c_str(),
+                                  DEFAULT_WINDOW_WIDTH,
+                                  DEFAULT_WINDOW_HEIGHT,
+                                  SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY,
+                                  "window");
     if (sdlWindow == nullptr)
     {
         return entt::null;
     }
 
-    if (!AssignWindowIdOrRollback(entity, window, sdlWindow, "window"))
+    if (!AssignWindowIdOrRollback(entity, window, sdlWindow, windowLookup, "window"))
     {
         return entt::null;
     }
@@ -542,7 +558,7 @@ entt::entity CreateWindow(std::string_view title, std::string_view alias)
 
 entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto& reg = CurrentRegistry();
     auto* windowComp = reg.try_get<components::Window>(windowEntity);
     if (windowComp == nullptr)
     {
@@ -597,16 +613,17 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
 
     auto closeBtn =
         CreateWindowControlButton(std::string(alias) + "_close", ICON_CLOSE, BTN_SIZE, ICON_SIZE, ICON_SPACING);
+    Registry* const regPtr = &reg;
     auto& closeBtnHover = reg.emplace<components::Hoverable>(closeBtn);
-    closeBtnHover.onHover = [closeBtn]()
+    closeBtnHover.onHover = [regPtr, closeBtn]()
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = *regPtr;
         auto* closeBg = reg.try_get<components::Background>(closeBtn);
         if (closeBg != nullptr) closeBg->color = {0.9F, 0.2F, 0.2F, 1.0F};
     };
-    closeBtnHover.onUnhover = [closeBtn]()
+    closeBtnHover.onUnhover = [regPtr, closeBtn]()
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = *regPtr;
         auto* closeBg = reg.try_get<components::Background>(closeBtn);
         if (closeBg != nullptr) closeBg->color = {0.0F, 0.0F, 0.0F, 0.0F};
     };
@@ -633,7 +650,7 @@ entt::entity CreateTitleBar(entt::entity windowEntity, std::string_view alias)
 
 entt::entity CreateVBoxLayout(std::string_view alias)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
     auto& layout = reg.emplace<components::LayoutInfo>(entity);
     layout.direction = policies::LayoutDirection::VERTICAL;
@@ -646,7 +663,7 @@ entt::entity CreateVBoxLayout(std::string_view alias)
 
 entt::entity CreateHBoxLayout(std::string_view alias)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
     auto& layout = reg.emplace<components::LayoutInfo>(entity);
     layout.direction = policies::LayoutDirection::HORIZONTAL;
@@ -659,7 +676,7 @@ entt::entity CreateHBoxLayout(std::string_view alias)
 
 entt::entity CreateLineEdit(std::string_view initialText, std::string_view placeholder, std::string_view alias)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto& reg = CurrentRegistry();
     auto entity = CreateTextEdit(std::string(placeholder), false, alias);
     auto& edit = reg.get<components::TextEdit>(entity);
     edit.buffer = std::string(initialText);
@@ -671,7 +688,7 @@ entt::entity CreateLineEdit(std::string_view initialText, std::string_view place
 
 entt::entity CreateTextBrowser(std::string_view initialText, std::string_view placeholder, std::string_view alias)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto& reg = CurrentRegistry();
     auto entity = CreateTextEdit(std::string(placeholder), true, alias);
     auto& edit = reg.get<components::TextEdit>(entity);
     edit.buffer = std::string(initialText);
@@ -696,7 +713,7 @@ entt::entity CreateTextBrowser(std::string_view initialText, std::string_view pl
 
 entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_view alias)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto& reg = CurrentRegistry();
     auto entity = CreateBaseWidget(alias);
     reg.emplace<components::CheckBoxTag>(entity);
     auto& checkBox = reg.emplace<components::CheckBox>(entity);
@@ -711,9 +728,10 @@ entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_
     size.sizePolicy = policies::Size::AUTO;
     size.size = {120.0F, 22.0F};
     auto& clickable = reg.emplace<components::Clickable>(entity);
-    clickable.onClick = [entity]()
+    Registry* const regPtr = &reg;
+    clickable.onClick = [regPtr, entity]()
     {
-        auto& reg = RuntimeFacade::current().enttRegistry();
+        auto& reg = *regPtr;
         auto* checkBoxComp = reg.try_get<components::CheckBox>(entity);
         if (checkBoxComp == nullptr) return;
         checkBoxComp->checked = !checkBoxComp->checked;
@@ -726,13 +744,11 @@ entt::entity CreateCheckBox(const std::string& label, bool checked, std::string_
     return entity;
 }
 
-// NOLINTBEGIN(readability-*,misc-*)
 namespace
 {
 
-entt::entity FindWindowRoot(entt::entity entity)
+entt::entity FindWindowRoot(Registry& reg, entt::entity entity)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
     entt::entity current = entity;
     while (current != entt::null && reg.valid(current))
     {
@@ -750,7 +766,7 @@ entt::entity FindWindowRoot(entt::entity entity)
 
 void CloseDropDownPopup(entt::entity ddEntity)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto& reg = CurrentRegistry();
     auto* dropDown = reg.try_get<components::DropDown>(ddEntity);
     if (dropDown == nullptr) return;
     if (dropDown->popupEntity == entt::null || !reg.valid(dropDown->popupEntity))
@@ -765,9 +781,9 @@ void CloseDropDownPopup(entt::entity ddEntity)
     ui::utils::MarkVisualChanged(ddEntity);
 
     ui::utils::InvokeTask(
-        [popupToDestroy]()
+        [regPtr = &reg, popupToDestroy]()
         {
-            auto& reg = RuntimeFacade::current().enttRegistry();
+            auto& reg = *regPtr;
             if (!reg.valid(popupToDestroy)) return;
 
             const auto* popupHier = reg.try_get<components::Hierarchy>(popupToDestroy);
@@ -806,11 +822,11 @@ namespace
 {
 void OpenDropDownPopup(entt::entity ddEntity)
 {
-    auto& reg = RuntimeFacade::current().enttRegistry();
+    auto& reg = CurrentRegistry();
     auto* dropDown = reg.try_get<components::DropDown>(ddEntity);
     if (dropDown == nullptr || dropDown->options.empty()) return;
 
-    const entt::entity windowRoot = FindWindowRoot(ddEntity);
+    const entt::entity windowRoot = FindWindowRoot(reg, ddEntity);
     if (windowRoot == entt::null) return;
     // 计算下拉菜单弹出位置和大小
     const Rect ddRect = ui::utils::GetEntityRect(ddEntity);
@@ -861,9 +877,10 @@ void OpenDropDownPopup(entt::entity ddEntity)
 
         reg.emplace<components::Hoverable>(optBtn);
 
-        reg.get<components::Clickable>(optBtn).onClick = [ddEntity, idx]()
+        Registry* const regPtr = &reg;
+        reg.get<components::Clickable>(optBtn).onClick = [regPtr, ddEntity, idx]()
         {
-            auto& reg = RuntimeFacade::current().enttRegistry();
+            auto& reg = *regPtr;
             auto* ddComp = reg.try_get<components::DropDown>(ddEntity);
             if (ddComp == nullptr) return;
             ddComp->selectedIndex = idx;
@@ -889,7 +906,6 @@ void OpenDropDownPopup(entt::entity ddEntity)
 }
 
 } // namespace
-// NOLINTEND(readability-*,misc-*)
 
 entt::entity CreateDropDown(const std::vector<std::string>& options, int selectedIndex, std::string_view alias)
 {

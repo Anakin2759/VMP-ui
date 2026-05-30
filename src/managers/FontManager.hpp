@@ -183,6 +183,30 @@ public:
     [[nodiscard]] bool isLoaded() const { return m_loaded && m_ftFace != nullptr; }
 
     /**
+     * @brief 更新当前 DPI 缩放比例
+     * @return true 当过采样比例发生变化时返回 true
+     */
+    bool setDpiScale(float scale) noexcept
+    {
+        const float normalizedScale = scale > 0.0F ? scale : 1.0F;
+        if (std::abs(normalizedScale - m_dpiScale) <= 0.01F)
+        {
+            return false;
+        }
+
+        const float oldOversampleScale = getOversampleScale();
+        m_dpiScale = normalizedScale;
+        if (std::abs(oldOversampleScale - getOversampleScale()) <= 0.01F)
+        {
+            return false;
+        }
+
+        clearCache();
+        Logger::info("[FontManager] DPI scale updated: {:.2f}, oversample: {:.2f}", m_dpiScale, getOversampleScale());
+        return true;
+    }
+
+    /**
      * @brief 获取字体大小
      */
     [[nodiscard]] float getFontSize() const { return m_fontSize; }
@@ -375,7 +399,7 @@ public:
      * @brief 获取文本超采样缩放因子
      * @note 保留此接口以兼容旧的渲染管线
      */
-    [[nodiscard]] float getOversampleScale() const { return TEXT_OVERSAMPLE_SCALE; }
+    [[nodiscard]] float getOversampleScale() const { return std::max(TEXT_OVERSAMPLE_SCALE, m_dpiScale); }
 
     /**
      * @brief 渲染整个文本到 alpha mask 位图
@@ -400,7 +424,7 @@ public:
         }
 
         const float logicalSize = (fontSize > 0.0F) ? fontSize : m_fontSize;
-        const float rasterSize = logicalSize * TEXT_OVERSAMPLE_SCALE;
+        const float rasterSize = logicalSize * getOversampleScale();
         const FontSizeGuard sizeGuard(*this, rasterSize);
 
         float cursorX = 0.0F;
@@ -667,6 +691,7 @@ public:
 
 private:
     static constexpr float TEXT_OVERSAMPLE_SCALE = 2.0F;
+    float m_dpiScale = 1.0F;
 
     /**
      * @brief 创建 HarfBuzz font 对象

@@ -65,7 +65,8 @@ uint8_t TextTextureCache::quantizeColor(float value)
 
 std::string TextTextureCache::buildCacheKey(const std::string& text, float fontSize) const
 {
-    return text + "_" + std::to_string(static_cast<int>(fontSize * 10.0F));
+    return text + "_" + std::to_string(static_cast<int>(fontSize * 10.0F)) + "_"
+         + std::to_string(static_cast<int>(m_fontManager.getOversampleScale() * 100.0F));
 }
 
 bool TextTextureCache::isR8UnormSampledTextureSupported(SDL_GPUDevice* device)

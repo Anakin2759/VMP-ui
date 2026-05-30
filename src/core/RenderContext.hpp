@@ -50,6 +50,7 @@ struct RenderContext
 
     float screenWidth = 0.0F;
     float screenHeight = 0.0F;
+    float dpiScale = 1.0F;
     std::vector<SDL_Rect> scissorStack;
 
     std::optional<SDL_Rect> currentScissor;
