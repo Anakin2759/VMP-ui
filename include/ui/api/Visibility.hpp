@@ -10,7 +10,7 @@
 
 namespace ui::visibility
 {
-void SetVisible(ui::entity entity, bool visible);
+void SetVisible(ui::entity entity, bool visible); // 设置实体的可见性
 void Show(ui::entity entity);
 void Hide(ui::entity entity);
 void SetAlpha(ui::entity entity, float alpha);
@@ -20,17 +20,22 @@ void SetBorderColor(ui::entity entity, const Color& color);
 void SetBorderThickness(ui::entity entity, float thickness);
 }  // namespace ui::visibility
 
+
+/**
+ * @brief 这个命名空间提供了可见性和基础视觉样式的链式操作接口。
+ * 这些操作可以直接应用于 UI 实体，允许开发者以更直观的方式设置 UI 元素的可见性和视觉样式。
+ */
 namespace ui::actions::visibility
 {
-inline constexpr EntityAction<&ui::visibility::SetVisible> SET_VISIBLE_ACTION{};
-inline constexpr EntityAction<&ui::visibility::Show> SHOW_ACTION{};
+inline constexpr EntityAction<&ui::visibility::SetVisible> SET_VISIBLE_ACTION{}; // 设置可见性
+inline constexpr EntityAction<&ui::visibility::Show> SHOW_ACTION{}; // 显示实体
 inline constexpr EntityAction<&ui::visibility::Hide> HIDE_ACTION{};
 inline constexpr EntityAction<&ui::visibility::SetAlpha> SET_ALPHA_ACTION{};
 inline constexpr EntityAction<&ui::visibility::SetBackgroundColor> SET_BACKGROUND_COLOR_ACTION{};
 inline constexpr EntityAction<&ui::visibility::SetBorderRadius> SET_BORDER_RADIUS_ACTION{};
 inline constexpr EntityAction<&ui::visibility::SetBorderColor> SET_BORDER_COLOR_ACTION{};
 inline constexpr EntityAction<&ui::visibility::SetBorderThickness> SET_BORDER_THICKNESS_ACTION{};
-}  // namespace ui::actions::visibility
+}  // namespace ui::actions::visibility 
 
 namespace ui::chains
 {

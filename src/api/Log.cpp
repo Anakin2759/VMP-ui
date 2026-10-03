@@ -14,9 +14,6 @@
  */
 #include "ui/api/Log.hpp"
 
-#include "core/UiRuntime.hpp"
-#include "utils/Logger.hpp"
-
 #include <atomic>
 #include <string_view>
 
@@ -38,7 +35,11 @@ std::atomic<ui::log::Callback>& CallbackStorage()
 
 std::atomic<ui::log::Level>& LevelStorage()
 {
+#ifdef NDEBUG
+    static std::atomic<ui::log::Level> level{ui::log::Level::NO_DEBUG};
+#else
     static std::atomic<ui::log::Level> level{ui::log::Level::DEBUG};
+#endif
     return level;
 }
 
@@ -48,6 +49,11 @@ namespace ui::log
 {
 
 void SetLevel(Level level)
+{
+    SetDebugLevel(level);
+}
+
+void SetDebugLevel(Level level)
 {
     LevelStorage().store(level, std::memory_order_relaxed);
 }
@@ -59,38 +65,19 @@ void SetCallback(Callback callback)
 
 void SetFilePath(std::string_view path)
 {
-    UiRuntime::current().logger().reconfigure(path);
+    // 公共日志不再依赖 Runtime；文件输出由外部 Callback 或应用自身负责。
+    static_cast<void>(path);
 }
 
 void LogImpl(Level level, std::string_view message)
 {
-    if (level < LevelStorage().load(std::memory_order_relaxed))
-        return;
-
-    auto& logger = UiRuntime::current().logger();
-    // 转发到内部 spdlog Logger
-    switch (level)
+    const auto configuredLevel = LevelStorage().load(std::memory_order_relaxed);
+    if (configuredLevel == Level::NO_DEBUG || level < configuredLevel)
     {
-        case Level::DEBUG:
-            logger.debug("{}", message);
-            break;
-        case Level::INFO:
-            logger.info("{}", message);
-            break;
-        case Level::WARNING:
-            logger.warn("{}", message);
-            break;
-        case Level::ERROR:
-            logger.error("{}", message);
-            break;
-        case Level::CRITICAL:
-            logger.error("[CRITICAL] {}", message);
-            break;
-        default:
-            break;
+        return;
     }
 
-    // 如果有外部回调也一并通知
+    // 公共日志只通知外部回调，不转发到 Runtime 内部 Logger。
     if (auto* callback = CallbackStorage().load(std::memory_order_relaxed); callback != nullptr)
     {
         callback(level, message);

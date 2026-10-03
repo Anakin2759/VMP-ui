@@ -839,6 +839,9 @@ inline void SetFixedSize(Registry& reg, entt::entity entity, float width, float 
     auto& size = reg.get_or_emplace<components::Size>(entity);
     size.sizePolicy = policies::Size::FIXED;
     size.size = {scale::Metric(width), scale::Metric(height)};
+    size.declaredSize = size.size;
+    size.hasDeclaredWidth = true;
+    size.hasDeclaredHeight = true;
     utils::MarkLayoutDirty(reg.runtime(), entity);
 }
 
@@ -854,7 +857,11 @@ inline void SetSize(Registry& reg, entt::entity entity, float width, float heigh
 {
     if (!reg.valid(entity))
         return;
-    reg.get_or_emplace<components::Size>(entity).size = {scale::Metric(width), scale::Metric(height)};
+    auto& size = reg.get_or_emplace<components::Size>(entity);
+    size.size = {scale::Metric(width), scale::Metric(height)};
+    size.declaredSize = size.size;
+    size.hasDeclaredWidth = true;
+    size.hasDeclaredHeight = true;
     utils::MarkLayoutDirty(reg.runtime(), entity);
 }
 
@@ -1019,6 +1026,15 @@ inline void SetPadding(Registry& reg, entt::entity entity, float padding)
 
 inline void CenterInParent(Registry& reg, entt::entity entity)
 {
+    if (!reg.valid(entity))
+        return;
+    if (!reg.all_of<components::Size>(entity))
+    {
+        return;
+    }
+    auto& anchors = reg.get_or_emplace<components::Anchors>(entity);
+    anchors.value = ui::AnchorSet::CenterIn();
+    ++anchors.revision;
     utils::MarkLayoutDirty(reg.runtime(), entity);
 }
 
@@ -1056,6 +1072,17 @@ inline void RemoveChild(Registry& reg, entt::entity parent, entt::entity child)
         std::erase(parentHierarchy->children, child);
         childHierarchy->parent = entt::null;
         reg.emplace_or_replace<components::RootTag>(child);
+        if (auto* anchors = reg.try_get<components::Anchors>(child))
+        {
+            for (auto& binding : anchors->value.bindings)
+            {
+                if (binding && binding->target.sibling &&
+                    !reg.valid(detail::ToInternal(*binding->target.sibling)))
+                {
+                    binding.reset();
+                }
+            }
+        }
         utils::MarkLayoutAndVisualChanged(reg.runtime(), parent);
         utils::MarkLayoutAndVisualChanged(reg.runtime(), child);
     }
@@ -1065,14 +1092,40 @@ inline void AddChild(Registry& reg, entt::entity parent, entt::entity child)
 {
     if (!reg.valid(parent) || !reg.valid(child))
         return;
+    if (parent == child)
+        return;
+    for (auto ancestor = parent; reg.valid(ancestor);)
+    {
+        if (ancestor == child)
+            return;
+        const auto* hierarchy = reg.try_get<components::Hierarchy>(ancestor);
+        if (hierarchy == nullptr || hierarchy->parent == entt::null)
+            break;
+        ancestor = hierarchy->parent;
+    }
     auto& childHierarchy = reg.get_or_emplace<components::Hierarchy>(child);
     if (childHierarchy.parent != entt::null && childHierarchy.parent != parent)
         RemoveChild(reg, childHierarchy.parent, child);
     childHierarchy.parent = parent;
+    // Reparent 后由 LayoutSystem 在新 root 中重新同步 Yoga 子树；保留实体
+    // 但不能让旧父节点的布局快照继续参与本帧锚点求解。
     reg.remove<components::RootTag>(child);
     auto& children = reg.get_or_emplace<components::Hierarchy>(parent).children;
     if (std::ranges::find(children, child) == children.end())
         children.push_back(child);
+    if (auto* anchors = reg.try_get<components::Anchors>(child))
+    {
+        for (auto& binding : anchors->value.bindings)
+        {
+            if (binding && binding->target.sibling)
+            {
+                const auto sibling = detail::ToInternal(*binding->target.sibling);
+                const auto* siblingHierarchy = reg.try_get<components::Hierarchy>(sibling);
+                if (!reg.valid(sibling) || siblingHierarchy == nullptr || siblingHierarchy->parent != parent)
+                    binding.reset();
+            }
+        }
+    }
     utils::MarkLayoutAndVisualChanged(reg.runtime(), child);
 }
 

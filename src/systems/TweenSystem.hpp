@@ -170,7 +170,7 @@ class TweenSystem : public ui::interface::EnableRegister<TweenSystem>
                 float totalCycles = time;
                 // 取小数部分 x 2
                 // 0~1: 正向, 1~2: 反向
-                float cycleT = std::fmod(totalCycles, 2.0F);
+                float cycleT = std::fmod(totalCycles, 2.0F); 
                 if (cycleT > 1.0F)
                 {
                     time = 2.0F - cycleT;

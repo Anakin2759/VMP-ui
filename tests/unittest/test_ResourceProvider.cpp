@@ -1,9 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "src/core/UiRuntime.hpp"
-#include "src/core/UiRuntimeScope.hpp"
 #include "src/managers/ResourceProvider.hpp"
-#include "src/utils/Logger.hpp"
 
 namespace ui::tests
 {
@@ -20,8 +17,7 @@ TEST(UiCoverageTest, BinaryResourceDefaultStateIsEmpty)
 
 TEST(UiCoverageTest, DefaultResourceProviderLoadsEmbeddedFont)
 {
-    utils::Logger logger;
-    const auto provider = managers::GetDefaultUiResourceProvider(logger);
+    const auto provider = managers::GetDefaultUiResourceProvider();
 
     ASSERT_NE(provider, nullptr);
     EXPECT_TRUE(provider->exists("assets/fonts/NotoSansSC-VariableFont_wght.ttf"));
@@ -35,8 +31,7 @@ TEST(UiCoverageTest, DefaultResourceProviderLoadsEmbeddedFont)
 
 TEST(UiCoverageTest, DefaultResourceProviderLoadsEmbeddedIconCodepoints)
 {
-    utils::Logger logger;
-    const auto provider = managers::GetDefaultUiResourceProvider(logger);
+    const auto provider = managers::GetDefaultUiResourceProvider();
 
     ASSERT_NE(provider, nullptr);
     EXPECT_TRUE(provider->exists("assets/icons/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints"));
@@ -48,12 +43,7 @@ TEST(UiCoverageTest, DefaultResourceProviderLoadsEmbeddedIconCodepoints)
 
 TEST(UiCoverageTest, DefaultResourceProviderReportsMissingResource)
 {
-    // 失败路径会通过 UiRuntime::current().logger() 记录日志，需要活动的 UiRuntime。
-    UiRuntime runtime;
-    UiRuntimeScope const scope(runtime);
-
-    utils::Logger logger;
-    const auto provider = managers::GetDefaultUiResourceProvider(logger);
+    const auto provider = managers::GetDefaultUiResourceProvider();
 
     ASSERT_NE(provider, nullptr);
     EXPECT_FALSE(provider->exists("assets/does-not-exist.bin"));

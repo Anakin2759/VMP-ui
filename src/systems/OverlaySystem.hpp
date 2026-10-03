@@ -6,6 +6,7 @@
  * @date 2026-08-13
  * @version 0.1
  * @brief 浮层系统 - 统一管理 Overlay/Popup 的生命周期
+ * 什么是 Overlay/Popup？它们是 UI 组件的浮层，通常用于显示临时信息、菜单、对话框等。OverlaySystem 负责管理这些浮层的打开、关闭、焦点切换和叠加顺序。
  *
  * 职责：
  * - 监听 OverlayOpenRequest：分配统一 z-order、写入 OverlayLayer、压入浮层栈

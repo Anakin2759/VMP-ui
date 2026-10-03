@@ -62,7 +62,7 @@ class MpscQueue final
      * @brief 尝试原地构造入队，队列已满时返回 false。
      */
     template <typename... Args>
-        requires std::constructible_from<T, Args...>
+        requires std::constructible_from<T, Args...> && std::is_nothrow_constructible_v<T, Args...>
     [[nodiscard]] bool TryEmplace(Args&&... args)
     {
         return TryEmplaceBeforePublish([]() noexcept {}, std::forward<Args>(args)...);
@@ -75,8 +75,8 @@ class MpscQueue final
      * release store 才会令槽位对消费者可见。
      */
     template <typename BeforePublish, typename... Args>
-        requires std::constructible_from<T, Args...> && std::invocable<BeforePublish&> &&
-                 std::is_nothrow_invocable_v<BeforePublish&>
+        requires std::constructible_from<T, Args...> && std::is_nothrow_constructible_v<T, Args...> &&
+             std::invocable<BeforePublish&> && std::is_nothrow_invocable_v<BeforePublish&>
     [[nodiscard]] bool TryEmplaceBeforePublish(BeforePublish&& beforePublish, Args&&... args)
     {
         Cell* cell = nullptr;

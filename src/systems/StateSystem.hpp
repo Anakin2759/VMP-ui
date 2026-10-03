@@ -5,8 +5,7 @@
  * @author AnakinLiu (azrael2759@qq.com)
  * @date 2025-12-11 (Updated)
  * @version 0.2
- *
- * 2. 同步窗口状态到ECS组件（如Resizable、Frameless等）
+ * @brief 状态系统 - 处理 UI 组件的交互状态（hover、active、focus、scrollbar 等）
  *
  *
  * ************************************************************************
@@ -43,7 +42,7 @@ class StateSystem : public ui::interface::EnableRegister<StateSystem>
 
     enum class ScrollbarHitType : std::uint8_t
     {
-        NONE,
+        NONE, // 未命中
         THUMB,  // 命中滑块
         TRACK   // 命中轨道
     };

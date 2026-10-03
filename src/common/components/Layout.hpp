@@ -10,12 +10,30 @@
 
 #include "common/Types.hpp"
 #include "ui/Policies.hpp"
+#include "ui/Anchors.hpp"
 #include <cfloat>
 #include <vector>
 #include <entt/entt.hpp>
 
 namespace ui::components
 {
+
+/// 锚点节点退出 Flex 排列，约束由 LayoutSystem 的局部 solver 解析。
+struct Anchors
+{
+    using is_component_tag = void;
+    ui::AnchorSet value;
+    std::uint64_t revision = 0;
+};
+
+/// 内容测量得到的隐式尺寸，与用户声明的 Size 分离保存。
+struct ImplicitSize
+{
+    using is_component_tag = void;
+    Vec2 value{0.0F, 0.0F};
+    bool hasWidth = false;
+    bool hasHeight = false;
+};
 
 /**
  * @brief 尺寸约束组件
@@ -24,6 +42,9 @@ struct Size
 {
     using is_component_tag = void;
     Vec2 size{0.0F, 0.0F};
+    Vec2 declaredSize{0.0F, 0.0F};
+    bool hasDeclaredWidth = false;
+    bool hasDeclaredHeight = false;
     Vec2 minSize{0.0F, 0.0F};
     Vec2 maxSize{FLT_MAX, FLT_MAX};
     policies::Size sizePolicy = policies::Size::AUTO;  // 宽度策略

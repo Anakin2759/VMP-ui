@@ -36,7 +36,7 @@ endif()
 # STD_EMBED 已转正为自包含发行默认后端；不再要求 experimental 开关。
 # 旧变量 UI_ENABLE_STD_EMBED_EXPERIMENTAL 已废弃，仅对历史命令行参数做兼容忽略。
 if(UI_RESOURCE_BACKEND STREQUAL "STD_EMBED" AND NOT UI_ENABLE_STD_EMBED_EXPERIMENTAL AND DEFINED UI_ENABLE_STD_EMBED_EXPERIMENTAL)
-    message(FATAL_ERROR "UI_RESOURCE_BACKEND=STD_EMBED requires UI_ENABLE_STD_EMBED_EXPERIMENTAL=ON.")
+    message(STATUS "UI_ENABLE_STD_EMBED_EXPERIMENTAL is deprecated and ignored.")
 endif()
 # 资源定义
 set(UI_STD_EMBED_RESOURCE_TABLE_SOURCE "managers/StdEmbedResourceTable.cpp")
@@ -71,6 +71,16 @@ if(UI_RESOURCE_BACKEND STREQUAL "STD_EMBED")
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+# 必须在配置 Object 库前探测平台能力，避免 UI_LINUX_X11 宏依赖
+# 第三方项目偶然设置的 X11_FOUND。
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+   (UI_LINUX_WINDOW_SYSTEM STREQUAL "AUTO" OR UI_LINUX_WINDOW_SYSTEM STREQUAL "X11"))
+    find_package(X11 QUIET)
+    if(NOT X11_FOUND AND UI_LINUX_WINDOW_SYSTEM STREQUAL "X11")
+        message(FATAL_ERROR "[UI] UI_LINUX_WINDOW_SYSTEM=X11 but libX11 not found.")
+    endif()
+endif()
 
 # 解析 AUTO 模式：尝试找到 DXC，根据实际能力决定编译内容
 # DXC 版本分类：
@@ -778,7 +788,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         $<OR:$<STREQUAL:${UI_LINUX_WINDOW_SYSTEM},AUTO>,$<STREQUAL:${UI_LINUX_WINDOW_SYSTEM},X11>>)
 
     if(UI_LINUX_WINDOW_SYSTEM STREQUAL "AUTO" OR UI_LINUX_WINDOW_SYSTEM STREQUAL "X11")
-        find_package(X11 QUIET)
         if(X11_FOUND)
             target_link_libraries(ui PRIVATE X11::X11)
             message(STATUS "[UI] Linux: X11 backend enabled")

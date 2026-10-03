@@ -65,6 +65,7 @@ add_ui_test_executable(ui_unit_tests
     test_ImageManager.cpp
     test_TextUtils.cpp
     test_ResourceProvider.cpp
+    test_Log.cpp
     test_result.cpp
     test_UiRuntime.cpp
     test_SystemManager.cpp
@@ -77,6 +78,7 @@ configure_ui_test_target(ui_unit_tests)
 target_link_libraries(ui_unit_tests PRIVATE freetype harfbuzz)
 
 add_ui_test_executable(ui_ecs_tests
+    test_Anchors.cpp
     test_MainWindow.cpp
     test_TweenSystem.cpp
     test_AnimationLifecycle.cpp
@@ -99,6 +101,7 @@ add_ui_test_executable(ui_ecs_tests
     test_ListView.cpp
 )
 configure_ui_test_target(ui_ecs_tests)
+target_link_libraries(ui_ecs_tests PRIVATE yogacore)
 
 add_ui_test_executable(ui_api_tests
     test_UmbrellaHeader.cpp

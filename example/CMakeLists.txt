@@ -1,1 +1,2 @@
 add_subdirectory(ui_demo)
+add_subdirectory(ui_sample_demo)

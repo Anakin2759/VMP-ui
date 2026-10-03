@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <ranges>
 #include <unordered_set>
 #include <utility>
@@ -328,6 +329,7 @@ void ConfigureFlexBehaviorFromSize(const components::Size& sizeComp, YGNodeRef n
 
 void ConfigureExplicitWidth(const components::Size& sizeComp, YGNodeRef node)
 {
+    const float declaredWidth = sizeComp.hasDeclaredWidth ? sizeComp.declaredSize.x() : sizeComp.size.x();
     const bool widthFixed = GetSizeAxisPolicy(sizeComp.sizePolicy, true) ==
                             static_cast<std::uint16_t>(policies::Size::H_FIXED);
     const bool widthAuto = IsSizePolicyAuto(GetSizeAxisPolicy(sizeComp.sizePolicy, true), true);
@@ -335,11 +337,11 @@ void ConfigureExplicitWidth(const components::Size& sizeComp, YGNodeRef node)
                               static_cast<std::uint16_t>(policies::Size::H_PERCENTAGE);
 
     const YGValue currentWidth = YGNodeStyleGetWidth(node);
-    if (widthFixed && sizeComp.size.x() > 0.0F)
+    if (widthFixed && (sizeComp.hasDeclaredWidth || declaredWidth > 0.0F))
     {
-        if (currentWidth.unit != YGUnitPoint || currentWidth.value != sizeComp.size.x())
+        if (currentWidth.unit != YGUnitPoint || currentWidth.value != declaredWidth)
         {
-            YGNodeStyleSetWidth(node, sizeComp.size.x());
+            YGNodeStyleSetWidth(node, declaredWidth);
         }
         return;
     }
@@ -362,6 +364,7 @@ void ConfigureExplicitWidth(const components::Size& sizeComp, YGNodeRef node)
 
 void ConfigureExplicitHeight(const components::Size& sizeComp, YGNodeRef node)
 {
+    const float declaredHeight = sizeComp.hasDeclaredHeight ? sizeComp.declaredSize.y() : sizeComp.size.y();
     const bool heightFixed = GetSizeAxisPolicy(sizeComp.sizePolicy, false) ==
                              static_cast<std::uint16_t>(policies::Size::V_FIXED);
     const bool heightAuto = IsSizePolicyAuto(GetSizeAxisPolicy(sizeComp.sizePolicy, false), false);
@@ -369,11 +372,11 @@ void ConfigureExplicitHeight(const components::Size& sizeComp, YGNodeRef node)
                                static_cast<std::uint16_t>(policies::Size::V_PERCENTAGE);
 
     const YGValue currentHeight = YGNodeStyleGetHeight(node);
-    if (heightFixed && sizeComp.size.y() > 0.0F)
+    if (heightFixed && (sizeComp.hasDeclaredHeight || declaredHeight > 0.0F))
     {
-        if (currentHeight.unit != YGUnitPoint || currentHeight.value != sizeComp.size.y())
+        if (currentHeight.unit != YGUnitPoint || currentHeight.value != declaredHeight)
         {
-            YGNodeStyleSetHeight(node, sizeComp.size.y());
+            YGNodeStyleSetHeight(node, declaredHeight);
         }
         return;
     }
@@ -393,11 +396,11 @@ void ConfigureExplicitHeight(const components::Size& sizeComp, YGNodeRef node)
         return;
     }
 
-    if (sizeComp.size.y() > 0.0F)
+    if (sizeComp.hasDeclaredHeight || declaredHeight > 0.0F)
     {
-        if (currentHeight.unit != YGUnitPoint || currentHeight.value != sizeComp.size.y())
+        if (currentHeight.unit != YGUnitPoint || currentHeight.value != declaredHeight)
         {
-            YGNodeStyleSetHeight(node, sizeComp.size.y());
+            YGNodeStyleSetHeight(node, declaredHeight);
         }
         return;
     }
@@ -470,6 +473,20 @@ void ConfigureSizeNode(Registry& reg, entt::entity entity, YGNodeRef node)
 
 void ConfigureAbsolutePosition(Registry& reg, entt::entity entity, YGNodeRef node)
 {
+    // Yoga 节点会复用，必须清除前次锚点/绝对定位样式。
+    YGNodeStyleSetPositionType(node, YGPositionTypeRelative);
+    for (const auto edge : {YGEdgeLeft, YGEdgeRight, YGEdgeTop, YGEdgeBottom})
+    {
+        YGNodeStyleSetPosition(node, edge, YGUndefined);
+    }
+    const auto* margin = reg.try_get<components::Margin>(entity);
+    YGNodeStyleSetMargin(node, YGEdgeLeft, margin != nullptr ? margin->values.w() : 0.0F);
+    YGNodeStyleSetMargin(node, YGEdgeTop, margin != nullptr ? margin->values.x() : 0.0F);
+    if (const auto* anchors = reg.try_get<components::Anchors>(entity))
+    {
+        YGNodeStyleSetPositionType(node, YGPositionTypeAbsolute);
+        return;
+    }
     auto* positionComp = reg.try_get<components::Position>(entity);
     if (positionComp == nullptr)
     {
@@ -616,7 +633,9 @@ void ConfigureContainerAlignmentAndOverflow(Registry& reg, entt::entity entity, 
 
 void ConfigureLeafAutoSize(Registry& reg, entt::entity entity, YGNodeRef node)
 {
-    if (reg.any_of<components::LayoutInfo>(entity))
+    // 绝对锚点的尺寸由边缘约束、显式 Size 或 Yoga 的已有测量结果决定；
+    // 这里的默认最小尺寸不能覆盖 Fill/Center 的锚点语义。
+    if (reg.any_of<components::LayoutInfo, components::Anchors>(entity))
     {
         return;
     }
@@ -745,7 +764,7 @@ void UpdateEntityLayoutFromYoga(Registry& reg, entt::entity entity, YGNodeRef no
                                  static_cast<std::uint16_t>(policies::Size::H_FIXED) &&
                              GetSizeAxisPolicy(sizeComp->sizePolicy, false) ==
                                  static_cast<std::uint16_t>(policies::Size::V_FIXED);
-        if (!isFixed)
+        if (!isFixed || reg.any_of<components::Anchors>(entity))
         {
             const bool widthChanged = (!std::isnan(width) && width > 0.0F && sizeComp->size.x() != width);
             const bool heightChanged = (!std::isnan(height) && height > 0.0F && sizeComp->size.y() != height);
@@ -979,7 +998,111 @@ void LayoutSystem::update()
 
         YGNodeCalculateLayout(rootNode, rootWidth, rootHeight, YGDirectionLTR);
         applyYogaLayout(root, rootNode);
+        applyAnchorLayout(root);
         applyWindowCentering(root, rootWidth, rootHeight);
+    }
+}
+
+void LayoutSystem::applyAnchorLayout(entt::entity root)
+{
+    if (!m_reg->valid(root)) return;
+    const auto lineValue = [this](entt::entity entity, AnchorLine line, bool parentLocal) -> float {
+        const auto* position = m_reg->try_get<components::Position>(entity);
+        const auto* size = m_reg->try_get<components::Size>(entity);
+        if (position == nullptr || size == nullptr) return 0.0F;
+        const float x = parentLocal ? 0.0F : position->value.x();
+        const float y = parentLocal ? 0.0F : position->value.y();
+        if (line == AnchorLine::Left || line == AnchorLine::HorizontalCenter) return x +
+            (line == AnchorLine::HorizontalCenter ? size->size.x() * 0.5F : 0.0F);
+        if (line == AnchorLine::Right) return x + size->size.x();
+        if (line == AnchorLine::Top) return y;
+        if (line == AnchorLine::Baseline)
+        {
+            const auto* anchors = m_reg->try_get<components::Anchors>(entity);
+            return y + (anchors != nullptr ? anchors->value.baselineOffset : 0.0F);
+        }
+        if (line == AnchorLine::VerticalCenter) return y + size->size.y() * 0.5F;
+        return y + size->size.y();
+    };
+    const auto resolveTarget = [this](entt::entity source, const AnchorTarget& target) -> entt::entity {
+        if (target.sibling) return detail::ToInternal(*target.sibling);
+        const auto* hierarchy = m_reg->try_get<components::Hierarchy>(source);
+        return hierarchy != nullptr ? hierarchy->parent : entt::null;
+    };
+    auto view = m_reg->view<components::Anchors, components::Position, components::Size>();
+    for (const int currentAxis : {0, 1})
+    {
+        std::unordered_set<entt::entity> visiting;
+        std::unordered_set<entt::entity> solved;
+        std::function<void(entt::entity)> solve = [&](entt::entity entity)
+        {
+            if (!m_reg->valid(entity) || findRoot(entity) != root || solved.contains(entity)) return;
+            if (visiting.contains(entity)) return; // API validation rejects this; keep runtime safe.
+            visiting.insert(entity);
+            const auto& anchors = view.get<components::Anchors>(entity).value;
+            auto& position = view.get<components::Position>(entity).value;
+            auto& size = view.get<components::Size>(entity).size;
+            const auto* implicit = m_reg->try_get<components::ImplicitSize>(entity);
+            const auto declaredWidth = size.x();
+            const auto declaredHeight = size.y();
+            const float intrinsicWidth = implicit != nullptr && implicit->hasWidth ? implicit->value.x() : size.x();
+            const float intrinsicHeight = implicit != nullptr && implicit->hasHeight ? implicit->value.y() : size.y();
+            const auto targetLine = [&](AnchorLine line) -> std::optional<float> {
+                const auto& binding = anchors.get(line);
+                if (!binding) return std::nullopt;
+                const entt::entity target = resolveTarget(entity, binding->target);
+                if (!m_reg->valid(target)) return std::nullopt;
+                if (m_reg->all_of<components::Anchors, components::Position, components::Size>(target))
+                    solve(target);
+                const bool trailing = line == AnchorLine::Right || line == AnchorLine::Bottom;
+                float margin = binding->offset;
+                if (line == AnchorLine::Left)
+                    margin = anchors.leftMargin.value_or(anchors.margins.left != 0.0F ? anchors.margins.left : margin);
+                if (line == AnchorLine::Right)
+                    margin = anchors.rightMargin.value_or(anchors.margins.right != 0.0F ? anchors.margins.right : margin);
+                if (line == AnchorLine::Top)
+                    margin = anchors.topMargin.value_or(anchors.margins.top != 0.0F ? anchors.margins.top : margin);
+                if (line == AnchorLine::Bottom)
+                    margin = anchors.bottomMargin.value_or(anchors.margins.bottom != 0.0F ? anchors.margins.bottom : margin);
+                const float sign = trailing ? -1.0F : 1.0F;
+                return lineValue(target, binding->line, !binding->target.sibling.has_value()) + sign * margin;
+            };
+            const float oldX = position.x();
+            const float oldY = position.y();
+            const float oldW = size.x();
+            const float oldH = size.y();
+            if (currentAxis == 0)
+            {
+                const auto left = targetLine(AnchorLine::Left);
+                const auto right = targetLine(AnchorLine::Right);
+                const auto center = targetLine(AnchorLine::HorizontalCenter);
+                if (left && right) { position.x() = *left; size.x() = std::max(0.0F, *right - *left); }
+                else if (left && center) { position.x() = *left; size.x() = std::max(0.0F, 2.0F * (*center - *left)); }
+                else if (right && center) { size.x() = std::max(0.0F, 2.0F * (*right - *center)); position.x() = *right - size.x(); }
+                else if (center) position.x() = *center - (declaredWidth > 0.0F ? declaredWidth : intrinsicWidth) * 0.5F;
+                else if (left) position.x() = *left;
+                else if (right) position.x() = *right - (declaredWidth > 0.0F ? declaredWidth : intrinsicWidth);
+            }
+            else
+            {
+                const auto top = targetLine(AnchorLine::Top);
+                const auto bottom = targetLine(AnchorLine::Bottom);
+                const auto center = targetLine(AnchorLine::VerticalCenter);
+                const auto baseline = targetLine(AnchorLine::Baseline);
+                if (top && bottom) { position.y() = *top; size.y() = std::max(0.0F, *bottom - *top); }
+                else if (top && center) { position.y() = *top; size.y() = std::max(0.0F, 2.0F * (*center - *top)); }
+                else if (bottom && center) { size.y() = std::max(0.0F, 2.0F * (*bottom - *center)); position.y() = *bottom - size.y(); }
+                else if (baseline) position.y() = *baseline - anchors.baselineOffset;
+                else if (center) position.y() = *center - (declaredHeight > 0.0F ? declaredHeight : intrinsicHeight) * 0.5F;
+                else if (top) position.y() = *top;
+                else if (bottom) position.y() = *bottom - (declaredHeight > 0.0F ? declaredHeight : intrinsicHeight);
+            }
+            visiting.erase(entity);
+            solved.insert(entity);
+            if (oldX != position.x() || oldY != position.y() || oldW != size.x() || oldH != size.y())
+                utils::MarkLayoutDirty(m_reg->runtime(), entity);
+        };
+        for (const entt::entity entity : view) solve(entity);
     }
 }
 
@@ -1185,9 +1308,9 @@ void LayoutSystem::configureYogaNode(entt::entity entity, YGNodeRef node)
     }
 
     ConfigureSizeNode(*m_reg, entity, node);
-    ConfigureAbsolutePosition(*m_reg, entity, node);
     ConfigureContainerAlignmentAndOverflow(*m_reg, entity, node);
     ConfigureLeafAutoSize(*m_reg, entity, node);
+    ConfigureAbsolutePosition(*m_reg, entity, node);
 }
 
 void LayoutSystem::applyYogaLayout(entt::entity entity, YGNodeRef node)

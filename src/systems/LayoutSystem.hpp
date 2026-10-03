@@ -76,6 +76,7 @@ class LayoutSystem : public ui::interface::EnableRegister<LayoutSystem>
     void syncChildren(entt::entity entity, YGNodeRef node);
     void configureYogaNode(entt::entity entity, YGNodeRef node);
     void applyYogaLayout(entt::entity entity, YGNodeRef node);
+    void applyAnchorLayout(entt::entity root);
     void applyWindowCentering(entt::entity root, float screenWidth, float screenHeight);
 
     /// @brief 实体销毁时自动释放对应 YGNode（由 on_destroy<Hierarchy> 信号触发）

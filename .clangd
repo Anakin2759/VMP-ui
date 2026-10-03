@@ -2,6 +2,13 @@ If:
   PathExclude: [third_party/.*]
 
 CompileFlags:
+  # 编译数据库由 CMake 生成，必须位于 build/ 且配置时带 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON。
+  # 注意：本项只接受单个目录（scalar），列表写法会被 clangd 判废并导致
+  # “CompilationDatabase should be scalar” 警告，进而退化为完全无编译数据库。
+  # tests/unittest/*.cpp 能否解析取决于该数据库是否含测试条目，
+  # 即 build/ 是否以 -DENABLE_BUILD_TESTS=ON 配置：
+  #   OFF → 测试文件无编译命令，clangd 使用零 -I 的兜底命令，
+  #         表现为整片 "'gtest/gtest.h' file not found" 等误报（非代码问题）。
   CompilationDatabase: build
   Compiler: clang-cl
   Add:

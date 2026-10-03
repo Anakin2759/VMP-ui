@@ -88,7 +88,8 @@ void WriteStderr(const char* text) noexcept
 
 std::shared_ptr<const ui::managers::IResourceProvider> GetUiResourceProvider(ui::utils::Logger& logger)
 {
-    return ui::managers::GetDefaultUiResourceProvider(logger);
+    static_cast<void>(logger);
+    return ui::managers::GetDefaultUiResourceProvider();
 }
 
 ui::Result<ui::managers::BinaryResource> LoadUiResource(std::string_view resourcePath, ui::utils::Logger& logger)

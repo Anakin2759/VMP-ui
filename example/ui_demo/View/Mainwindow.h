@@ -309,7 +309,8 @@ inline void CreateMainWindow()  // NOLINT
         auto dd5 = ui::factory::CreateDropDown(kActions, 0, "dd_row5");
         for (auto ddEnt : {dd0, dd1, dd2, dd3, dd4, dd5})
         {
-            ddEnt | FixedSize(110.0F, 22.0F) | BackgroundColor({0.15F, 0.15F, 0.20F, 0.95F}) | BorderRadius(3.0F) |
+            ddEnt | SizePolicy(ui::policies::Size::H_EXPANDING | ui::policies::Size::V_FIXED) |
+                Size(0.0F, 22.0F) | BackgroundColor({0.15F, 0.15F, 0.20F, 0.95F}) | BorderRadius(3.0F) |
                 BorderColor({0.35F, 0.35F, 0.45F, 1.0F}) | BorderThickness(1.0F);
         }
         dd0 | OnDropDownChanged([](int idx) { ui::log::Info("Player One action: {}", idx); });

@@ -34,17 +34,17 @@ struct SDL_Window;
 
 namespace ui::core
 {
-struct RenderContext;
+struct RenderContext; // 渲染上下文
 }
 
 namespace ui::interface
 {
-class IBackendRenderer;
+class IBackendRenderer; // 后端渲染器接口
 }
 
 namespace ui::utils
 {
-class Logger;
+class Logger; // 日志记录器
 }
 
 namespace ui::systems

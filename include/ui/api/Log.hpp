@@ -9,7 +9,8 @@
  *
  * 客户端可通过 ui::log::SetCallback 注入自定义输出函数，
  * 也可直接调用 ui::log::Info / Debug / Warning / Error / Critical
- * 向库内部日志系统写入。支持 std::format 格式化参数。
+ * 向外部诊断回调发送消息。该接口不依赖 UiRuntime，支持 std::format
+ * 格式化参数。
  *
  * ************************************************************************
  * @copyright Copyright (c) 2026 AnakinLiu
@@ -43,7 +44,11 @@ enum class Level : std::uint8_t
 
 using Callback = void (*)(Level, std::string_view);
 
+/// 兼容接口：设置库诊断等级，等价于 SetDebugLevel。
 void SetLevel(Level level);
+/// 设置库外部诊断输出等级；不依赖 UiRuntime 或线程局部上下文。
+void SetDebugLevel(Level level);
+/// 设置外部诊断回调；传入 nullptr 可解除回调。
 void SetCallback(Callback callback);
 void SetFilePath(std::string_view path);
 void LogImpl(Level level, std::string_view message);
