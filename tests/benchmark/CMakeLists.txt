@@ -34,7 +34,6 @@ target_link_libraries(ui_gpu_lifecycle_benchmark PRIVATE
     EnTT::EnTT
     Eigen3::Eigen
     SDL3::SDL3
-    spdlog::spdlog_header_only
     ui
     benchmark::benchmark_main
 )

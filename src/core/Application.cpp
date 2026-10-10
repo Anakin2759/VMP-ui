@@ -79,10 +79,11 @@ ApplicationImpl::ApplicationImpl(std::span<char*> arg)  // NOLINT
 {
     config::AppConfig::instance().parseCommandLine(arg);
 
-    // 优先应用日志文件路径配置（在任何日志输出之前）
+    // 策略 A：旧路径配置只用于迁移提示，不再创建文件或执行轮转。
     if (const auto logPath = config::AppConfig::instance().logFilePath(); !logPath.empty())
     {
-        m_runtime->logger().reconfigure(logPath);
+        m_runtime->logger().warn("内部日志文件配置已废弃（{}）；使用 stderr 或内部 Logger 回调，落盘由宿主负责",
+                                 logPath);
     }
 
     if (auto backend = config::AppConfig::instance().preferredBackend(); !backend.empty())

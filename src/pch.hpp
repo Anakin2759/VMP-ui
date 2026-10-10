@@ -44,7 +44,3 @@
 // ---------- Yoga (Flexbox 布局) ----------
 #include <yoga/Yoga.h>
 
-// ---------- spdlog ----------
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/rotating_file_sink.h>
-#include <spdlog/sinks/stdout_color_sinks.h>

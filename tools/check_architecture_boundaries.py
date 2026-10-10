@@ -74,6 +74,9 @@ ALLOWED_API_CPP_ENTT_ENTITY_COUNTS = Counter(
         # 2026-08-16: P2-1 ListView (CreateListView/AddListItem) 新增 8 处后移除死代码 ApplyListItemVisualState（21 -> 29 -> 28）
         ("src/api/Factory.cpp", "entt::entity"): 27,
         ("src/api/Utils.cpp", "entt::entity"): 6,
+        # 2026-10-03: Qt Quick anchors 公共 API 实现（SetAnchors 参数校验 + 依赖环检测）
+        # 在公共边界转换/校验内部 entity；待迁移到 src/systems/AnchorSolver 后移除此条目。
+        ("src/api/Layout.cpp", "entt::entity"): 8,
     }
 )
 
@@ -81,11 +84,7 @@ ALLOWED_RUNTIME_CURRENT_COUNTS = Counter()
 
 ALLOWED_PUBLIC_CMAKE_DEBT_COUNTS = Counter({})
 
-ALLOWED_RAW_ACCESS_COUNTS = Counter(
-    {
-        ("src/renderers/RendererRegistry.hpp", ".raw()"): 2,
-    }
-)
+ALLOWED_RAW_ACCESS_COUNTS = Counter({})
 
 ALLOWED_UNLISTED_DETAIL_CPP_COUNTS = Counter({})
 
@@ -171,7 +170,7 @@ def count_matches(root: Path):
 
         if match := PUBLIC_LINK_BLOCK_RE.search(cmake_text):
             for token in re.findall(r"[^\s()]+", match.group(1)):
-                if token not in {"EnTT::EnTT", "Eigen3::Eigen", "spdlog::spdlog_header_only"}:
+                if token not in {"EnTT::EnTT", "Eigen3::Eigen", "spdlog::spdlog", "spdlog::spdlog_header_only"}:
                     continue
                 debt = f"PUBLIC link: {token}"
                 key = ("src/CMakeLists.txt", debt)

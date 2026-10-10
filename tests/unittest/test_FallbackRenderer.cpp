@@ -73,23 +73,6 @@ class CapabilityOverrideBackend final : public interface::IBackendRenderer
     std::size_t bitmapDrawCount = 0;
 };
 
-class CountingLoggerSink final : public spdlog::sinks::base_sink<std::mutex>
-{
-   public:
-    [[nodiscard]] std::size_t Count() const noexcept { return m_count; }
-
-   protected:
-    void sink_it_(const spdlog::details::log_msg& message) override
-    {
-        static_cast<void>(message);
-        ++m_count;
-    }
-    void flush_() override {}
-
-   private:
-    std::size_t m_count = 0;
-};
-
 class RecordingDiagnostics final : public core::IRenderCapabilityDiagnostics
 {
    public:
@@ -185,9 +168,8 @@ TEST(BackendCapabilityMatrixTest, CapabilityCpoUsesVirtualOverrideAfterTypeErasu
 
 TEST(RenderCapabilityDiagnosticsTest, ReportsEachCapabilityAndStatusOnlyOncePerWindowState)
 {
-    auto sink = std::make_shared<CountingLoggerSink>();
-    auto spdLogger = std::make_shared<spdlog::logger>("capability-test", sink);
-    utils::Logger logger(spdLogger);
+    std::size_t messageCount = 0;
+    utils::Logger logger([&messageCount](utils::LogLevel, std::string_view, std::source_location) { ++messageCount; });
     systems::render_detail::WindowCapabilityDiagnostics diagnostics;
     diagnostics.SetLogger(logger);
 
@@ -197,7 +179,7 @@ TEST(RenderCapabilityDiagnosticsTest, ReportsEachCapabilityAndStatusOnlyOncePerW
                        "shadow", "omitted");
     diagnostics.report(interface::BackendCapability::ROUNDED_RECT, interface::BackendCapabilityStatus::DEGRADED,
                        "rounded rect", "approximated");
-    EXPECT_EQ(sink->Count(), 2U);
+    EXPECT_EQ(messageCount, 2U);
 }
 
 TEST(CanvasFallbackCapabilityTest, UnsupportedCapsuleFallsBackToTransformedSolidQuad)

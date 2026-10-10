@@ -108,12 +108,14 @@ class AppConfig
         return m_appIconPath;
     }
 
-    /// 设置日志文件路径（空字符串表示使用默认路径 logs/vmpui.log）
+    /// @deprecated 策略 A 已取消内部落盘；仅保存旧配置并由 Application 提示，不创建文件。
+    /// 宿主负责文件和轮转；内部 Logger 默认 stderr，可用其独立回调接管输出。
     void setLogFilePath(std::string path)
     {
         m_logFilePath = std::move(path);
     }
 
+    /// 读取兼容字段，不代表内部日志输出路径；空值也不会创建默认文件。
     [[nodiscard]] std::string_view logFilePath() const noexcept
     {
         return m_logFilePath;

@@ -24,6 +24,10 @@ struct Anchors
     using is_component_tag = void;
     ui::AnchorSet value;
     std::uint64_t revision = 0;
+    /// 最近一次求解产生的诊断（当前仅 TargetLost）。
+    ui::AnchorDiagnostic lastDiagnostic = ui::AnchorDiagnostic::None;
+    /// 同一持续失效期间只报告一次诊断，恢复后重置。
+    bool targetLostReported = false;
 };
 
 /// 内容测量得到的隐式尺寸，与用户声明的 Size 分离保存。

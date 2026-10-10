@@ -1074,13 +1074,21 @@ inline void RemoveChild(Registry& reg, entt::entity parent, entt::entity child)
         reg.emplace_or_replace<components::RootTag>(child);
         if (auto* anchors = reg.try_get<components::Anchors>(child))
         {
+            bool invalidated = false;
             for (auto& binding : anchors->value.bindings)
             {
                 if (binding && binding->target.sibling &&
                     !reg.valid(detail::ToInternal(*binding->target.sibling)))
                 {
                     binding.reset();
+                    invalidated = true;
                 }
+            }
+            if (invalidated)
+            {
+                anchors->value.clearUnresolved();
+                anchors->lastDiagnostic = AnchorDiagnostic::TargetLost;
+                anchors->targetLostReported = true;
             }
         }
         utils::MarkLayoutAndVisualChanged(reg.runtime(), parent);
@@ -1115,6 +1123,7 @@ inline void AddChild(Registry& reg, entt::entity parent, entt::entity child)
         children.push_back(child);
     if (auto* anchors = reg.try_get<components::Anchors>(child))
     {
+        bool invalidated = false;
         for (auto& binding : anchors->value.bindings)
         {
             if (binding && binding->target.sibling)
@@ -1122,8 +1131,17 @@ inline void AddChild(Registry& reg, entt::entity parent, entt::entity child)
                 const auto sibling = detail::ToInternal(*binding->target.sibling);
                 const auto* siblingHierarchy = reg.try_get<components::Hierarchy>(sibling);
                 if (!reg.valid(sibling) || siblingHierarchy == nullptr || siblingHierarchy->parent != parent)
+                {
                     binding.reset();
+                    invalidated = true;
+                }
             }
+        }
+        if (invalidated)
+        {
+            anchors->value.clearUnresolved();
+            anchors->lastDiagnostic = AnchorDiagnostic::TargetLost;
+            anchors->targetLostReported = true;
         }
     }
     utils::MarkLayoutAndVisualChanged(reg.runtime(), child);

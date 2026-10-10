@@ -23,6 +23,7 @@
 #include "SDL3/SDL_properties.h"
 
 #include <cmath>
+#include <algorithm>
 
 namespace
 {

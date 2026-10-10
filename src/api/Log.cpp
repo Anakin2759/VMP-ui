@@ -17,8 +17,7 @@
 #include <atomic>
 #include <string_view>
 
-// Log.hpp 虽已 #undef ERROR，但其后的 UiRuntime.hpp/Logger.hpp 会经 spdlog 重新引入
-// Windows wingdi.h 的 ERROR 宏，导致下方 `case Level::ERROR:` 被展开为 `case Level::0:`。
+// Log.hpp 虽已处理 ERROR 宏，但 Windows 头文件可能在后续 include 中重新引入该宏；
 // 因此在对所有头完成包含之后再次消除该宏。
 #ifdef ERROR
 #undef ERROR

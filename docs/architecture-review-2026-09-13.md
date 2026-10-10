@@ -207,11 +207,13 @@ ui::log::SetCallback([](ui::log::Level level, std::string_view message) {
 
 `SetFilePath()` 不属于新的外部接入推荐方式。外部应用应在回调中决定文件输出；该接口在兼容期内保留，但不应再承担寻找 Runtime 或配置 VMP-ui 内部 Logger 的职责。
 
-## 3.3.2 是否应完全放弃 spdlog：不推荐当前阶段直接移除
+## 3.3.2 spdlog 移除后的日志责任边界（历史结论已 superseded）
+
+> 本节原结论形成于 2026-09-13，当时建议暂不直接移除 spdlog。2026-10-09 已完成内部 Logger 的标准库迁移、CMake 依赖清理和第三方目录删除；以下扫描结果和“不推荐移除”的结论仅保留为迁移前的历史背景，不再代表当前实现状态。当前实现与验收记录见 `docs/todo/SPDLOG_REMOVAL_PLAN.md`。
 
 ### 当前扫描结论
 
-当前 `spdlog` 不是只存在于一个日志适配文件中，而是已经成为内部 Logger 的实现和编译依赖：
+迁移前，`spdlog` 不是只存在于一个日志适配文件中，而是已经成为内部 Logger 的实现和编译依赖：
 
 - `src/utils/Logger.hpp` 直接暴露 `spdlog::logger`、`spdlog::level`、`spdlog::sink_ptr`、`spdlog::source_loc` 和 `fmt::runtime`；
 - `src/core/UiRuntime.hpp` 持有 `utils::Logger`，大量 System、Manager、Renderer 通过注入的 `Logger&`/`Logger*` 调用 `debug/info/warn/error`；
@@ -219,11 +221,11 @@ ui::log::SetCallback([](ui::log::Level level, std::string_view message) {
 - `tests/unittest/CMakeLists.txt`、`tests/benchmark/CMakeLists.txt` 也直接链接 spdlog target；
 - Logger 当前提供 rotating file sink、彩色控制台 sink、格式化参数、调用点 source location 和运行时等级过滤。
 
-因此，完全移除 spdlog 不是“删除一个依赖”，而是一次横跨 Logger、Runtime、System、Manager、Renderer、测试和 CMake 的基础设施替换。
+因此，完全移除 spdlog 不是“删除一个依赖”，而是一次横跨 Logger、Runtime、System、Manager、Renderer、测试和 CMake 的基础设施替换。该替换现已落地，当前生产代码和构建目标不再依赖 spdlog。
 
-### 推荐结论
+### 迁移前推荐结论（已完成）
 
-**不推荐现在完全放弃 spdlog；推荐先隔离，再决定是否移除。**
+**迁移前不推荐立即放弃 spdlog；推荐先隔离，再决定是否移除。**
 
 理由：
 
@@ -233,7 +235,7 @@ ui::log::SetCallback([](ui::log::Level level, std::string_view message) {
 4. **公共头约束不是立即阻断因素**。`spdlog` 目前位于 `src/utils/Logger.hpp`，不应进入 `include/ui/**` 公共发行头；它增加的是内部编译成本和第三方构建复杂度，不是当前消费者 ABI 的核心问题。
 5. **当前更大的问题是日志责任边界，而不是具体日志库**。先解决“谁记录、谁过滤、谁输出、是否依赖 Runtime”，比更换库本身更重要。
 
-### 推荐路线
+### 迁移前推荐路线
 
 #### P0：保持 spdlog，完成责任隔离
 
@@ -243,6 +245,15 @@ ui::log::SetCallback([](ui::log::Level level, std::string_view message) {
 - 在 `utils::Logger` 内统一应用 Debug/Release 默认等级；
 - 禁止 spdlog 类型进入 `include/ui/**` 和安装消费者接口；
 - 禁止业务模块直接 include spdlog，统一经过 `utils::Logger.hpp`。
+
+### 当前实现
+
+- `utils::Logger` 已改为仅依赖 C++ 标准库，默认输出 `stderr`，支持宿主注入同步回调和等级过滤。
+- UI 内部不再负责日志文件落盘和轮转；宿主应用通过回调决定文件、轮转或远程采集策略。
+- `ui::log` 公共日志通道保持独立，不与 Runtime 内部 Logger 合并。
+- `third_party/spdlog/` 已从仓库移除；公共头禁止第三方日志依赖的检查继续保留。
+- 2026-10-09 独立 Debug/PCH OFF 构建中，`ui_unit_tests` 的 121 项测试全部通过；Logger 专项及 fallback 诊断测试 10 项通过；架构边界和公共头自包含门禁通过。
+- Release、启用 PCH、ECS/API 独立测试、交互/截图回归及安装消费者验证仍属于后续验收范围。
 
 #### P1：建立自有 Logger 抽象，保留 spdlog 适配器
 

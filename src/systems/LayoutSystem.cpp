@@ -942,6 +942,14 @@ void LayoutSystem::update()
         return;
     }
     cleanupInvalidNodes();
+    if (!m_pendingAnchorInvalidations.empty())
+    {
+        for (const entt::entity destroyed : m_pendingAnchorInvalidations)
+        {
+            invalidateAnchorTargets(destroyed);
+        }
+        m_pendingAnchorInvalidations.clear();
+    }
 
     std::unordered_set<entt::entity> dirtyRoots;
     auto dirtyView = m_reg->view<components::LayoutDirtyTag>();
@@ -1029,6 +1037,23 @@ void LayoutSystem::applyAnchorLayout(entt::entity root)
         const auto* hierarchy = m_reg->try_get<components::Hierarchy>(source);
         return hierarchy != nullptr ? hierarchy->parent : entt::null;
     };
+    // 尺寸约束统一裁剪：anchor 派生尺寸与用于定位的有效尺寸都必须落在 [minSize, maxSize]，
+    // 且恒为非负有限值，避免 NaN/负尺寸进入 Position/Size。
+    const auto clampSize = [](const components::Size& sizeComp, float value, bool horizontal) -> float {
+        const float minValue = horizontal ? sizeComp.minSize.x() : sizeComp.minSize.y();
+        const float maxValue = horizontal ? sizeComp.maxSize.x() : sizeComp.maxSize.y();
+        float result = std::isfinite(value) ? value : 0.0F;
+        result = std::max(0.0F, result);
+        if (minValue > 0.0F)
+        {
+            result = std::max(result, minValue);
+        }
+        if (maxValue < FLT_MAX)
+        {
+            result = std::min(result, maxValue);
+        }
+        return std::isfinite(result) ? std::max(0.0F, result) : 0.0F;
+    };
     auto view = m_reg->view<components::Anchors, components::Position, components::Size>();
     for (const int currentAxis : {0, 1})
     {
@@ -1039,17 +1064,54 @@ void LayoutSystem::applyAnchorLayout(entt::entity root)
             if (!m_reg->valid(entity) || findRoot(entity) != root || solved.contains(entity)) return;
             if (visiting.contains(entity)) return; // API validation rejects this; keep runtime safe.
             visiting.insert(entity);
-            const auto& anchors = view.get<components::Anchors>(entity).value;
-            auto& position = view.get<components::Position>(entity).value;
-            auto& size = view.get<components::Size>(entity).size;
+            auto& anchorsComp = view.get<components::Anchors>(entity);
+            auto& anchors = anchorsComp.value;
+            auto& positionComp = view.get<components::Position>(entity);
+            auto& sizeComp = view.get<components::Size>(entity);
+            auto& position = positionComp.value;
+            auto& size = sizeComp.size;
+
+            // 逐线解析目标有效性：目标失效/跨层时标记 unresolved，本帧按无该 binding 回退。
+            const auto* hierarchy = m_reg->try_get<components::Hierarchy>(entity);
+            const entt::entity parent = hierarchy != nullptr ? hierarchy->parent : entt::null;
+            bool targetLost = false;
+            for (std::size_t lineIndex = 0; lineIndex < anchors.bindings.size(); ++lineIndex)
+            {
+                const auto& binding = anchors.bindings[lineIndex];
+                if (!binding)
+                {
+                    anchors.unresolved[lineIndex] = false;
+                    continue;
+                }
+                const entt::entity target = resolveTarget(entity, binding->target);
+                bool valid = m_reg->valid(target) && target != entity && target != entt::null;
+                if (valid && binding->target.sibling)
+                {
+                    const auto* targetHierarchy = m_reg->try_get<components::Hierarchy>(target);
+                    valid = targetHierarchy != nullptr && targetHierarchy->parent == parent;
+                }
+                anchors.unresolved[lineIndex] = !valid;
+                targetLost = targetLost || !valid;
+            }
+            if (targetLost)
+            {
+                if (!anchorsComp.targetLostReported)
+                {
+                    anchorsComp.lastDiagnostic = AnchorDiagnostic::TargetLost;
+                    anchorsComp.targetLostReported = true;
+                }
+            }
+
             const auto* implicit = m_reg->try_get<components::ImplicitSize>(entity);
             const auto declaredWidth = size.x();
             const auto declaredHeight = size.y();
             const float intrinsicWidth = implicit != nullptr && implicit->hasWidth ? implicit->value.x() : size.x();
             const float intrinsicHeight = implicit != nullptr && implicit->hasHeight ? implicit->value.y() : size.y();
+            const float effectiveWidth = clampSize(sizeComp, declaredWidth > 0.0F ? declaredWidth : intrinsicWidth, true);
+            const float effectiveHeight = clampSize(sizeComp, declaredHeight > 0.0F ? declaredHeight : intrinsicHeight, false);
             const auto targetLine = [&](AnchorLine line) -> std::optional<float> {
                 const auto& binding = anchors.get(line);
-                if (!binding) return std::nullopt;
+                if (!binding || anchors.isUnresolved(line)) return std::nullopt;
                 const entt::entity target = resolveTarget(entity, binding->target);
                 if (!m_reg->valid(target)) return std::nullopt;
                 if (m_reg->all_of<components::Anchors, components::Position, components::Size>(target))
@@ -1076,12 +1138,33 @@ void LayoutSystem::applyAnchorLayout(entt::entity root)
                 const auto left = targetLine(AnchorLine::Left);
                 const auto right = targetLine(AnchorLine::Right);
                 const auto center = targetLine(AnchorLine::HorizontalCenter);
-                if (left && right) { position.x() = *left; size.x() = std::max(0.0F, *right - *left); }
-                else if (left && center) { position.x() = *left; size.x() = std::max(0.0F, 2.0F * (*center - *left)); }
-                else if (right && center) { size.x() = std::max(0.0F, 2.0F * (*right - *center)); position.x() = *right - size.x(); }
-                else if (center) position.x() = *center - (declaredWidth > 0.0F ? declaredWidth : intrinsicWidth) * 0.5F;
-                else if (left) position.x() = *left;
-                else if (right) position.x() = *right - (declaredWidth > 0.0F ? declaredWidth : intrinsicWidth);
+                if (left && right)
+                {
+                    position.x() = *left;
+                    size.x() = clampSize(sizeComp, *right - *left, true);
+                }
+                else if (left && center)
+                {
+                    position.x() = *left;
+                    size.x() = clampSize(sizeComp, 2.0F * (*center - *left), true);
+                }
+                else if (right && center)
+                {
+                    size.x() = clampSize(sizeComp, 2.0F * (*right - *center), true);
+                    position.x() = *right - size.x();
+                }
+                else if (center)
+                {
+                    position.x() = *center - effectiveWidth * 0.5F;
+                }
+                else if (left)
+                {
+                    position.x() = *left;
+                }
+                else if (right)
+                {
+                    position.x() = *right - effectiveWidth;
+                }
             }
             else
             {
@@ -1089,13 +1172,37 @@ void LayoutSystem::applyAnchorLayout(entt::entity root)
                 const auto bottom = targetLine(AnchorLine::Bottom);
                 const auto center = targetLine(AnchorLine::VerticalCenter);
                 const auto baseline = targetLine(AnchorLine::Baseline);
-                if (top && bottom) { position.y() = *top; size.y() = std::max(0.0F, *bottom - *top); }
-                else if (top && center) { position.y() = *top; size.y() = std::max(0.0F, 2.0F * (*center - *top)); }
-                else if (bottom && center) { size.y() = std::max(0.0F, 2.0F * (*bottom - *center)); position.y() = *bottom - size.y(); }
-                else if (baseline) position.y() = *baseline - anchors.baselineOffset;
-                else if (center) position.y() = *center - (declaredHeight > 0.0F ? declaredHeight : intrinsicHeight) * 0.5F;
-                else if (top) position.y() = *top;
-                else if (bottom) position.y() = *bottom - (declaredHeight > 0.0F ? declaredHeight : intrinsicHeight);
+                if (top && bottom)
+                {
+                    position.y() = *top;
+                    size.y() = clampSize(sizeComp, *bottom - *top, false);
+                }
+                else if (top && center)
+                {
+                    position.y() = *top;
+                    size.y() = clampSize(sizeComp, 2.0F * (*center - *top), false);
+                }
+                else if (bottom && center)
+                {
+                    size.y() = clampSize(sizeComp, 2.0F * (*bottom - *center), false);
+                    position.y() = *bottom - size.y();
+                }
+                else if (baseline)
+                {
+                    position.y() = *baseline - anchors.baselineOffset;
+                }
+                else if (center)
+                {
+                    position.y() = *center - effectiveHeight * 0.5F;
+                }
+                else if (top)
+                {
+                    position.y() = *top;
+                }
+                else if (bottom)
+                {
+                    position.y() = *bottom - effectiveHeight;
+                }
             }
             visiting.erase(entity);
             solved.insert(entity);
@@ -1150,6 +1257,9 @@ void LayoutSystem::clearYogaNodes()
 
 void LayoutSystem::onEntityDestroyed(entt::entity entity)
 {
+    // 先登记待失效目标；实际清理推迟到 update()，避免在 on_destroy 信号内修改注册表。
+    m_pendingAnchorInvalidations.push_back(entity);
+
     if (m_entityToNode == nullptr)
     {
         return;
@@ -1163,6 +1273,33 @@ void LayoutSystem::onEntityDestroyed(entt::entity entity)
             YGNodeFree(it->second);
         }
         m_entityToNode->erase(it);
+    }
+}
+
+void LayoutSystem::invalidateAnchorTargets(entt::entity destroyed)
+{
+    // 公共实体句柄不带版本号，销毁后保留悬空 sibling binding 会在索引复用时误绑定；
+    // 因此目标销毁后直接清除相关 binding，并记录一次 AnchorTargetLost 诊断。
+    auto anchorsView = m_reg->view<components::Anchors>();
+    for (const entt::entity source : anchorsView)
+    {
+        auto& anchors = anchorsView.get<components::Anchors>(source);
+        bool invalidated = false;
+        for (auto& binding : anchors.value.bindings)
+        {
+            if (binding && binding->target.sibling && detail::ToInternal(*binding->target.sibling) == destroyed)
+            {
+                binding.reset();
+                invalidated = true;
+            }
+        }
+        if (invalidated)
+        {
+            anchors.value.clearUnresolved();
+            anchors.lastDiagnostic = AnchorDiagnostic::TargetLost;
+            anchors.targetLostReported = true;
+            utils::MarkLayoutDirty(m_reg->runtime(), source);
+        }
     }
 }
 

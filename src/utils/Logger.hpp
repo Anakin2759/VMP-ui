@@ -14,33 +14,39 @@
  */
 #pragma once
 
+#include <atomic>
+#include <concepts>
+#include <format>
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <source_location>
-#include <string>
 #include <string_view>
+#include <cstdint>
 #include <utility>
-#include <vector>
-
-#include <spdlog/sinks/rotating_file_sink.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
 
 namespace ui::utils
 {
 
-inline constexpr size_t kMaxLogFileSize = static_cast<size_t>(1024) * 1024 * 5;  // 5MB
-inline constexpr size_t kMaxLogFileCount = 1;
+enum class LogLevel : std::uint8_t
+{
+    debug,
+    info,
+    warn,
+    error,
+    off
+};
 
 /**
  * @brief 辅助结构体：用于在调用点自动捕获位置和格式化字符串
  */
 struct LogLocation
 {
-    spdlog::string_view_t fmt;
+    std::string_view fmt;
     std::source_location loc;
 
     template <typename T>
-        requires std::convertible_to<T, spdlog::string_view_t>
+        requires std::convertible_to<T, std::string_view>
     // NOLINTNEXTLINE(google-explicit-constructor) 保留 Logger::info("...") 调用点位置捕获语义。
     constexpr LogLocation(const T& format, std::source_location location = std::source_location::current())
         : fmt(format), loc(location)
@@ -49,134 +55,104 @@ struct LogLocation
 };
 
 /**
- * @brief 常规 Logger 类（非单例），每个实例持有独立的 spdlog::logger
+ * @brief 常规 Logger 类（非单例），每个实例维护独立的输出配置
  */
 class Logger
 {
    public:
-    /**
-     * @brief 使用默认配置构造 Logger（控制台 + 文件双 sink）
-     */
-    Logger() : m_logger(CreateDefaultLogger())
-    {
-    }
+    using OutputCallback = std::move_only_function<void(LogLevel, std::string_view, std::source_location)>;
 
     /**
-     * @brief 使用外部 spdlog::logger 构造
+        * @brief 默认输出至 stderr，文件与轮转由宿主负责。
      */
-    explicit Logger(std::shared_ptr<spdlog::logger> logger) : m_logger(std::move(logger))
-    {
-    }
+    Logger() = default;
+
+    /**
+     * @brief 使用外部同步回调构造 Logger，主要用于测试或宿主接管输出。
+     */
+    explicit Logger(OutputCallback callback) noexcept;
+
+    void SetLevel(LogLevel level) noexcept;
+    [[nodiscard]] LogLevel GetLevel() const noexcept;
+
+    /**
+     * @brief 回调接管输出；空回调恢复 stderr。配置失败保留旧回调。
+     * 同步运行于调用线程，允许并发调用，捕获状态须自行同步。
+     * 消息视图仅当次有效；替换不等待在途回调，其所有权保留至调用结束。
+     * 允许回调内替换配置；同线程嵌套日志跳过所有内部 Logger 回调，改写 stderr。
+     * Logger 销毁前宿主须停止并等待所有调用。构造回调参数本身的异常由调用方负责。
+     */
+    void SetCallback(OutputCallback callback) noexcept;
 
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
-    Logger(Logger&&) = default;
-    Logger& operator=(Logger&&) = default;
+    Logger(Logger&&) = delete;
+    Logger& operator=(Logger&&) = delete;
     ~Logger() = default;
 
     /**
      * @brief 警告日志
      */
     template <typename... Args>
-    void warn(LogLocation msg, Args&&... args)
+    void warn(LogLocation msg, Args&&... args) noexcept
     {
-        log(spdlog::level::warn, msg, std::forward<Args>(args)...);
+        log(LogLevel::warn, msg, std::forward<Args>(args)...);
     }
 
     /**
      * @brief 信息日志
      */
     template <typename... Args>
-    void info(LogLocation msg, Args&&... args)
+    void info(LogLocation msg, Args&&... args) noexcept
     {
-        log(spdlog::level::info, msg, std::forward<Args>(args)...);
+        log(LogLevel::info, msg, std::forward<Args>(args)...);
     }
 
     /**
      * @brief 错误日志
      */
     template <typename... Args>
-    void error(LogLocation msg, Args&&... args)
+    void error(LogLocation msg, Args&&... args) noexcept
     {
-        log(spdlog::level::err, msg, std::forward<Args>(args)...);
+        log(LogLevel::error, msg, std::forward<Args>(args)...);
     }
 
     /**
      * @brief 调试日志
      */
     template <typename... Args>
-    void debug(LogLocation msg, Args&&... args)
+    void debug(LogLocation msg, Args&&... args) noexcept
     {
-        log(spdlog::level::debug, msg, std::forward<Args>(args)...);
-    }
-
-    /**
-     * @brief 重新配置日志文件路径（替换文件 sink，控制台 sink 保持不变）
-     * @param filePath 新的日志文件路径
-     */
-    void reconfigure(std::string_view filePath)
-    {
-        auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(std::string(filePath), kMaxLogFileSize,
-                                                                               kMaxLogFileCount);
-        fileSink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%# %!] %v");
-
-        auto& sinks = m_logger->sinks();
-        if (sinks.size() >= 2)
-        {
-            sinks[1] = std::move(fileSink);
-        }
-        else
-        {
-            sinks.push_back(std::move(fileSink));
-        }
-    }
-
-    /**
-     * @brief 获取底层 spdlog::logger
-     */
-    [[nodiscard]] std::shared_ptr<spdlog::logger> getLogger() const
-    {
-        return m_logger;
+        log(LogLevel::debug, msg, std::forward<Args>(args)...);
     }
 
    private:
-    std::shared_ptr<spdlog::logger> m_logger;
+    std::shared_ptr<OutputCallback> m_callback;
+    std::atomic<LogLevel> m_level{LogLevel::debug};
+    mutable std::mutex m_mutex;
 
-    [[nodiscard]] static std::shared_ptr<spdlog::logger> CreateDefaultLogger()
-    {
-        auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        consoleSink->set_pattern("%^[%T] [%l] %n: %v%$");
-
-        auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/vmpui.log", kMaxLogFileSize,
-                                                                               kMaxLogFileCount);
-        fileSink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%# %!] %v");
-
-        std::vector<spdlog::sink_ptr> sinks{consoleSink, fileSink};
-        auto logger = std::make_shared<spdlog::logger>("VMP-ui", sinks.begin(), sinks.end());
-        logger->set_level(spdlog::level::debug);
-        logger->flush_on(spdlog::level::warn);
-        return logger;
-    }
+    void output(LogLevel level, std::string_view message, std::source_location location) noexcept;
+    static void writeStderr(LogLevel level, std::string_view message, std::source_location location) noexcept;
 
     template <typename... Args>
-    void log(spdlog::level::level_enum level, const LogLocation& msg, Args&&... args)
+    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward) make_format_args 必须接收命名左值。
+    void log(LogLevel level, const LogLocation& msg, Args&&... args) noexcept
     {
-        m_logger->log(
-            spdlog::source_loc{msg.loc.file_name(), static_cast<int>(msg.loc.line()), msg.loc.function_name()}, level,
-            fmt::runtime(msg.fmt), std::forward<Args>(args)...);
+        if (level < GetLevel())
+        {
+            return;
+        }
+
+        try
+        {
+            const auto message = std::vformat(msg.fmt, std::make_format_args(args...));
+            output(level, message, msg.loc);
+        }
+        catch (...)
+        {
+            writeStderr(level, "<log formatting failed>", msg.loc);
+        }
     }
 };
-
-// 辅助工具：路径规范化
-inline std::string NormalizePath(const char* path)
-{
-    std::string result = path == nullptr ? "" : path;
-    for (auto& cha : result)
-    {
-        if (cha == '\\')
-            cha = '/';
-    }
-    return result;
-}
 
 }  // namespace ui::utils

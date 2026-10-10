@@ -226,12 +226,27 @@ TEST_F(AnchorsTest, RejectsConflictingNonFiniteAndInvalidAnchors)
 {
     const auto root = makeRoot();
     const auto child = makeFixedChild();
-    attach(root, child);//
+    attach(root, child);
 
-    ParentAnchors conflict;
-    conflict.left = 1.0F;
-    conflict.horizontalCenter = 0.0F;
-    EXPECT_TRUE(layout::SetAnchors(child, conflict).has_value());
+    // 同轴 center 与任一 edge 冲突（Qt Quick 语义）。
+    AnchorSet centerAndLeft;
+    centerAndLeft.set(AnchorLine::HorizontalCenter, AnchorTarget::Parent(), 0.0F);
+    centerAndLeft.set(AnchorLine::Left, AnchorTarget::Parent(), 1.0F);
+    EXPECT_FALSE(layout::SetAnchors(child, centerAndLeft).has_value());
+
+    AnchorSet centerAndBottom;
+    centerAndBottom.set(AnchorLine::VerticalCenter, AnchorTarget::Parent(), 0.0F);
+    centerAndBottom.set(AnchorLine::Bottom, AnchorTarget::Parent(), 2.0F);
+    EXPECT_FALSE(layout::SetAnchors(child, centerAndBottom).has_value());
+
+    // baseline 与垂直方向 edge 互斥。
+    AnchorSet baselineAndTop;
+    baselineAndTop.set(AnchorLine::Baseline, AnchorTarget::Parent(), 0.0F);
+    baselineAndTop.set(AnchorLine::Top, AnchorTarget::Parent(), 3.0F);
+    EXPECT_FALSE(layout::SetAnchors(child, baselineAndTop).has_value());
+
+    // 校验失败不得写入任何状态。
+    EXPECT_FALSE(registry().all_of<components::Anchors>(child));
 
     ParentAnchors nonFinite;
     nonFinite.top = std::numeric_limits<float>::infinity();
@@ -345,6 +360,83 @@ TEST_F(AnchorsTest, BaselineUsesExplicitOffsetAndNonTextDefaultsToZero)
 
     EXPECT_FLOAT_EQ(registry().get<components::Position>(first).value.y(), 30.0F);
     EXPECT_FLOAT_EQ(registry().get<components::Position>(second).value.y(), 42.0F);
+}
+
+TEST_F(AnchorsTest, ClampsDoubleEdgeSizeToMaxSize)
+{
+    const auto root = makeRoot();
+    const auto child = makeFixedChild();
+    attach(root, child);
+    auto& size = registry().get<components::Size>(child);
+    size.minSize = Vec2{40.0F, 30.0F};
+    size.maxSize = Vec2{260.0F, 200.0F};
+
+    ASSERT_TRUE(layout::SetAnchorFill(child).has_value());
+    calculate();
+
+    // 双边约束派生 400x300，超过 maxSize 时统一裁剪到上限。
+    EXPECT_FLOAT_EQ(registry().get<components::Size>(child).size.x(), 260.0F);
+    EXPECT_FLOAT_EQ(registry().get<components::Size>(child).size.y(), 200.0F);
+}
+
+TEST_F(AnchorsTest, ClampsDoubleEdgeSizeToMinSize)
+{
+    const auto root = makeRoot();
+    const auto first = makeFixedChild(30.0F, 20.0F);
+    const auto second = makeFixedChild(10.0F, 10.0F);
+    attach(root, first);
+    attach(root, second);
+    registry().get<components::Size>(second).minSize = Vec2{150.0F, 0.0F};
+
+    ASSERT_TRUE(layout::SetAnchor(second, AnchorLine::Left, AnchorTarget::Sibling(first), AnchorLine::Left, 0.0F)
+                    .has_value());
+    ASSERT_TRUE(layout::SetAnchor(second, AnchorLine::Right, AnchorTarget::Sibling(first), AnchorLine::Right, 0.0F)
+                    .has_value());
+    calculate();
+
+    // 双边派生宽度仅 30，低于 minSize 时抬升到 150。
+    EXPECT_FLOAT_EQ(registry().get<components::Size>(second).size.x(), 150.0F);
+}
+
+TEST_F(AnchorsTest, DestroyedSiblingTargetClearsBindingAndReportsDiagnostic)
+{
+    const auto root = makeRoot();
+    const auto first = makeFixedChild(40.0F, 20.0F);
+    const auto second = makeFixedChild(30.0F, 20.0F);
+    attach(root, first);
+    attach(root, second);
+
+    ASSERT_TRUE(layout::SetAnchor(second, AnchorLine::Left, AnchorTarget::Sibling(first), AnchorLine::Right, 0.0F)
+                    .has_value());
+    calculate();
+    ASSERT_TRUE(registry().all_of<components::Anchors>(second));
+    ASSERT_TRUE(static_cast<bool>(registry().get<components::Anchors>(second).value.get(AnchorLine::Left)));
+
+    registry().destroy(ui::detail::ToInternal(first));
+    calculate();
+
+    const auto& anchors = registry().get<components::Anchors>(second);
+    EXPECT_FALSE(static_cast<bool>(anchors.value.get(AnchorLine::Left)));
+    EXPECT_EQ(anchors.lastDiagnostic, AnchorDiagnostic::TargetLost);
+}
+
+TEST_F(AnchorsTest, ReparentInvalidatesSiblingBindingWithDiagnostic)
+{
+    const auto root = makeRoot();
+    const auto otherRoot = makeRoot(200.0F, 100.0F);
+    const auto first = makeFixedChild(40.0F, 20.0F);
+    const auto second = makeFixedChild(30.0F, 20.0F);
+    attach(root, first);
+    attach(root, second);
+    ASSERT_TRUE(layout::SetAnchor(second, AnchorLine::Left, AnchorTarget::Sibling(first), AnchorLine::Right, 0.0F)
+                    .has_value());
+
+    hierarchy::AddChild(otherRoot, second);
+
+    const auto& anchors = registry().get<components::Anchors>(second);
+    EXPECT_FALSE(static_cast<bool>(anchors.value.get(AnchorLine::Left)));
+    EXPECT_EQ(anchors.lastDiagnostic, AnchorDiagnostic::TargetLost);
+    EXPECT_EQ(registry().get<components::Hierarchy>(second).parent, ui::detail::ToInternal(otherRoot));
 }
 
 }  // namespace

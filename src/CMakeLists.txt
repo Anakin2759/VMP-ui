@@ -160,6 +160,7 @@ set(UI_OBJECT_CORE_SOURCES
     core/PlatformWindow.cpp
     services/TextEditingService.cpp
     common/ErrorCodes.cpp
+    utils/Logger.cpp
 )
 
 set(UI_OBJECT_SYSTEMS_SOURCES
@@ -346,7 +347,6 @@ set(UI_HEADERS
     ${CMAKE_SOURCE_DIR}/include/ui/api/Visibility.hpp
     ${CMAKE_SOURCE_DIR}/include/ui/api/Shortcut.hpp
     managers/ImageManager.hpp
-    systems/ShortcutSystem.hpp
 )
 # ---------------------------------------------------------------------------
 # 注：聚合库 ui 与各 Object 库的定义已移至 CMRC 资源库（ui_fonts）之后，
@@ -597,7 +597,6 @@ function(ui_configure_object_library target_name pch_mode)
         harfbuzz
         EnTT::EnTT
         Eigen3::Eigen
-        spdlog::spdlog_header_only
     )
     if(UI_RESOURCE_BACKEND STREQUAL "CMRC")
         target_link_libraries(${target_name} PRIVATE ui_fonts)
@@ -676,7 +675,6 @@ target_link_libraries(ui PRIVATE
     harfbuzz
     EnTT::EnTT
     Eigen3::Eigen
-    spdlog::spdlog_header_only
 )
 
 if(UI_RESOURCE_BACKEND STREQUAL "CMRC")

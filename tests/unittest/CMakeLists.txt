@@ -33,7 +33,6 @@ function(configure_ui_test_target target_name)
         EnTT::EnTT
         Eigen3::Eigen
         SDL3::SDL3
-        spdlog::spdlog_header_only
         ui
         GTest::gmock
         GTest::gmock_main
@@ -66,6 +65,7 @@ add_ui_test_executable(ui_unit_tests
     test_TextUtils.cpp
     test_ResourceProvider.cpp
     test_Log.cpp
+    test_Logger.cpp
     test_result.cpp
     test_UiRuntime.cpp
     test_SystemManager.cpp

@@ -27,6 +27,7 @@
 #include <entt/entt.hpp>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include <yoga/Yoga.h>
 
@@ -82,6 +83,10 @@ class LayoutSystem : public ui::interface::EnableRegister<LayoutSystem>
     /// @brief 实体销毁时自动释放对应 YGNode（由 on_destroy<Hierarchy> 信号触发）
     void onEntityDestroyed(entt::entity entity);
 
+    /// @brief 清除所有指向已销毁实体的 sibling 锚点 binding 并标记 AnchorTargetLost。
+    ///        在 update() 中延迟处理，避免在 on_destroy 信号内修改注册表。
+    void invalidateAnchorTargets(entt::entity destroyed);
+
     YGConfigRef m_yogaConfig = nullptr;
     std::unique_ptr<std::unordered_map<entt::entity, YGNodeRef>> m_entityToNode;
     Registry* m_reg = nullptr;
@@ -89,6 +94,9 @@ class LayoutSystem : public ui::interface::EnableRegister<LayoutSystem>
 
     /// @brief on_destroy 信号连接句柄（用于 unregisterHandlersImpl 时断开）
     entt::connection m_onDestroyConnection;
+
+    /// @brief 已销毁实体队列，延迟到 update() 中清理指向它们的锚点 binding。
+    std::vector<entt::entity> m_pendingAnchorInvalidations;
 };
 
 }  // namespace ui::systems

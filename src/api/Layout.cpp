@@ -62,10 +62,14 @@ Result<void> ValidateAnchorSet(Registry& reg, entt::entity source, const AnchorS
     {
         return Err(UiErrc::INVALID_ARGUMENT, "Baseline offset must be finite");
     }
+    // Qt Quick 语义：同一轴不能同时绑定 center 与任一 edge；baseline 与垂直方向
+    // 的 edge/center 互斥（baseline 已隐含了垂直定位）。
+    const bool hasHorizontalEdge = anchors.get(AnchorLine::Left) || anchors.get(AnchorLine::Right);
+    const bool hasVerticalEdge = anchors.get(AnchorLine::Top) || anchors.get(AnchorLine::Bottom);
     if ((anchors.get(AnchorLine::Baseline) &&
          (anchors.get(AnchorLine::Top) || anchors.get(AnchorLine::Bottom) || anchors.get(AnchorLine::VerticalCenter))) ||
-        (anchors.get(AnchorLine::HorizontalCenter) && anchors.get(AnchorLine::Left) && anchors.get(AnchorLine::Right)) ||
-        (anchors.get(AnchorLine::VerticalCenter) && anchors.get(AnchorLine::Top) && anchors.get(AnchorLine::Bottom)))
+        (anchors.get(AnchorLine::HorizontalCenter) && hasHorizontalEdge) ||
+        (anchors.get(AnchorLine::VerticalCenter) && hasVerticalEdge))
     {
         return Err(UiErrc::INVALID_ARGUMENT, "Conflicting anchors");
     }
@@ -120,7 +124,10 @@ Result<void> SetAnchors(ui::entity entity, const AnchorSet& anchors)
     }
     auto& state = reg.get_or_emplace<components::Anchors>(target);
     state.value = anchors;
+    state.value.clearUnresolved();
     ++state.revision;
+    state.lastDiagnostic = AnchorDiagnostic::None;
+    state.targetLostReported = false;
     utils::MarkLayoutDirty(runtime, target);
     return Ok();
 }
