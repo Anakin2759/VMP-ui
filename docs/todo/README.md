@@ -33,7 +33,7 @@
 - `PUBLIC_EVENT_API_BOUNDARY_PLAN_2026-06-04.md`：基础公开事件边界已 `DONE`；未来跨线程协议须新建规划。
 - `样式系统规划.md`：`SUPERSEDED`，统一以 `THEME_STYLE_SYSTEM_PLAN.md` 为准。
 - `PESTMANKILL_BRAND_RESIDUE.md`：`DONE` 历史改名记录，后续遗留项须新建规划。
-- `DEAD_CODE_AUDIT_2026-10-10.md`：`RECORD`，死代码审计（可立即删除项 + 待决策项 + 保留契约项清单），执行须另行立工单。
+- `DEAD_CODE_AUDIT_2026-10-10.md`：`RECORD`，死代码审计（本轮已消除 3 文件 + 1 函数；`MyPFR.hpp` 按决策保留；待决策项见文档 §3）。
 - 已完成验证记录位于 `docs/archive/todo-completed-2026-08-25/`。
 
 ## 状态与维护规则
